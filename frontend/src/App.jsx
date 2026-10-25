@@ -3,7 +3,9 @@ import RequireLogin from './components/RequireLogin'
 import AssignmentCreatePage from './pages/AssignmentCreatePage'
 import AssignmentDetailPage from './pages/AssignmentDetailPage'
 import HomePage from './pages/HomePage'
+import JoinPage from './pages/JoinPage'
 import LoginPage from './pages/LoginPage'
+import TeamPage from './pages/TeamPage'
 
 // 화면 전체의 시작점입니다. 주소마다 어떤 화면을 보여 줄지 정합니다.
 function App() {
@@ -18,6 +20,9 @@ function App() {
                     <Route path="/assignments/new" element={<AssignmentCreatePage />} />
                     {/* :assignmentId 자리의 값은 page에서 useParams()로 꺼냅니다. React Router는 더 구체적인 /assignments/new를 먼저 고르므로 "new"가 id로 읽히지 않습니다. */}
                     <Route path="/assignments/:assignmentId" element={<AssignmentDetailPage />} />
+                    <Route path="/teams/:teamId" element={<TeamPage />} />
+                    {/* 초대 링크입니다. 로그인하지 않았으면 로그인한 뒤 이 주소로 돌아옵니다(RequireLogin, LoginPage). */}
+                    <Route path="/join/:inviteCode" element={<JoinPage />} />
                 </Route>
 
                 {/* 없는 주소는 첫 화면으로 보냅니다. */}

@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { login } from '../api/auth'
 import { removeToken, saveToken } from '../api/token'
 
-// 이메일과 비밀번호를 받아 로그인합니다. 성공하면 첫 화면으로 이동합니다.
+// 이메일과 비밀번호를 받아 로그인합니다. 성공하면 원래 가려던 주소(없으면 첫 화면)로 이동합니다.
 function LoginPage() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState(null)
     const navigate = useNavigate()
+    // RequireLogin이 넘겨준 원래 주소입니다. 주소창에 /login을 직접 쳐서 왔으면 state가 없으므로 첫 화면으로 갑니다.
+    const location = useLocation()
+    const from = location.state?.from ?? '/'
 
     function handleSubmit(event) {
         // form의 기본 동작(페이지 새로고침)을 막습니다.
@@ -20,7 +23,7 @@ function LoginPage() {
         login(email, password)
             .then((data) => {
                 saveToken(data.accessToken)
-                navigate('/')
+                navigate(from, { replace: true })
             })
             .catch((err) => setError(err.message))
     }
