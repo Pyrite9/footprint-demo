@@ -41,23 +41,28 @@ public class StorageService {
         }
     }
 
-    // 파일 본문을 올리고, 나중에 꺼낼 때 쓸 저장 위치(key)를 돌려줍니다.
+    // 업로드된 파일 본문을 올리고, 나중에 꺼낼 때 쓸 저장 위치(key)를 돌려줍니다.
     public String save(MultipartFile file) {
+        try {
+            // 파일을 byte 배열로 한 번에 읽어 보냅니다. 업로드 상한이 20MB라 메모리에 올려도 됩니다.
+            // fromInputStream을 쓰면 stream을 직접 닫아야 하고, 128KB보다 큰 파일은 재시도할 때 실패합니다.
+            return save(file.getContentType(), file.getBytes());
+        } catch (IOException e) {
+            // 서버가 받은 업로드 파일을 읽지 못한 경우입니다. 처리할 수 없는 오류라 500으로 끝납니다.
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    // byte 배열로 된 파일 본문을 올리고 저장 위치(key)를 돌려줍니다. 시작 데이터(DataInitializer)도 이 메서드를 씁니다.
+    public String save(String contentType, byte[] content) {
         // 한글 파일 이름이 key에 들어가지 않도록, 겹치지 않는 임의 문자열(UUID)을 key로 씁니다.
         String key = UUID.randomUUID().toString();
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucket)
                 .key(key)
-                .contentType(file.getContentType())
+                .contentType(contentType)
                 .build();
-        try {
-            // 파일을 byte 배열로 한 번에 읽어 보냅니다. 업로드 상한이 20MB라 메모리에 올려도 됩니다.
-            // fromInputStream을 쓰면 stream을 직접 닫아야 하고, 128KB보다 큰 파일은 재시도할 때 실패합니다.
-            s3Client.putObject(request, RequestBody.fromBytes(file.getBytes()));
-        } catch (IOException e) {
-            // 서버가 받은 업로드 파일을 읽지 못한 경우입니다. 처리할 수 없는 오류라 500으로 끝납니다.
-            throw new UncheckedIOException(e);
-        }
+        s3Client.putObject(request, RequestBody.fromBytes(content));
         return key;
     }
 

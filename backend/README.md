@@ -41,6 +41,17 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 
    예시 제목을 영어로 둔 이유: Windows PowerShell 5.1은 문자열 body를 UTF-8로 보내지 않아서 한글 제목이 깨지거나 400이 될 수 있습니다. 한글 제목은 화면이나 Postman으로 확인합니다.
 
+   산출물 업로드와 다운로드는 Windows에 들어 있는 `curl.exe`로 확인합니다. 시작 데이터의 1조 이서연(student02, 역할 백엔드)으로 올립니다.
+
+   ```powershell
+   $token = (Invoke-RestMethod -Method Post -Uri http://localhost:8080/auth/login -ContentType "application/json" -Body '{"email":"student02@example.com","password":"pass1234"}').accessToken
+   curl.exe -X POST http://localhost:8080/teams/1/deliverables -H "Authorization: Bearer $token" -F "file=@README.md"
+   curl.exe http://localhost:8080/teams/1/deliverables -H "Authorization: Bearer $token"
+   curl.exe -OJ http://localhost:8080/deliverables/1/download -H "Authorization: Bearer $token"
+   ```
+
+   `-OJ`는 서버가 알려 준 파일 이름(`기획서.txt`)으로 저장합니다. macOS는 `curl.exe` 대신 `curl`입니다.
+
 4. 파일 저장소 확인: MinIO 콘솔 http://localhost:9001 에 `infra/.env`의 `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`로 로그인합니다. 서버가 시작할 때 만든 `footprint` 버킷이 보이면 성공입니다.
 
 ## 빌드와 테스트
@@ -89,6 +100,9 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 | 2조 | 임지아 (student10) | | 발표 |
 
 2조는 "같은 역할을 여러 조원이 맡을 수 있다"는 규칙을 보이려고 백엔드가 2명입니다.
+
+시작 산출물(1조, 파일 본문도 MinIO에 있음): `기획서.txt`(김민준, 기획), `API 명세.txt`(이서연, 백엔드).
+MinIO는 서버를 다시 켜도 비워지지 않아서, 서버를 켤 때마다 같은 내용의 시작 파일이 새 key로 하나씩 더 쌓입니다. 데이터베이스는 매번 새로 만들어지므로 목록에는 2건만 보입니다.
 
 초대 코드: 1조 `demo-team-1`, 2조 `demo-team-2`. 초대 링크는 `http://localhost:5173/join/demo-team-1` 모양입니다. 조장이 다시 발급하면 무작위 값으로 바뀌고 이전 코드는 404가 됩니다.
 시작 학생 10명은 모두 이미 시작 과제의 조에 있습니다. 합류를 시험하려면 교수로 새 과제를 만들고, 그 과제의 조장이 발급한 링크로 다른 학생이 합류합니다.

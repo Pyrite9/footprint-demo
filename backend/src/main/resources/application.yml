@@ -3,6 +3,11 @@ spring:
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:footprint}
     username: ${POSTGRES_USER:footprint}
     password: ${POSTGRES_PASSWORD:change-me}
+  servlet:
+    multipart:
+      # 산출물 파일 하나의 상한과 요청 전체의 상한입니다. 넘으면 400 INVALID_INPUT입니다(GlobalExceptionHandler).
+      max-file-size: 20MB
+      max-request-size: 20MB
   jpa:
     hibernate:
       ddl-auto: create

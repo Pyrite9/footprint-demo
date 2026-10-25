@@ -245,3 +245,59 @@ token
 서버 쪽 규칙
 - 역할명 앞뒤 공백은 지우고 저장한다. 같은 역할을 여러 조원이 맡을 수 있다.
 - 메서드는 POST다. 한 번 지정하면 바꾸지 않으므로 "새로 만든다"에 가깝고, CORS 허용 목록(GET, POST, PUT, DELETE)을 바꾸지 않아도 된다.
+
+---
+
+## 산출물
+
+### POST /teams/{teamId}/deliverables — 산출물 업로드 (R-1-1) · 2026.10.25
+
+역할이 배정된 조원이 파일 하나를 올린다. 요청은 `multipart/form-data`이고 파일 칸 이름은 `file`이다. 고친 파일도 덮어쓰지 않고 새로 올린다.
+올린 사람의 그때 역할명이 산출물에 복사되어 저장된다. 올린 시각은 서버가 기록한다.
+
+200
+```json
+{ "id": 3, "roleName": "백엔드", "fileName": "API 명세.pdf", "fileSize": 52344, "uploaderName": "이서연", "uploadedAt": "2026-11-05T14:03:22" }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `file`이 없거나 빈 파일일 때, 20MB를 넘을 때, 주소의 번호가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함), 역할이 배정되지 않은 조원일 때 |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+
+### GET /teams/{teamId}/deliverables — 산출물 목록 (R-1-2) · 2026.10.25
+
+조의 산출물을 최신순(올린 순서의 역순)으로 받는다. 그 조의 조원과 그 과제를 만든 교수가 볼 수 있다. 오류는 `GET /teams/{teamId}`와 같다.
+
+200
+```json
+[
+  { "id": 3, "roleName": "백엔드", "fileName": "API 명세 v2.pdf", "fileSize": 60211, "uploaderName": "조은우", "uploadedAt": "2026-11-06T10:00:00" },
+  { "id": 2, "roleName": "백엔드", "fileName": "API 명세.pdf", "fileSize": 52344, "uploaderName": "이서연", "uploadedAt": "2026-11-05T14:03:22" }
+]
+```
+
+- 순번(같은 역할 안에서 1, 2, 3…)은 응답에 넣지 않는다. 화면이 이 목록에서 같은 `roleName`끼리 올린 순서로 센다(demo-scope 4절 "화면은 … 순번을 붙이고").
+- 조회 수, 다운로드 수는 없다.
+
+### GET /deliverables/{deliverableId}/download — 산출물 다운로드 (R-1-2) · 2026.10.25
+
+파일 본문을 받는다. 그 조의 조원과 그 과제를 만든 교수가 받을 수 있다.
+
+200: 파일 본문. header
+- `Content-Type`: 파일 이름의 확장자로 정한다. 모르면 `application/octet-stream`.
+- `Content-Disposition: attachment; filename*=UTF-8''<퍼센트 인코딩한 파일 이름>`(RFC 5987). 한글 이름이 깨지지 않는다.
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원도 아니고 그 과제를 만든 교수도 아닐 때 |
+| 404 | `NOT_FOUND` | 없는 산출물이거나, 파일 본문이 저장소에 없을 때 |
+
+서버 쪽 규칙
+- 파일 본문은 MinIO에, 데이터베이스에는 저장 위치(key), 파일 이름, 크기만 둔다(+ 올린 조원, 역할명, 시각).
+- 업로드는 "MinIO 저장 → 데이터베이스 저장" 순서다. 데이터베이스 저장이 실패하면 MinIO에 주인 없는 파일이 남는다(시연 범위에서는 지우지 않는다).
+- 크기 제한은 `spring.servlet.multipart.max-file-size`, `max-request-size` 20MB.
