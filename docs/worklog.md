@@ -466,3 +466,26 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 이미지 버전: `eclipse-temurin:21-jdk`/`21-jre`, `node:24-alpine`, `nginx:1.28-alpine`.
   - JWT 서명 키는 컨테이너에서도 `application.yml`의 개발용 기본값을 쓴다(시연용).
   - Postman 모음은 다음 단위로 남겼다.
+
+### Postman 모음 (2단계)
+- 결정:
+  - 위치는 `docs/postman/`(모음 JSON, 업로드 시험 파일, README). 새 최상위 폴더를 만들지 않고 문서 폴더에 둔다.
+  - 환경(Environment) 파일 없이 **모음 변수**만 쓴다. 선택지는 (A) 모음 변수, (B) 환경 파일 따로(실제·가짜 2개)였다. Import 한 번으로 끝나는 A로 했다. 가짜 API는 `baseUrl` 하나만 바꾸면 된다.
+  - 순서는 시연 흐름 그대로 폴더 0~5. 요청마다 test script가 상태 코드를 확인하고 다음 요청에 쓸 값(token, 과제·조·조 참여 번호, 초대 코드, 산출물 번호)을 저장한다. 그래서 Run collection 한 번이 1단계 흐름 전체의 회귀 시험이 된다.
+  - 시작 과제 대신 **새 과제를 만들어** 흐름을 진행한다. 시작 학생은 모두 시작 과제의 조에 있어서 합류를 시험할 수 없고, 새 과제를 쓰면 서버를 다시 켜지 않고 몇 번이든 다시 실행할 수 있다.
+  - `baseUrl` 기본값은 `http://127.0.0.1:8080`(한 번에 실행 단위의 `::1` 문제와 같은 이유).
+  - 확인 도구로 Newman 6.2.1을 `npx`로만 썼다. `package.json`에 넣지 않았다(조원 전원의 `npm install`이 늘지 않게). README에는 선택 사항으로 적었다.
+  - 동료평가 body의 `"targetTeamMemberId": {{leaderTeamMemberId}}`는 따옴표 없이 넣었다. 따옴표를 붙이면 문자열 `"5"`가 되어 가짜 API가 400을 준다(실제 백엔드는 숫자로 바꿔 받는다). Postman 편집기가 이 줄에 JSON 경고를 보일 수 있지만 보낼 때는 숫자로 바뀐다.
+- 만든 파일: `docs/postman/footprint-demo.postman_collection.json`(요청 29개, test 52개), `docs/postman/sample-upload.txt`, `docs/postman/README.md`
+- 고친 파일: `README.md`(문서 목록)
+- 확인:
+  - 컨테이너 백엔드(`127.0.0.1:8080`)에 Newman으로 실행: 요청 29개, test 52개 모두 통과. 서버를 다시 켜지 않고 한 번 더 실행해도 모두 통과.
+  - 가짜 API(`localhost:3001`)에 같은 모음 실행: 모두 통과. 실행 뒤 `db.json`을 되돌리고 올린 시험 파일을 지웠다.
+  - Postman 앱에서 직접 Import 해 보지는 않았다(이 컴퓨터에서 Postman 화면을 조작하지 않았다). 파일 형식은 Newman이 읽는 Collection v2.1과 같다.
+- 읽을 때 볼 곳:
+  - 로그인 요청의 test script `pm.collectionVariables.set('professorToken', ...)`: 응답에서 값을 꺼내 변수에 넣고, 뒤 요청의 Authorization 탭이 `{{professorToken}}`으로 쓴다.
+  - "조원 목록 (조장)"의 `members.find((m) => m.leader).id`: 조원 목록에서 조 참여 번호를 골라 역할 지정·동료평가 주소에 쓴다.
+  - 업로드 요청의 form-data `file` 칸: 서버의 `@RequestParam("file")`과 이름이 같아야 한다.
+- 내가 채운 가정:
+  - 시험 계정 배치: 조장 student01, 조원 student02, 다른 조 student06(새 과제의 2조 조장).
+  - 20MB를 넘는 업로드는 큰 파일이 필요해서 모음에 넣지 않았다(시험 스크립트에서 확인함).

@@ -1,0 +1,1172 @@
+{
+  "info": {
+    "name": "발자국 시연본 API",
+    "description": "발자국 시연본의 API를 시연 흐름 순서로 모았습니다. 폴더 0부터 차례로 실행합니다(Run collection으로 한 번에 실행할 수 있습니다).\n주소와 응답 모양은 docs/api-draft.md에 있습니다. 쓰는 방법은 docs/postman/README.md를 봅니다.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. 로그인 (M-2)",
+      "description": "시작 계정으로 로그인해 역할별 token을 저장합니다. 이 폴더를 먼저 실행해야 뒤의 요청이 동작합니다.",
+      "item": [
+        {
+          "name": "교수 로그인",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "description": "과제를 만드는 교수(이교수)입니다.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"professor@example.com\",\n  \"password\": \"pass1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "// 받은 token을 모음 변수에 저장합니다. 뒤의 요청이 Authorization 탭에서 {{professorToken}}로 씁니다.",
+                  "pm.collectionVariables.set('professorToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "조장 로그인 (student01)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "description": "새 과제에서 1조 조장으로 지정할 학생(김민준)입니다.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student01@example.com\",\n  \"password\": \"pass1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "// 받은 token을 모음 변수에 저장합니다. 뒤의 요청이 Authorization 탭에서 {{leaderToken}}로 씁니다.",
+                  "pm.collectionVariables.set('leaderToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "조원 로그인 (student02)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "description": "초대 링크로 1조에 합류할 학생(이서연)입니다.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student02@example.com\",\n  \"password\": \"pass1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "// 받은 token을 모음 변수에 저장합니다. 뒤의 요청이 Authorization 탭에서 {{memberToken}}로 씁니다.",
+                  "pm.collectionVariables.set('memberToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다른 조 학생 로그인 (student06)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "description": "새 과제에서 2조 조장으로 지정할 학생(강지우)입니다. 1조 기록에 접근하면 403이어야 합니다.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student06@example.com\",\n  \"password\": \"pass1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "// 받은 token을 모음 변수에 저장합니다. 뒤의 요청이 Authorization 탭에서 {{otherToken}}로 씁니다.",
+                  "pm.collectionVariables.set('otherToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "내 정보 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/members/me",
+            "description": "token으로 내 정보를 받습니다. 회원 유형이 들어 있습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('회원 유형이 PROFESSOR', () => pm.expect(pm.response.json().memberType).to.eql('PROFESSOR'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. 과제 (A-1, A-2)",
+      "description": "교수가 과제·조·조장을 한 번에 만들고 조회합니다. 실행할 때마다 새 과제가 생기므로 몇 번이든 다시 실행할 수 있습니다.",
+      "item": [
+        {
+          "name": "과제 생성 (교수)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/assignments",
+            "description": "조장 이메일 개수만큼 조가 생깁니다(1조 김민준, 2조 강지우). 조장은 그 조의 첫 조원으로 함께 등록됩니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman 시험 과제\",\n  \"startDate\": \"2026-11-02\",\n  \"endDate\": \"2026-12-11\",\n  \"leaderEmails\": [\n    \"student01@example.com\",\n    \"student06@example.com\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('assignmentId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "과제 목록 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/assignments",
+            "description": "교수는 자기가 만든 과제를 최신순으로 받습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('방금 만든 과제가 맨 앞', () => pm.expect(pm.response.json()[0].id).to.eql(Number(pm.collectionVariables.get('assignmentId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "과제 상세 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/assignments/{{assignmentId}}",
+            "description": "교수는 조 전부를 받습니다. 1조의 id를 teamId로 저장합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "const teams = pm.response.json().teams;",
+                  "pm.test('조 2개', () => pm.expect(teams.length).to.eql(2));",
+                  "pm.collectionVariables.set('teamId', teams[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "과제 상세 (조장)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/assignments/{{assignmentId}}",
+            "description": "학생은 자기 조만 받습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('자기 조 1개만', () => pm.expect(pm.response.json().teams.length).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. 조 운영 (T-1, T-2)",
+      "description": "조장이 초대 코드를 발급하고, 조원이 그 코드로 합류하고, 조장이 역할을 지정합니다.",
+      "item": [
+        {
+          "name": "초대 코드 발급 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/invite-code",
+            "description": "새 코드를 발급합니다. 이전 코드는 무효가 됩니다. 화면의 초대 링크는 http://localhost:5173/join/{코드} 모양입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('inviteCode', pm.response.json().inviteCode);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "초대 코드 보기 (조장)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/invite-code",
+            "description": "지금 유효한 코드를 봅니다. 조장만 볼 수 있습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('방금 발급한 코드', () => pm.expect(pm.response.json().inviteCode).to.eql(pm.collectionVariables.get('inviteCode')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "초대 코드로 합류 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/join",
+            "description": "합류한 조를 돌려줍니다. 같은 조에 다시 합류해도 200입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inviteCode\": \"{{inviteCode}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('1조에 합류', () => pm.expect(pm.response.json().id).to.eql(Number(pm.collectionVariables.get('teamId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "조원 목록 (조장)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members",
+            "description": "합류한 순서입니다. id는 조 참여 번호이고, 역할 지정과 동료평가에 씁니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "const members = pm.response.json();",
+                  "pm.test('조장과 조원 2명', () => pm.expect(members.length).to.eql(2));",
+                  "pm.collectionVariables.set('leaderTeamMemberId', members.find((m) => m.leader).id);",
+                  "pm.collectionVariables.set('memberTeamMemberId', members.find((m) => !m.leader).id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "역할 지정 - 조장 자신 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{leaderTeamMemberId}}/role",
+            "description": "조장도 역할이 하나 있습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"기획\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('역할 기획', () => pm.expect(pm.response.json().roleName).to.eql('기획'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "역할 지정 - 조원 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/role",
+            "description": "역할이 있어야 산출물을 올릴 수 있습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"백엔드\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('역할 백엔드', () => pm.expect(pm.response.json().roleName).to.eql('백엔드'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "역할 다시 지정하면 409 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/role",
+            "description": "역할 변경은 2단계입니다. 이미 역할이 있으면 409입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"프론트엔드\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 응답', () => pm.response.to.have.status(409));",
+                  "pm.test('code가 DUPLICATE', () => pm.expect(pm.response.json().code).to.eql('DUPLICATE'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. 산출물 (R-1)",
+      "description": "역할이 있는 조원이 파일을 올리고, 조원과 교수가 목록을 보고 내려받습니다.",
+      "item": [
+        {
+          "name": "산출물 업로드 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/deliverables",
+            "description": "Body 탭의 form-data에서 이름이 file인 칸에 파일을 고릅니다. 파일을 찾지 못한다는 표시가 있으면 docs/postman/sample-upload.txt(아무 파일이나 가능)를 다시 고릅니다. 20MB까지 올릴 수 있습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "sample-upload.txt"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('업로드할 때의 역할이 복사됨', () => pm.expect(pm.response.json().roleName).to.eql('백엔드'));",
+                  "pm.collectionVariables.set('deliverableId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "산출물 목록 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/deliverables",
+            "description": "최신순입니다. 순번(백엔드 1번째 등)은 화면이 셉니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('1건', () => pm.expect(pm.response.json().length).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "산출물 다운로드 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}/download",
+            "description": "파일 본문이 옵니다. Postman에서는 Send 옆 화살표의 \"Send and Download\"로 파일을 저장할 수 있습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('첨부 파일 header', () => pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. 동료평가 (E-2)",
+      "description": "조원이 자신을 뺀 조원 전원(여기서는 조장 1명)을 평가해 제출합니다. 점수는 시스템이 계산하지 않고, 응답에도 점수가 없습니다.",
+      "item": [
+        {
+          "name": "제출 여부 - 제출 전 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations/mine",
+            "description": "제출했는지와 제출 시각만 옵니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('아직 제출 안 함', () => pm.expect(pm.response.json().submitted).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "동료평가 제출 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations",
+            "description": "6개 항목 점수(1~5)를 모두 넣어야 합니다. 의견(comment)은 선택입니다. 대상이 자신을 뺀 조원 전원이 아니면 400입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evaluations\": [\n    {\n      \"targetTeamMemberId\": {{leaderTeamMemberId}},\n      \"goalSharing\": 5,\n      \"roleFulfillment\": 4,\n      \"encouragement\": 5,\n      \"onlineCommunication\": 4,\n      \"offlineCommunication\": 3,\n      \"progressCheck\": 4,\n      \"comment\": \"기획서를 먼저 정리해 줌\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('제출됨', () => pm.expect(pm.response.json().submitted).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다시 제출하면 409 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations",
+            "description": "제출한 평가는 고칠 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evaluations\": [\n    {\n      \"targetTeamMemberId\": {{leaderTeamMemberId}},\n      \"goalSharing\": 5,\n      \"roleFulfillment\": 4,\n      \"encouragement\": 5,\n      \"onlineCommunication\": 4,\n      \"offlineCommunication\": 3,\n      \"progressCheck\": 4,\n      \"comment\": null\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 응답', () => pm.response.to.have.status(409));",
+                  "pm.test('code가 DUPLICATE', () => pm.expect(pm.response.json().code).to.eql('DUPLICATE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "제출 여부 - 제출 후 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations/mine",
+            "description": "제출 시각은 서버가 기록합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('제출함', () => pm.expect(pm.response.json().submitted).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. 오류 예시",
+      "description": "오류는 모두 { code, message } 모양입니다. code는 NOT_FOUND, INVALID_INPUT, UNAUTHORIZED, FORBIDDEN, DUPLICATE 다섯 가지입니다.",
+      "item": [
+        {
+          "name": "token 없이 부르면 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/members/me",
+            "description": "로그인 API 말고는 token이 있어야 합니다.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 응답', () => pm.response.to.have.status(401));",
+                  "pm.test('code가 UNAUTHORIZED', () => pm.expect(pm.response.json().code).to.eql('UNAUTHORIZED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "학생이 과제를 만들면 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/assignments",
+            "description": "교수만 과제를 만듭니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"학생이 만든 과제\",\n  \"startDate\": \"2026-11-02\",\n  \"endDate\": \"2026-12-11\",\n  \"leaderEmails\": [\n    \"student03@example.com\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다른 조의 조원 목록은 403",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members",
+            "description": "주소를 직접 입력해도 다른 조의 기록은 볼 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "없는 조는 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/999999",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 응답', () => pm.response.to.have.status(404));",
+                  "pm.test('code가 NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "없는 초대 코드는 404",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/join",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inviteCode\": \"no-such-code\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 응답', () => pm.response.to.have.status(404));",
+                  "pm.test('code가 NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "입력값이 빠지면 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/assignments",
+            "description": "필수 값이 비면 400입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"\",\n  \"leaderEmails\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8080",
+      "description": "백엔드 주소입니다. 가짜 API는 http://localhost:3001 입니다."
+    },
+    {
+      "key": "professorToken",
+      "value": ""
+    },
+    {
+      "key": "leaderToken",
+      "value": ""
+    },
+    {
+      "key": "memberToken",
+      "value": ""
+    },
+    {
+      "key": "otherToken",
+      "value": ""
+    },
+    {
+      "key": "assignmentId",
+      "value": ""
+    },
+    {
+      "key": "teamId",
+      "value": ""
+    },
+    {
+      "key": "inviteCode",
+      "value": ""
+    },
+    {
+      "key": "leaderTeamMemberId",
+      "value": ""
+    },
+    {
+      "key": "memberTeamMemberId",
+      "value": ""
+    },
+    {
+      "key": "deliverableId",
+      "value": ""
+    }
+  ]
+}
