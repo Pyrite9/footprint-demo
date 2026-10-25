@@ -66,7 +66,7 @@ function TeamPage() {
             .finally(() => setAssigningId(null))
     }
 
-    if (loading) return <p>불러오는 중...</p>
+    if (loading) return <main><p>불러오는 중...</p></main>
     if (error) {
         return (
             <main>

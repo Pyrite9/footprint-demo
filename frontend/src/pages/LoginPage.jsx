@@ -29,7 +29,8 @@ function LoginPage() {
     }
 
     return (
-        <main>
+        // login: GitHub 로그인 화면처럼 좁은 칸을 가운데에 둡니다(index.css).
+        <main className="login">
             <h1>발자국 로그인</h1>
             <p className="muted">조별과제 과정기록 & 평가지원 서비스</p>
             <form onSubmit={handleSubmit} className="panel login-form">

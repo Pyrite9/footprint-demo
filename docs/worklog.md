@@ -582,3 +582,31 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 색(파랑 `#2453c7` 강조, 노랑 안내, 빨강 오류, 초록 완료), 글꼴(맑은 고딕 우선), 본문 16px, 기둥 폭 880px.
   - 로그인 화면의 부제 "조별과제 과정기록 & 평가지원 서비스", 과제 만들기 링크의 "+", 산출물 목록 제목 "올린 산출물 (최신순)", 올리기 상자 제목 "산출물 올리기".
   - 조장 표시를 "(조장)"에서 회색 "조장"으로, 역할명을 꼬리표로 바꾼 것.
+
+### GitHub Primer 디자인·라이트/다크 (화면 디자인 다시 하기)
+- 결정:
+  - 관리자 결정(2026.10.26): 바로 위 "화면 디자인"의 색과 모양을 GitHub 디자인(Primer)으로 바꾼다. 강조색은 GitHub 그대로(파랑 링크, 초록 주요 버튼), 테마는 라이트·다크 둘 다, 처음에는 운영체제 설정을 따르고 위쪽 막대의 버튼으로 바꾼다. 박스로 나누는 배치는 그대로 둔다. 위 항목의 "밝은 화면 하나만 둔다"는 이 결정으로 바뀐다.
+  - 색은 GitHub Primer의 값(`#0969da` 링크, `#1f883d` 주요 버튼, `#d1d9e0` 테두리, 다크는 `#0d1117` 바탕 등)을 `index.css` 맨 위 변수로 옮겼다. 라이트 변수는 `:root`, 다크 변수는 `:root[data-theme='dark']`와 `@media (prefers-color-scheme: dark)` 두 곳에 같은 값으로 둔다. CSS에는 "운영체제가 다크이고, 사용자가 라이트를 고르지 않았을 때"를 한 규칙으로 쓰는 방법이 없어서다.
+  - 테마 기억은 `localStorage`. 로그인 token(sessionStorage, 탭마다 따로)과 달리 테마는 모든 탭이 같아야 해서다. 함수는 `src/theme.js` 한 곳에 모았다.
+  - 버튼: 태그 `button`이 초록 주요 버튼, `.secondary`가 GitHub 회색 버튼. 파일 칸의 "파일 선택" 버튼도 `::file-selector-button`으로 회색 버튼과 같게 그렸다. 목록(`.item-list`)은 테두리 상자 하나에 줄을 선으로 나누고, 상자(`.panel`)의 첫 `h2`는 회색 머리 줄로 그린다. 역할 꼬리표(`.badge`)는 GitHub Label 모양.
+  - 위쪽 막대(`AppLayout`)를 새로 만들었다. 로그인한 뒤의 모든 화면에 로고, 이름(회원 유형), 테마 버튼, 로그아웃을 둔다. React Router의 바깥 Route + `<Outlet />`으로 감쌌다. 그래서 과제 목록 화면의 "환영합니다"와 로그아웃 버튼은 빼고, 제목을 "과제 목록"으로 바꿨다.
+  - 로그인 화면은 GitHub 로그인처럼 340px 칸을 가운데에 뒀다.
+  - 새 의존성 `pretendard@1.3.9`(npm, 한국어 글꼴 Pretendard). 이유: GitHub 글꼴은 영문용이라 한글이 운영체제 기본 글꼴(맑은 고딕)로 나와 모양이 달라진다. 화면에 실제로 쓰인 글자만 내려받는 `dynamic-subset` CSS를 `main.jsx`에서 import 한다. 대안: (A) 시스템 글꼴 — 의존성은 없지만 Windows·macOS에서 모양이 다르다. (B) CDN `<link>` — 시연장 인터넷이 끊기면 글꼴이 빠진다. npm으로 넣으면 build 결과에 글꼴 파일이 들어가 인터넷 없이 된다.
+  - 처음 넣었던 탭 강조색 변수(`--tab-selected`)는 쓰는 곳이 없어 지웠다.
+- 만든·고친 파일:
+  - 새로: `src/theme.js`, `src/components/ThemeToggle.jsx`, `src/pages/AppLayout.jsx`
+  - 고침: `src/index.css`(다시 씀), `src/main.jsx`(글꼴 import, 첫 테마 적용), `src/App.jsx`(바깥 Route), `src/pages/HomePage.jsx`, `src/pages/LoginPage.jsx`, 불러오는 중 화면을 `<main>`으로 감싼 4개(`AssignmentDetailPage`, `TeamPage`, `DeliverablesPage`, `EvaluationPage`), `src/components/RoleAssignForm.jsx`(지정 버튼을 회색으로), `package.json`, `package-lock.json`, `docs/demo-script.md`(위쪽 막대·테마 안내, "+ 과제 만들기" 위치)
+  - API, 가짜 API, 백엔드는 바꾸지 않았다.
+- 확인:
+  - `npm run build`, `npm run lint` 통과.
+  - 개발 서버로 라이트·다크 두 테마에서 열어 봤다: 로그인, 과제 목록, 과제 만들기, 과제 상세, 조 화면(조장·조원), 합류(없는 코드), 산출물(올리기 상자·목록·다운로드 버튼), 동료평가(입력·확인 표). 테마 버튼을 누르고 새로 고쳐도 고른 테마가 남는 것, Pretendard가 실제로 쓰이는 것(`document.fonts.check`)을 확인했다.
+  - 휴대폰 폭(375px)에서 동료평가 입력·확인 표가 가로로 넘치지 않는다(`scrollWidth`와 `clientWidth`가 같음).
+- 읽을 때 볼 곳:
+  - `index.css` 맨 위 변수 세 벌: 같은 이름(`--bg`, `--text` …)에 값만 바꿔 넣는 것이 테마의 전부다. 아래 규칙은 색 값을 직접 쓰지 않고 `var(--bg)`처럼 변수만 쓴다. 새 규칙도 그렇게 써야 다크에서 깨지지 않는다.
+  - `App.jsx`의 Route 안의 Route: 바깥 `AppLayout`이 위쪽 막대를 그리고, 안쪽 화면은 `<Outlet />` 자리에 들어간다. 화면을 옮겨도 위쪽 막대는 다시 불러오지 않는다.
+  - `main.jsx`의 `applySavedTheme()`이 `createRoot`보다 먼저인 이유: React가 그리기 전에 테마를 붙여야 처음에 라이트로 번쩍 보였다가 다크로 바뀌지 않는다.
+  - `ThemeToggle`이 component인데 state를 갖는 이유: 서버 데이터가 아니라 버튼 하나의 화면 상태라서다. "데이터를 불러오는 것은 page" 규칙과 어긋나지 않는다.
+- 내가 채운 가정:
+  - 테마 버튼 글자는 "누르면 바뀔 테마"("라이트"/"다크"). 아이콘은 쓰지 않았다(이모티콘·아이콘 라이브러리를 늘리지 않으려고).
+  - 글자 14px(GitHub 본문 크기), 기둥 폭 960px, 로그인 칸 340px, 로그인 화면에는 테마 버튼을 두지 않음(운영체제 설정을 따름).
+  - 대본에 "프로젝터에서는 라이트가 잘 보입니다"라고 적은 것.

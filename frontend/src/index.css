@@ -1,38 +1,125 @@
 /*
   화면 전체의 스타일입니다. 이 파일 하나만 씁니다(main.jsx가 불러옵니다).
-  1) 색과 크기는 :root의 변수(--이름)로 정하고, 아래에서는 var(--이름)로 씁니다. 색을 바꿀 때는 :root만 고칩니다.
-  2) 대부분은 태그(button, table 등)에 바로 겁니다. 그래서 새 화면도 태그만 쓰면 같은 모양이 됩니다.
-  3) class는 태그만으로 구분할 수 없는 곳에만 붙입니다. 아래 "class" 부분에 모아 두었습니다.
+  모양은 GitHub의 공개 디자인 시스템 Primer(https://primer.style, MIT 라이선스)의 색값과 규칙을 따릅니다.
+
+  읽는 순서
+  1) 색 변수: 라이트 한 벌, 다크 한 벌. 아래 규칙은 색을 직접 쓰지 않고 var(--이름)만 씁니다.
+     그래서 라이트·다크를 바꿀 때 변수만 바뀌고 규칙은 그대로입니다. 새 색이 필요하면 두 벌 모두에 추가합니다.
+  2) 태그 규칙: button, input, table 등. 새 화면도 태그만 쓰면 같은 모양이 됩니다.
+  3) class 규칙: 태그만으로 구분할 수 없는 곳에만 씁니다.
 */
 
-:root {
-  --color-bg: #f5f6f8;
-  --color-surface: #ffffff;
-  --color-text: #1f2328;
-  --color-muted: #5b6270;
-  --color-border: #d6dae1;
-  --color-accent: #2453c7;
-  --color-accent-hover: #1b419e;
-  --color-accent-soft: #e8eefb;
-  --color-error: #b42318;
-  --color-error-soft: #fdecea;
-  --color-notice: #7a4b00;
-  --color-notice-soft: #fff4d6;
-  --color-success: #1a6b3c;
-  --color-success-soft: #e6f4ec;
+/* ---------- 1) 색 변수: 라이트 ---------- */
 
-  --radius: 8px;
-  --font: 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif;
-  --font-mono: Consolas, ui-monospace, monospace;
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f6f8fa;
+  --bg-inset: #f6f8fa;
+  --border: #d1d9e0;
+  --border-muted: #d1d9e0b3;
+  --text: #1f2328;
+  --text-muted: #59636e;
+  --accent: #0969da;
+  --accent-subtle: #ddf4ff;
+  --button-bg: #f6f8fa;
+  --button-bg-hover: #eff2f5;
+  --button-border: #d1d9e0;
+  --primary-bg: #1f883d;
+  --primary-bg-hover: #1c8139;
+  --primary-text: #ffffff;
+  --danger: #d1242f;
+  --danger-subtle: #ffebe9;
+  --danger-border: #ff818266;
+  --success: #1a7f37;
+  --success-subtle: #dafbe1;
+  --success-border: #4ac26b66;
+  --attention: #9a6700;
+  --attention-subtle: #fff8c5;
+  --attention-border: #d4a72c66;
+  /* 입력 칸, 달력, 스크롤바 같은 브라우저 기본 부품도 라이트 색으로 그립니다. */
+  color-scheme: light;
+}
+
+/* ---------- 1) 색 변수: 다크 ---------- */
+
+/*
+  다크 색 한 벌입니다. 두 경우에 씁니다.
+  - 상단 바의 테마 버튼으로 다크를 고른 경우: <html data-theme="dark"> (theme.js)
+  - 고른 적이 없고 운영체제가 다크 모드인 경우: 아래 @media 부분
+  같은 값을 두 번 쓰지 않으려고 두 선택자를 쉼표로 묶을 수 없어서(@media 안팎이 다름), 값을 두 번 적습니다.
+*/
+:root[data-theme='dark'] {
+  --bg: #0d1117;
+  --bg-subtle: #151b23;
+  --bg-inset: #010409;
+  --border: #3d444d;
+  --border-muted: #3d444db3;
+  --text: #f0f6fc;
+  --text-muted: #9198a1;
+  --accent: #4493f8;
+  --accent-subtle: #388bfd1a;
+  --button-bg: #212830;
+  --button-bg-hover: #262c36;
+  --button-border: #3d444d;
+  --primary-bg: #238636;
+  --primary-bg-hover: #29903b;
+  --primary-text: #ffffff;
+  --danger: #f85149;
+  --danger-subtle: #f851491a;
+  --danger-border: #f8514966;
+  --success: #3fb950;
+  --success-subtle: #2ea04326;
+  --success-border: #2ea04366;
+  --attention: #d29922;
+  --attention-subtle: #bb800926;
+  --attention-border: #bb800966;
+  color-scheme: dark;
+}
+
+/* :not([data-theme='light']): 사용자가 라이트를 골랐으면 운영체제가 다크여도 라이트로 둡니다. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0d1117;
+    --bg-subtle: #151b23;
+    --bg-inset: #010409;
+    --border: #3d444d;
+    --border-muted: #3d444db3;
+    --text: #f0f6fc;
+    --text-muted: #9198a1;
+    --accent: #4493f8;
+    --accent-subtle: #388bfd1a;
+    --button-bg: #212830;
+    --button-bg-hover: #262c36;
+    --button-border: #3d444d;
+    --primary-bg: #238636;
+    --primary-bg-hover: #29903b;
+    --primary-text: #ffffff;
+    --danger: #f85149;
+    --danger-subtle: #f851491a;
+    --danger-border: #f8514966;
+    --success: #3fb950;
+    --success-subtle: #2ea04326;
+    --success-border: #2ea04366;
+    --attention: #d29922;
+    --attention-subtle: #bb800926;
+    --attention-border: #bb800966;
+    color-scheme: dark;
+  }
+}
+
+/* ---------- 2) 태그 규칙 ---------- */
+
+:root {
+  --radius: 6px;
+  --font: 'Pretendard Variable', Pretendard, -apple-system, 'Malgun Gothic', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
 
   font-family: var(--font);
-  font-size: 16px;
-  line-height: 1.6;
-  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
   /* 한국어를 글자 중간이 아니라 띄어쓰기에서 줄 바꿈합니다. 없으면 "이서연"이 "이서/연"으로 끊깁니다. */
   word-break: keep-all;
-  /* 시연은 프로젝터로 하므로 밝은 화면 하나만 둡니다. 운영체제가 어두운 모드여도 입력 칸이 밝게 나옵니다. */
-  color-scheme: light;
 }
 
 /* padding과 border를 width 안에 포함해서 계산합니다. width: 100%인 입력 칸이 화면 밖으로 넘치지 않습니다. */
@@ -44,28 +131,28 @@
 
 body {
   margin: 0;
-  background: var(--color-bg);
+  background: var(--bg);
 }
 
 /* 화면 내용이 들어가는 가운데 기둥입니다. 넓은 화면에서도 한 줄이 너무 길어지지 않게 폭을 제한합니다. */
-#root {
-  max-width: 880px;
+main {
+  max-width: 960px;
   margin: 0 auto;
-  padding: 32px 16px 64px;
+  padding: 24px 16px 64px;
 }
 
-/* ---------- 글자 ---------- */
-
 h1 {
-  font-size: 28px;
-  line-height: 1.3;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.25;
   margin: 0 0 8px;
 }
 
 h2 {
-  font-size: 20px;
-  line-height: 1.4;
-  margin: 32px 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 24px 0 8px;
 }
 
 p {
@@ -73,19 +160,18 @@ p {
 }
 
 a {
-  color: var(--color-accent);
+  color: var(--accent);
+  text-decoration: none;
 }
 
 a:hover {
-  color: var(--color-accent-hover);
+  text-decoration: underline;
 }
 
 code {
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 13px;
 }
-
-/* ---------- 입력 ---------- */
 
 input,
 textarea,
@@ -95,18 +181,20 @@ button {
 
 input:not([type='radio']):not([type='file']),
 textarea {
-  padding: 8px 10px;
-  border: 1px solid var(--color-border);
+  padding: 5px 12px;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 20px;
 }
 
-/* 입력 칸을 누르면 테두리를 강조해 지금 어디에 쓰는지 보이게 합니다. */
+/* 입력 칸을 누르면 파란 테두리로 지금 어디에 쓰는지 보이게 합니다. */
 input:focus,
-textarea:focus {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+textarea:focus,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }
 
 textarea {
@@ -120,17 +208,34 @@ input[type='email'] {
   max-width: 100%;
 }
 
-button {
-  padding: 8px 16px;
-  border: 1px solid var(--color-accent);
+/* 파일 칸의 "파일 선택" 버튼입니다. 브라우저 기본 모양 대신 회색 버튼(.secondary)과 같게 그립니다. */
+input[type='file']::file-selector-button {
+  margin-right: 8px;
+  padding: 5px 12px;
+  border: 1px solid var(--button-border);
   border-radius: var(--radius);
-  background: var(--color-accent);
-  color: #ffffff;
+  background: var(--button-bg);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* 주요 버튼(초록)입니다. 화면에서 가장 중요한 동작 하나에만 씁니다. 나머지는 class="secondary"(회색)입니다. */
+button {
+  padding: 5px 16px;
+  border: 1px solid #1f232826;
+  border-radius: var(--radius);
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
   cursor: pointer;
 }
 
 button:hover {
-  background: var(--color-accent-hover);
+  background: var(--primary-bg-hover);
 }
 
 /* 요청을 보내는 중에 막아 둔 버튼입니다(disabled). 눌리지 않는다는 것이 보이게 흐리게 합니다. */
@@ -141,109 +246,141 @@ button:disabled {
 
 fieldset {
   margin: 0;
-  padding: 12px 16px;
-  border: 1px solid var(--color-border);
+  padding: 8px 16px 12px;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--color-surface);
 }
 
 legend {
   padding: 0 4px;
-  font-weight: bold;
-}
-
-/* ---------- 표 ---------- */
-
-/* 표를 감싸는 상자입니다. 화면이 좁아 표가 넘치면 표만 가로로 밀어 볼 수 있게 합니다(화면 전체가 옆으로 밀리지 않습니다). */
-.table-scroll {
-  margin: 0 0 16px;
-  overflow-x: auto;
+  font-weight: 600;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--color-surface);
 }
 
 th,
 td {
   padding: 8px 12px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
 }
 
 th {
-  background: var(--color-accent-soft);
+  background: var(--bg-subtle);
+  font-weight: 600;
 }
 
-/* ---------- class ---------- */
+/* ---------- 3) class 규칙 ---------- */
 
-/* 덜 중요한 버튼입니다(빼기, 조 추가, 고치기, 다운로드, 로그아웃 등). 테두리만 있는 흰 버튼입니다. */
+/* 모든 화면 맨 위의 공통 상단 바입니다(AppLayout). */
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+.app-header .logo {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 상단 바의 오른쪽 묶음(이름, 테마 버튼, 로그아웃)입니다. margin-left: auto가 남은 공간을 왼쪽에 몰아 오른쪽 끝으로 밉니다. */
+.app-header .end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* 덜 중요한 버튼입니다(빼기, 조 추가, 고치기, 다운로드, 로그아웃 등). 회색 버튼입니다. */
 .secondary {
-  background: var(--color-surface);
-  color: var(--color-accent);
+  border-color: var(--button-border);
+  background: var(--button-bg);
+  color: var(--text);
 }
 
 .secondary:hover {
-  background: var(--color-accent-soft);
+  background: var(--button-bg-hover);
 }
 
 /* 날짜, 크기 같은 보조 정보입니다. */
 .muted {
-  color: var(--color-muted);
+  color: var(--text-muted);
 }
 
-/* 오류 메시지입니다. 화면마다 {error && <p className="error">...}로 씁니다. */
-.error {
-  padding: 10px 14px;
-  border-radius: var(--radius);
-  background: var(--color-error-soft);
-  color: var(--color-error);
-}
-
-/* 완료 안내입니다(예: 동료평가를 제출했습니다). */
-.success {
-  padding: 10px 14px;
-  border-radius: var(--radius);
-  background: var(--color-success-soft);
-  color: var(--color-success);
-}
-
-/* 동료평가 화면 맨 위의 고정 문구입니다. 눈에 띄게 노란 상자로 둡니다. */
+/* 알림 상자 세 가지입니다. 오류는 error(빨강), 완료는 success(초록), 꼭 읽을 안내는 notice(노랑)입니다. */
+.error,
+.success,
 .notice {
   margin: 16px 0;
   padding: 12px 16px;
-  border: 1px solid #f0c75e;
+  border: 1px solid;
   border-radius: var(--radius);
-  background: var(--color-notice-soft);
-  color: var(--color-notice);
+  color: var(--text);
+}
+
+.error {
+  border-color: var(--danger-border);
+  background: var(--danger-subtle);
+}
+
+.success {
+  border-color: var(--success-border);
+  background: var(--success-subtle);
+}
+
+.notice {
+  border-color: var(--attention-border);
+  background: var(--attention-subtle);
 }
 
 /* 목록(ul)으로 쓴 고정 문구는 글머리 기호(•)가 들어갈 왼쪽 자리를 더 둡니다. */
 ul.notice {
   padding-left: 36px;
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 600;
 }
 
-/* 흰 상자입니다. 초대 링크, 업로드 form, 평가 대상 한 명처럼 한 덩어리로 보여야 하는 곳에 씁니다. */
+/*
+  테두리 상자입니다. 초대 링크, 업로드 form, 평가 대상 한 명처럼 한 덩어리로 보여야 하는 곳에 씁니다.
+  상자의 첫 h2는 회색 머리 줄이 됩니다. 음수 margin으로 상자의 padding만큼 밖으로 늘려 상자 폭을 꽉 채웁니다.
+*/
 .panel {
   margin: 16px 0;
-  padding: 16px 20px;
-  border: 1px solid var(--color-border);
+  padding: 0 16px 16px;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--color-surface);
 }
 
-.panel h2 {
-  margin-top: 0;
+.panel > h2:first-child {
+  margin: 0 -16px 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--bg-subtle);
+  font-size: 14px;
 }
 
-/* 과제·조·조원·산출물처럼 같은 모양이 반복되는 목록입니다. 줄마다 흰 상자로 그립니다. */
+/* h2가 없는 상자는 위쪽 여백을 줍니다. */
+.panel > :first-child:not(h2) {
+  margin-top: 16px;
+}
+
+/* 과제·조·조원·산출물처럼 같은 모양이 반복되는 목록입니다. 상자 하나 안에 줄을 선으로 나눕니다. */
 .item-list {
   margin: 0 0 16px;
   padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   list-style: none;
 }
 
@@ -253,15 +390,20 @@ ul.notice {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  margin-bottom: 8px;
   padding: 12px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  background: var(--color-surface);
 }
 
-/* 목록 줄 오른쪽 끝에 붙일 버튼·form입니다. margin-left: auto가 남은 공간을 왼쪽에 몰아 오른쪽으로 밉니다. */
-.item-list .end {
+/* 첫 줄을 뺀 모든 줄 위에 선을 긋습니다. "li + li"는 "앞에 li가 있는 li"라는 뜻입니다. */
+.item-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.item-list li:hover {
+  background: var(--bg-subtle);
+}
+
+/* 줄(.row, 목록 줄) 오른쪽 끝에 붙일 버튼·링크·form입니다. margin-left: auto가 남은 공간을 왼쪽에 몰아 오른쪽 끝으로 밉니다. */
+.end {
   margin-left: auto;
 }
 
@@ -270,15 +412,17 @@ ul.notice {
   margin: 0;
 }
 
-/* 역할 이름처럼 짧은 꼬리표입니다(예: [백엔드 2번째]). */
+/* 짧은 꼬리표입니다(예: 백엔드 2번째). Primer의 Label 모양입니다. */
 .badge {
   display: inline-block;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  font-size: 14px;
-  font-weight: bold;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 2em;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
 }
 
 /* 화면 위쪽의 이동 링크 줄입니다(과제로, 산출물, 동료평가 등). */
@@ -298,32 +442,47 @@ ul.notice {
   margin: 0 0 12px;
 }
 
-/* 로그인 form입니다. 칸을 세로로 쌓습니다. */
+/* 줄 안의 제목은 줄의 여백만 씁니다. */
+.row h1,
+.row h2 {
+  margin: 0;
+}
+
+/* 로그인 화면입니다. GitHub 로그인처럼 좁은 칸을 가운데에 두고 제목도 가운데 맞춥니다. */
+main.login {
+  max-width: 340px;
+  padding-top: 64px;
+  text-align: center;
+}
+
+/* 로그인 form입니다. 칸을 세로로 쌓고, 글자는 다시 왼쪽에 맞춥니다. */
 .login-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 400px;
+  text-align: left;
 }
 
 .login-form input {
   width: 100%;
 }
 
-/* 과제 만들기 form의 "이름 + 칸" 한 줄입니다. 이름을 칸 위에 둡니다. */
+/* "이름 + 칸" 한 묶음입니다. 이름을 칸 위에 둡니다. */
 .field {
   display: flex;
   flex-direction: column;
   gap: 4px;
   max-width: 100%;
+  font-weight: 600;
 }
 
 /* 초대 링크 주소입니다. 긴 주소가 화면 밖으로 넘치지 않게 아무 곳에서나 줄을 바꿉니다. */
 .invite-link {
   display: block;
-  padding: 10px 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--color-bg);
+  background: var(--bg-inset);
   word-break: break-all;
 }
 
@@ -346,16 +505,22 @@ ul.notice {
   display: flex;
   gap: 8px;
   align-items: flex-start;
-  padding: 2px 0;
+  padding: 2px 4px;
+  border-radius: var(--radius);
   cursor: pointer;
 }
 
 .score-option input {
-  margin-top: 5px;
+  margin-top: 4px;
 }
 
 /* 고른 점수 줄을 색으로 표시합니다. :has(input:checked)는 "안에 체크된 radio가 있는 label"이라는 뜻입니다. */
 .score-option:has(input:checked) {
-  border-radius: 4px;
-  background: var(--color-accent-soft);
+  background: var(--accent-subtle);
+}
+
+/* 표를 감싸는 상자입니다. 화면이 좁아 표가 넘치면 표만 가로로 밀어 볼 수 있게 합니다(화면 전체가 옆으로 밀리지 않습니다). */
+.table-scroll {
+  margin: 0 0 16px;
+  overflow-x: auto;
 }
