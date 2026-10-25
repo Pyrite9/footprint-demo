@@ -79,11 +79,11 @@ token
 
 | 상태 | code | 언제 |
 |---|---|---|
-| 400 | `INVALID_INPUT` | `title`이 비었거나, 날짜가 없거나 형식이 틀렸거나, `leaderEmails`가 없거나 빈 배열일 때 |
+| 400 | `INVALID_INPUT` | `title`이 비었거나 255자를 넘거나, 날짜가 없거나 형식이 틀렸거나, `leaderEmails`가 없거나 빈 배열일 때 |
 | 400 | `INVALID_INPUT` | 종료일이 시작일보다 앞일 때 |
 | 400 | `INVALID_INPUT` | 같은 이메일이 두 번 있을 때(한 학생은 같은 과제의 두 조에 조장이 될 수 없다) |
 | 400 | `INVALID_INPUT` | 가입하지 않은 이메일이거나 학생이 아닌 이메일일 때. 메시지에 그 이메일을 넣는다 |
-| 401 | `UNAUTHORIZED` | token이 없을 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때. 셋을 구분하지 않고 같은 메시지를 준다 |
 | 403 | `FORBIDDEN` | 교수가 아닌 회원이 부를 때 |
 
 서버 쪽 규칙

@@ -24,6 +24,7 @@ import java.util.Set;
 @Service
 public class AssignmentService {
 
+    // 회원을 읽는 길이 둘입니다. 로그인한 회원이 없으면 404(MemberService), 조장 이메일이 없으면 입력이 틀린 것이라 400(MemberRepository에서 직접)입니다.
     private final MemberService memberService;
     private final MemberRepository memberRepository;
     private final AssignmentRepository assignmentRepository;
