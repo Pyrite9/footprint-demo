@@ -26,3 +26,7 @@ out/
 .DS_Store
 Thumbs.db
 *.log
+
+# 가짜 API에 올린 산출물 파일 (시작 파일 seed-*만 올린다)
+frontend/mock/files/*
+!frontend/mock/files/seed-*

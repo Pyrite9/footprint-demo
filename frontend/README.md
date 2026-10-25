@@ -55,3 +55,5 @@ http://localhost:5173 을 열면 로그인 화면이 나옵니다. 시작 계정
 - 가짜 token은 `mock-token-<회원 id>`입니다. 서명이 없으므로 화면 코드는 token을 풀어 읽지 않고 그대로 보내기만 합니다.
 - `mock/middleware.cjs`만 `require`, `module.exports` 문법입니다. json-server가 이 파일을 `require`로 읽기 때문입니다.
 - 데이터를 바꾸는 요청을 보내면 `db.json` 파일이 바뀝니다. 처음 상태로 되돌리려면 `git restore db.json`을 실행합니다.
+- 가짜 API에 올린 산출물 파일은 `mock/files/`에 저장됩니다(실제 백엔드의 MinIO 역할). 시작 파일 `seed-1.txt`, `seed-2.txt`만 저장소에 올라가고, 새로 올린 파일은 git이 무시합니다.
+- 가짜 API의 다운로드 header는 실제와 모양이 조금 다릅니다(`res.attachment`가 만듦). 한글 이름은 둘 다 `filename*=UTF-8''...`로 옵니다. 화면은 이 header를 읽지 않고 목록의 `fileName`을 씁니다.

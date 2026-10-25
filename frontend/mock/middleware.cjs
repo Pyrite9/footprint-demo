@@ -3,8 +3,15 @@
 // token은 "mock-token-<회원 id>" 문자열입니다. 실제 JWT와 달리 서명이 없으므로 화면은 token을 풀어 읽지 않습니다.
 // 데이터는 db.json에 있습니다. req.app.db는 json-server가 db.json을 읽어 둔 lowdb이고, .write()를 부르면 파일에 저장됩니다.
 
-// crypto는 Node.js에 들어 있는 모듈입니다. 초대 코드(UUID)를 만들 때 씁니다.
+// crypto, fs, path는 Node.js에 들어 있는 모듈입니다. 초대 코드(UUID)를 만들고, 산출물 파일을 mock/files에 읽고 씁니다.
 const crypto = require('crypto')
+const fs = require('fs')
+const path = require('path')
+
+// 가짜 API의 산출물 파일 본문을 두는 폴더입니다. 실제 백엔드의 MinIO 역할입니다. seed-*는 시작 파일입니다.
+const FILES_DIR = path.join(__dirname, 'files')
+// 실제 백엔드의 spring.servlet.multipart.max-request-size와 같은 20MB입니다.
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 const BEARER_TOKEN_PREFIX = 'Bearer mock-token-'
 const NOT_VALID_MESSAGE = '입력값이 올바르지 않습니다'
@@ -19,6 +26,13 @@ function sendError(res, status, code, message) {
 // 값이 없거나 공백뿐이면 true입니다. 백엔드의 @NotBlank와 같은 기준입니다.
 function isBlank(value) {
   return typeof value !== 'string' || value.trim() === ''
+}
+
+// 서버의 지금 시각을 "2026-11-05T14:03:22" 모양(초까지, 시간대 표시 없음)으로 만듭니다. 실제 백엔드의 LocalDateTime 응답과 같은 모양입니다.
+function nowLocalDateTime() {
+  const now = new Date()
+  const pad = (number) => String(number).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
 }
 
 // db.json의 한 목록에서 다음 id를 정합니다. 실제 DB의 자동 증가 번호를 흉내 냅니다.
@@ -293,9 +307,133 @@ function handleAssignRole(req, res, loginMember, teamId, teamMemberId) {
   }
 
   // 실제 백엔드처럼 지정 시각은 서버(가짜 API)의 현재 시각입니다.
-  db.get('teamMembers').find({ id: teamMemberId }).assign({ roleName: roleName.trim(), roleAssignedAt: new Date().toISOString() }).write()
+  db.get('teamMembers').find({ id: teamMemberId }).assign({ roleName: roleName.trim(), roleAssignedAt: nowLocalDateTime() }).write()
   const updated = db.get('teamMembers').find({ id: teamMemberId }).value()
   return res.json(toTeamMemberResponse(db, updated))
+}
+
+// 산출물 한 건의 모양 { id, roleName, fileName, fileSize, uploaderName, uploadedAt }입니다. 실제 DeliverableResponse와 같습니다.
+function toDeliverableResponse(db, deliverable) {
+  const teamMember = db.get('teamMembers').find({ id: deliverable.teamMemberId }).value()
+  const member = db.get('members').find({ id: teamMember.memberId }).value()
+  const { id, roleName, fileName, fileSize, uploadedAt } = deliverable
+  return { id, roleName, fileName, fileSize, uploaderName: member.name, uploadedAt }
+}
+
+// 요청 body를 끝까지 읽어 Buffer 하나로 돌려줍니다. 20MB를 넘으면 'TOO_LARGE'를 돌려줍니다.
+// json-server는 JSON body만 읽어 주므로 multipart body는 여기서 직접 읽습니다.
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    let size = 0
+    let tooLarge = false
+    req.on('data', (chunk) => {
+      size += chunk.length
+      if (size > MAX_UPLOAD_BYTES) tooLarge = true
+      if (!tooLarge) chunks.push(chunk)
+    })
+    req.on('end', () => resolve(tooLarge ? 'TOO_LARGE' : Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+}
+
+// multipart/form-data body에서 이름이 file인 칸을 찾아 { fileName, content }로 돌려줍니다. 없으면 null입니다.
+// 실제 백엔드에서는 Spring이 해 주는 일입니다. 가짜 API에 라이브러리를 더하지 않으려고 짧게 직접 씁니다.
+function findFilePart(body, boundary) {
+  // body는 "--boundary\r\n(header)\r\n\r\n(내용)\r\n--boundary..." 모양입니다.
+  const delimiter = Buffer.from('--' + boundary)
+  let start = body.indexOf(delimiter)
+  while (start !== -1) {
+    const next = body.indexOf(delimiter, start + delimiter.length)
+    if (next === -1) break
+    const part = body.subarray(start + delimiter.length + 2, next - 2)
+    const headerEnd = part.indexOf('\r\n\r\n')
+    // header는 글자 하나가 1byte인 latin1로 읽고, 파일 이름만 UTF-8로 다시 읽습니다(브라우저는 한글 이름을 UTF-8로 보냅니다).
+    const header = part.subarray(0, headerEnd).toString('latin1')
+    const fileNameMatch = header.match(/filename="([^"]*)"/)
+    if (/name="file"/.test(header) && fileNameMatch) {
+      const fileName = Buffer.from(fileNameMatch[1], 'latin1').toString('utf8')
+      return { fileName, content: part.subarray(headerEnd + 4) }
+    }
+    start = next
+  }
+  return null
+}
+
+// GET /teams/{teamId}/deliverables: 조의 산출물을 최신순으로 돌려줍니다.
+function handleGetDeliverables(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team || !checkTeamAccess(db, res, team, loginMember)) return
+  const teamMemberIds = db.get('teamMembers').filter({ teamId }).map('id').value()
+  const deliverables = db.get('deliverables')
+    .filter((deliverable) => teamMemberIds.includes(deliverable.teamMemberId))
+    .sortBy('id').reverse().value()
+  return res.json(deliverables.map((deliverable) => toDeliverableResponse(db, deliverable)))
+}
+
+// POST /teams/{teamId}/deliverables: 역할이 있는 조원이 파일 하나를 올립니다. 검사 순서는 실제 백엔드와 같습니다.
+function handleUploadDeliverable(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const boundaryMatch = (req.headers['content-type'] || '').match(/^multipart\/form-data;.*boundary="?([^";]+)"?/)
+  if (!boundaryMatch) {
+    return sendError(res, 400, 'INVALID_INPUT', '파일 업로드 요청의 형식이 올바르지 않습니다')
+  }
+
+  readRawBody(req).then((body) => {
+    if (body === 'TOO_LARGE') {
+      return sendError(res, 400, 'INVALID_INPUT', '파일은 20MB까지 올릴 수 있습니다')
+    }
+    const filePart = findFilePart(body, boundaryMatch[1])
+    if (!filePart) {
+      return sendError(res, 400, 'INVALID_INPUT', '파일이 없습니다')
+    }
+    if (filePart.content.length === 0) {
+      return sendError(res, 400, 'INVALID_INPUT', '빈 파일은 올릴 수 없습니다')
+    }
+    const team = findTeamOrSendError(db, res, teamId)
+    if (!team) return
+    const uploader = checkTeamMember(db, res, team, loginMember)
+    if (!uploader) return
+    if (uploader.roleName === null) {
+      return sendError(res, 403, 'FORBIDDEN', '역할이 배정된 조원만 올릴 수 있습니다')
+    }
+
+    // 실제 백엔드처럼 파일 본문을 먼저 저장하고(MinIO 대신 mock/files), 그다음 db.json에 저장합니다.
+    const storageKey = crypto.randomUUID()
+    fs.writeFileSync(path.join(FILES_DIR, storageKey), filePart.content)
+    const deliverable = {
+      id: nextId(db, 'deliverables'),
+      teamMemberId: uploader.id,
+      roleName: uploader.roleName,
+      fileName: filePart.fileName === '' ? 'file' : filePart.fileName,
+      fileSize: filePart.content.length,
+      storageKey,
+      uploadedAt: nowLocalDateTime(),
+    }
+    db.get('deliverables').push(deliverable).write()
+    return res.json(toDeliverableResponse(db, deliverable))
+  })
+}
+
+// GET /deliverables/{deliverableId}/download: 파일 본문을 내려줍니다.
+function handleDownloadDeliverable(req, res, loginMember, deliverableId) {
+  const db = req.app.db
+  const deliverable = db.get('deliverables').find({ id: deliverableId }).value()
+  if (!deliverable) {
+    return sendError(res, 404, 'NOT_FOUND', '산출물이 없습니다. id=' + deliverableId)
+  }
+  const teamMember = db.get('teamMembers').find({ id: deliverable.teamMemberId }).value()
+  const team = db.get('teams').find({ id: teamMember.teamId }).value()
+  if (!checkTeamAccess(db, res, team, loginMember)) return
+
+  const filePath = path.join(FILES_DIR, deliverable.storageKey)
+  if (!fs.existsSync(filePath)) {
+    return sendError(res, 404, 'NOT_FOUND', '파일이 없습니다. key=' + deliverable.storageKey)
+  }
+  // res.attachment는 Content-Disposition(한글 이름은 filename*=UTF-8''...)과 확장자에 맞는 Content-Type을 붙입니다.
+  res.attachment(deliverable.fileName)
+  return res.send(fs.readFileSync(filePath))
 }
 
 // 주소가 pattern과 맞으면 {id} 자리의 글자를 돌려줍니다. 맞지 않으면 null입니다.
@@ -367,6 +505,21 @@ module.exports = function (req, res) {
     if (teamId === null) return
     if (req.method === 'GET') return handleGetInviteCode(req, res, loginMember, teamId)
     return handleIssueInviteCode(req, res, loginMember, teamId)
+  }
+
+  const deliverablesTeamIdText = matchId(/^\/teams\/([^/]+)\/deliverables$/, req.path)
+  if (deliverablesTeamIdText !== null && (req.method === 'GET' || req.method === 'POST')) {
+    const teamId = parseIdOrSendError(res, deliverablesTeamIdText)
+    if (teamId === null) return
+    if (req.method === 'GET') return handleGetDeliverables(req, res, loginMember, teamId)
+    return handleUploadDeliverable(req, res, loginMember, teamId)
+  }
+
+  const downloadIdText = matchId(/^\/deliverables\/([^/]+)\/download$/, req.path)
+  if (req.method === 'GET' && downloadIdText !== null) {
+    const deliverableId = parseIdOrSendError(res, downloadIdText)
+    if (deliverableId === null) return
+    return handleDownloadDeliverable(req, res, loginMember, deliverableId)
   }
 
   const roleMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/role$/)
