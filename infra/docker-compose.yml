@@ -1,20 +1,22 @@
 # 학습 저장소의 infra와 폴더 이름이 같아서, 이름을 정하지 않으면 컨테이너와 volume이 섞인다.
 name: footprint-demo
 
+# ${이름:-기본값}: infra/.env에 값이 있으면 그 값을, 없으면 기본값(.env.example과 같은 값)을 쓴다.
+# 그래서 새로 clone 한 폴더에서 .env를 만들지 않아도 켜진다.
 services:
   postgres:
     image: postgres:17
     container_name: footprint-demo-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-footprint}
+      POSTGRES_USER: ${POSTGRES_USER:-footprint}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-footprint} -d ${POSTGRES_DB:-footprint}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -23,13 +25,19 @@ services:
     container_name: footprint-demo-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-footprint}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me-please}
     ports:
-      - "${MINIO_API_PORT}:9000"
-      - "${MINIO_CONSOLE_PORT}:9001"
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio-data:/data
+    # 백엔드가 MinIO가 준비된 뒤에 켜지도록 확인 방법을 둔다(맨 위 docker-compose.yml의 depends_on).
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   postgres-data:

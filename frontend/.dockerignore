@@ -1,0 +1,7 @@
+# 이미지를 만들 때 Docker에 보내지 않을 파일입니다.
+# node_modules는 컨테이너 안에서 새로 설치합니다. .env.local은 개인 설정이라 이미지에 넣지 않습니다.
+node_modules
+dist
+.env.local
+mock/files
+*.md

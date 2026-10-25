@@ -4,6 +4,8 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 
 ## 실행
 
+개발하지 않고 시연만 할 때는 저장소 맨 위 `README.md`의 "한 번에 실행"(`docker compose up -d --build`)을 씁니다. 아래는 개발할 때의 실행 방법입니다.
+
 1. 데이터베이스와 MinIO를 켭니다. `infra` 폴더에서 실행합니다.
 
    ```powershell

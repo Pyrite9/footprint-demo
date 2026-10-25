@@ -433,3 +433,35 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 같은 사람이 동시에 두 번 제출하면(두 요청이 거의 같은 순간) 두 번째는 unique 제약에 걸려 500이 된다. 데이터는 지켜지고, 화면은 제출 중 버튼을 막아서 시연에서는 생기지 않는다. 409로 바꾸는 처리는 하지 않았다.
   - 교수가 동료평가 주소를 직접 열면 403 메시지가 화면에 나온다(교수 열람은 2단계).
   - 시작 데이터에는 평가를 넣지 않았다.
+
+### 한 번에 실행 (2단계 — docker compose로 백엔드·화면·PostgreSQL·MinIO·시작 데이터)
+- 결정:
+  - 저장소 맨 위에 `docker-compose.yml`을 새로 두고, PostgreSQL·MinIO는 `include: infra/docker-compose.yml`로 가져온다. 선택지는 (A) include, (B) 맨 위 파일에 네 서비스를 모두 다시 쓰기, (C) infra 파일에 백엔드·화면을 넣고 profile로 나누기였다. 같은 설정을 두 곳에 쓰지 않고, 개발할 때의 `infra`만 켜는 방법도 그대로 남는 A로 했다. 이름이 둘 다 `footprint-demo`라 같은 컨테이너·volume을 쓴다.
+  - 화면은 개발 서버가 아니라 nginx 이미지로 내려준다(demo-scope에서 "밀리면 개발 서버로 시연"이라 한 항목). Node 이미지로 `npm run build` → `nginx:1.28-alpine`이 `dist`를 내려주는 두 단계 Dockerfile. `/teams/1`처럼 직접 연 주소가 404가 되지 않게 `try_files ... /index.html`.
+  - 백엔드는 JDK 이미지에서 `bootJar -x test`로 jar를 만들고 JRE 이미지에서 실행하는 두 단계 Dockerfile. 테스트는 실제 DB·MinIO가 있어야 해서 이미지 빌드에서는 뺐다.
+  - 새로 clone 한 폴더에서 `.env` 없이 켜지도록 `infra/docker-compose.yml`의 값을 `${이름:-기본값}`(기본값은 `.env.example`과 같음)으로 바꿨다. 백엔드는 `infra/.env`가 있으면 읽는다(`env_file`, `required: false`).
+  - `application.yml`의 DB 주소에 `${POSTGRES_HOST:localhost}`를 넣었다. 컨테이너 안에서는 `postgres`, MinIO는 `STORAGE_ENDPOINT=http://minio:9000`.
+  - 백엔드가 DB·MinIO 준비 뒤에 켜지도록 `depends_on: condition: service_healthy`. MinIO에 healthcheck(`/minio/health/live`)를 새로 붙였다.
+  - 컨테이너 시간대가 UTC라 기록 시각이 9시간 이르게 저장되는 것을 확인해서 백엔드에 `TZ: Asia/Seoul`을 넣었다.
+  - 백엔드·화면 포트는 `127.0.0.1`에만 열고, 화면 이미지의 API 주소도 `http://127.0.0.1:8080`으로 했다. 아래 "문제" 참고. 화면은 그대로 `http://localhost:5173`으로 연다(CORS 허용 주소). 같은 이유로 LAN의 다른 컴퓨터에서는 접속할 수 없다(시연은 한 컴퓨터).
+  - `server.tomcat.max-swallow-size: 100MB`를 넣었다. 20MB를 넘는 업로드에서 Tomcat이 기본 2MB만 읽고 연결을 끊으면 브라우저가 400 대신 연결 오류를 볼 수 있다.
+- 문제와 처리:
+  - 21MB 업로드 시험 뒤 `localhost:8080`(IPv6 `::1`)이 응답하지 않게 됐다. `::1` 쪽은 Docker Desktop이 아니라 WSL의 `wslrelay.exe`가 중계하고 있었고, 그 프로세스가 멈춘 상태로 남았다. `127.0.0.1:8080`은 정상이었다. 멈춘 프로세스를 끝내는 것은 권한 검사에서 막혀서 하지 않았다. 대신 위처럼 앱이 `::1` 중계를 쓰지 않게 했다.
+  - 관리자 컴퓨터에는 지금도 멈춘 `wslrelay.exe`가 `[::1]:8080`, `[::1]:5432`를 잡고 있다. Docker Desktop을 다시 시작하거나 PowerShell에서 `wsl --shutdown` 하면 풀린다. 풀기 전에는 개발용 백엔드(`bootRun`)가 8080을 못 잡거나 브라우저의 `localhost:8080`이 멈출 수 있다.
+- 만든 파일: `docker-compose.yml`, `README.md`(맨 위), `backend/Dockerfile`, `backend/.dockerignore`, `frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/.dockerignore`
+- 고친 파일: `infra/docker-compose.yml`(기본값, MinIO healthcheck), `backend/src/main/resources/application.yml`(`POSTGRES_HOST`, `max-swallow-size`), `backend/README.md`, `frontend/README.md`
+- 확인:
+  - `docker compose up -d --build`로 네 컨테이너가 켜지고 시작 데이터(과제·조·조원·산출물 2건, MinIO 파일 본문)가 들어간 것을 확인했다. 시작 산출물 다운로드 내용이 맞았다.
+  - 지금까지 단위의 시험 요청(A-1, A-2, T-1, T-2, R-1, E-2 모두 99개)을 컨테이너 백엔드에 보냈다. 500이나 무응답이 없었고, E-2는 이전 실제 응답과 같았다. 21MB 업로드는 400 "파일은 20MB까지 올릴 수 있습니다"이고 그 뒤에도 서버가 응답했다.
+  - 브라우저로 `http://localhost:5173/teams/1/deliverables`를 바로 열어(nginx 주소 처리) 목록, 한글 이름 파일 업로드, 21MB 업로드의 오류 문구, 한국 시간 표시를 확인했다.
+  - 이미지 안 화면 파일에 API 주소 `http://127.0.0.1:8080`이 들어간 것을 확인했다.
+- 읽을 때 볼 곳:
+  - Dockerfile의 두 단계(`AS build` → `COPY --from=build`): 만드는 도구(JDK, Node)는 최종 이미지에 들어가지 않는다.
+  - `COPY package*.json` → `npm ci` → `COPY . .` 순서: 소스만 바뀌면 설치 단계를 cache로 건너뛴다. 백엔드의 `gradlew dependencies`도 같은 이유다.
+  - `VITE_API_URL`은 실행할 때가 아니라 **빌드할 때** 화면 파일에 들어간다. 주소를 바꾸면 `--build`로 다시 만들어야 한다.
+  - compose의 `environment`가 `env_file`보다 우선이라 `POSTGRES_PORT`를 컨테이너 안쪽 포트 5432로 덮어쓴다.
+  - 컨테이너끼리는 `localhost`가 아니라 서비스 이름(`postgres`, `minio`)으로 찾아간다.
+- 내가 채운 가정:
+  - 이미지 버전: `eclipse-temurin:21-jdk`/`21-jre`, `node:24-alpine`, `nginx:1.28-alpine`.
+  - JWT 서명 키는 컨테이너에서도 `application.yml`의 개발용 기본값을 쓴다(시연용).
+  - Postman 모음은 다음 단위로 남겼다.

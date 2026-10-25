@@ -1,6 +1,7 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:footprint}
+    # POSTGRES_HOST: 내 컴퓨터에서 실행하면 localhost, docker compose 안에서 실행하면 서비스 이름 postgres입니다.
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:footprint}
     username: ${POSTGRES_USER:footprint}
     password: ${POSTGRES_PASSWORD:change-me}
   servlet:
@@ -29,3 +30,9 @@ storage:
   secret-key: ${MINIO_ROOT_PASSWORD:change-me-please}
   # 산출물 파일 본문을 넣는 버킷 이름입니다. 서버가 시작할 때 없으면 만듭니다.
   bucket: ${STORAGE_BUCKET:footprint}
+
+server:
+  tomcat:
+    # 20MB를 넘는 업로드도 남은 body를 읽어 버린 뒤 400 응답을 보냅니다. 기본값(2MB)이면 Tomcat이 읽기를 멈추고 연결을 끊어서,
+    # 브라우저가 400 대신 "연결이 끊어짐" 오류를 볼 수 있습니다. 100MB 상한은 둬서 아주 큰 요청은 계속 끊습니다.
+    max-swallow-size: 100MB

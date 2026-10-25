@@ -1,0 +1,48 @@
+# 백엔드, 화면, PostgreSQL, MinIO를 한 번에 켭니다. 이 폴더(저장소 맨 위)에서 docker compose up -d --build.
+# 개발할 때처럼 DB와 MinIO만 켜려면 infra 폴더에서 docker compose up -d를 씁니다.
+# 이름이 infra와 같은 footprint-demo라서 두 방법이 같은 컨테이너와 volume을 씁니다.
+name: footprint-demo
+
+# include: infra/docker-compose.yml의 postgres, minio 서비스를 그대로 가져옵니다. 같은 설정을 두 번 쓰지 않기 위해서입니다.
+include:
+  - infra/docker-compose.yml
+
+services:
+  backend:
+    build: ./backend
+    container_name: footprint-demo-backend
+    # infra/.env가 있으면 DB·MinIO 계정을 여기서 읽습니다. 없으면 application.yml의 기본값(.env.example과 같음)을 씁니다.
+    env_file:
+      - path: infra/.env
+        required: false
+    # 컨테이너끼리는 서비스 이름(postgres, minio)으로 찾아가고, 포트는 컨테이너 안쪽 포트를 씁니다.
+    # environment가 env_file보다 우선이라 infra/.env의 POSTGRES_PORT(내 컴퓨터 쪽 포트)를 덮어씁니다.
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      STORAGE_ENDPOINT: http://minio:9000
+      # 컨테이너의 기본 시간대는 UTC라서 기록 시각(업로드, 평가 제출)이 9시간 이르게 저장됩니다. 한국 시간으로 맞춥니다.
+      TZ: Asia/Seoul
+    # 127.0.0.1(IPv4)에만 엽니다. Windows에서는 localhost가 IPv6(::1)로도 연결되는데, 그 연결을 중계하는 WSL 프로그램이
+    # 20MB를 넘는 업로드 뒤에 멈춰 localhost:8080 전체가 응답하지 않는 일이 있었습니다. 그래서 화면도 127.0.0.1:8080으로 부릅니다.
+    ports:
+      - "127.0.0.1:8080:8080"
+    # DB와 MinIO의 healthcheck가 통과한 뒤에 켭니다. 서버가 켜지면서 시작 데이터와 버킷을 만들기 때문입니다.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # 브라우저가 부르는 백엔드 주소입니다. 위 backend의 ports 설명처럼 localhost 대신 127.0.0.1을 씁니다.
+        VITE_API_URL: http://127.0.0.1:8080
+    container_name: footprint-demo-frontend
+    # 개발 서버와 같은 5173으로 엽니다. 화면은 http://localhost:5173 으로 엽니다(백엔드의 CORS 허용 주소와 같아야 합니다).
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      - backend
