@@ -3,6 +3,7 @@ import RequireLogin from './components/RequireLogin'
 import AssignmentCreatePage from './pages/AssignmentCreatePage'
 import AssignmentDetailPage from './pages/AssignmentDetailPage'
 import DeliverablesPage from './pages/DeliverablesPage'
+import EvaluationPage from './pages/EvaluationPage'
 import HomePage from './pages/HomePage'
 import JoinPage from './pages/JoinPage'
 import LoginPage from './pages/LoginPage'
@@ -23,6 +24,7 @@ function App() {
                     <Route path="/assignments/:assignmentId" element={<AssignmentDetailPage />} />
                     <Route path="/teams/:teamId" element={<TeamPage />} />
                     <Route path="/teams/:teamId/deliverables" element={<DeliverablesPage />} />
+                    <Route path="/teams/:teamId/evaluation" element={<EvaluationPage />} />
                     {/* 초대 링크입니다. 로그인하지 않았으면 로그인한 뒤 이 주소로 돌아옵니다(RequireLogin, LoginPage). */}
                     <Route path="/join/:inviteCode" element={<JoinPage />} />
                 </Route>

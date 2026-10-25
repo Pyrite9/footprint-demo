@@ -301,3 +301,70 @@ token
 - 파일 본문은 MinIO에, 데이터베이스에는 저장 위치(key), 파일 이름, 크기만 둔다(+ 올린 조원, 역할명, 시각).
 - 업로드는 "MinIO 저장 → 데이터베이스 저장" 순서다. 데이터베이스 저장이 실패하면 MinIO에 주인 없는 파일이 남는다(시연 범위에서는 지우지 않는다).
 - 크기 제한은 `spring.servlet.multipart.max-file-size`, `max-request-size` 20MB.
+
+---
+
+## 동료평가
+
+평가 항목 6개(신태섭 2018, demo-scope 7절)는 요청·저장에서 아래 이름을 쓴다. 점수는 1~5 정수다.
+
+| 이름 | 항목 |
+|---|---|
+| `goalSharing` | 목표 공유·협업 |
+| `roleFulfillment` | 역할 수행 |
+| `encouragement` | 격려·도움 |
+| `onlineCommunication` | 온라인 소통 |
+| `offlineCommunication` | 대면 소통 |
+| `progressCheck` | 진행 점검·보충 |
+
+시스템은 점수를 합치거나 평균 내지 않는다. 어떤 응답에도 합계·평균·순위가 없다.
+
+### GET /teams/{teamId}/evaluations/mine — 내 평가 제출 여부 (E-2) · 2026.10.25
+
+내가 이 조에서 동료평가를 제출했는지 받는다. 점수는 돌려주지 않는다. 그 조의 조원만 부를 수 있다.
+
+200
+```json
+{ "submitted": true, "submittedAt": "2026-11-13T21:10:05" }
+```
+
+제출 전이면 `{ "submitted": false, "submittedAt": null }`.
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `teamId`가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함) |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+
+### POST /teams/{teamId}/evaluations — 동료평가 제출 (E-2-1, E-2-3) · 2026.10.25
+
+같은 조 조원 중 자신을 뺀 **전원**의 평가를 한 번에 제출한다. 제출한 평가는 고칠 수 없다. 제출 시각은 서버가 기록한다.
+`targetTeamMemberId`는 조원 목록(`GET /teams/{teamId}/members`)의 `id`다. `comment`(서술 의견)는 선택이고 2000자까지다.
+
+요청
+```json
+{
+  "evaluations": [
+    { "targetTeamMemberId": 2, "goalSharing": 5, "roleFulfillment": 4, "encouragement": 4,
+      "onlineCommunication": 5, "offlineCommunication": 3, "progressCheck": 4, "comment": "API 명세를 먼저 정리해 줌" },
+    { "targetTeamMemberId": 3, "goalSharing": 3, "roleFulfillment": 3, "encouragement": 3,
+      "onlineCommunication": 3, "offlineCommunication": 3, "progressCheck": 3, "comment": null }
+  ]
+}
+```
+
+200: 제출 여부. 모양은 `GET /teams/{teamId}/evaluations/mine`과 같다.
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `evaluations`가 비었거나, 점수가 빠졌거나 1~5가 아니거나, `comment`가 2000자를 넘을 때 |
+| 400 | `INVALID_INPUT` | 대상이 "자신을 뺀 조원 전원 한 번씩"이 아닐 때(빠짐, 중복, 자기 자신, 다른 조 조원) |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함) |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+| 409 | `DUPLICATE` | 이미 제출했을 때 |
+
+서버 쪽 규칙
+- 평가는 회원이 아니라 조 참여(`TeamMember`)를 평가자·대상으로 참조한다. (평가자, 대상)에 데이터베이스 unique 제약이 있다.
+- 평가와 의견은 과제를 만든 교수만 열람한다. 교수 열람 화면·API는 2단계라 1단계는 저장까지다. 조원끼리는 서로의 평가를 볼 수 없다(조회 API 없음).

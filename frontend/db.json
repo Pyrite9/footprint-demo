@@ -34,5 +34,6 @@
   "deliverables": [
     {"id": 1, "teamMemberId": 1, "roleName": "기획", "fileName": "기획서.txt", "fileSize": 78, "storageKey": "seed-1.txt", "uploadedAt": "2026-10-25T09:00:00"},
     {"id": 2, "teamMemberId": 2, "roleName": "백엔드", "fileName": "API 명세.txt", "fileSize": 33, "storageKey": "seed-2.txt", "uploadedAt": "2026-10-25T09:00:00"}
-  ]
+  ],
+  "evaluations": []
 }

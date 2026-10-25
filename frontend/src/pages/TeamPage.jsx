@@ -78,12 +78,15 @@ function TeamPage() {
 
     // 내가 이 조의 조장인지는 내 정보와 조원 목록으로 계산합니다. 계산할 수 있는 값이라 state로 두지 않습니다.
     const isLeader = members.some((member) => member.memberId === me.id && member.leader)
+    // 동료평가는 조원만 합니다. 교수에게는 링크를 보여 주지 않습니다.
+    const isMember = members.some((member) => member.memberId === me.id)
 
     return (
         <main>
             <h1>{team.name}</h1>
             <p><Link to={`/assignments/${team.assignmentId}`}>{team.assignmentTitle}</Link></p>
             <p><Link to={`/teams/${team.id}/deliverables`}>산출물 보기·올리기</Link></p>
+            {isMember && <p><Link to={`/teams/${team.id}/evaluation`}>동료평가</Link></p>}
 
             <h2>조원</h2>
             <TeamMemberList

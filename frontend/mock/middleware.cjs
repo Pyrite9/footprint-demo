@@ -436,6 +436,80 @@ function handleDownloadDeliverable(req, res, loginMember, deliverableId) {
   return res.send(fs.readFileSync(filePath))
 }
 
+// 동료평가 6개 항목의 이름입니다. 실제 EvaluationSubmitRequest.Item의 점수 필드와 같습니다.
+const SCORE_FIELDS = ['goalSharing', 'roleFulfillment', 'encouragement', 'onlineCommunication', 'offlineCommunication', 'progressCheck']
+
+// 내 제출 여부의 모양 { submitted, submittedAt }입니다. 실제 EvaluationStatusResponse와 같습니다. 점수는 담지 않습니다.
+function toEvaluationStatusResponse(myEvaluations) {
+  if (myEvaluations.length === 0) return { submitted: false, submittedAt: null }
+  return { submitted: true, submittedAt: myEvaluations[0].submittedAt }
+}
+
+// 평가 하나가 실제 백엔드의 @NotNull, @Min(1), @Max(5), @Size(max = 2000) 검사를 통과하면 true입니다.
+function isValidEvaluationItem(item) {
+  if (item === null || typeof item !== 'object') return false
+  if (typeof item.targetTeamMemberId !== 'number') return false
+  const scoresValid = SCORE_FIELDS.every((field) => Number.isInteger(item[field]) && item[field] >= 1 && item[field] <= 5)
+  const commentValid = item.comment == null || (typeof item.comment === 'string' && item.comment.length <= 2000)
+  return scoresValid && commentValid
+}
+
+// GET /teams/{teamId}/evaluations/mine: 내가 이 조에서 동료평가를 제출했는지 돌려줍니다.
+function handleGetMyEvaluationStatus(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team) return
+  const evaluator = checkTeamMember(db, res, team, loginMember)
+  if (!evaluator) return
+  const myEvaluations = db.get('evaluations').filter({ evaluatorId: evaluator.id }).value()
+  return res.json(toEvaluationStatusResponse(myEvaluations))
+}
+
+// POST /teams/{teamId}/evaluations: 자신을 뺀 조원 전원의 평가를 한 번에 저장합니다. 검사 순서는 실제 백엔드와 같습니다.
+function handleSubmitEvaluations(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const { evaluations } = req.body
+  // 1. @NotEmpty @Valid 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다.
+  if (!Array.isArray(evaluations) || evaluations.length === 0 || !evaluations.every(isValidEvaluationItem)) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
+  }
+  // 2. 여기부터는 Service의 검사입니다.
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team) return
+  const evaluator = checkTeamMember(db, res, team, loginMember)
+  if (!evaluator) return
+  if (db.get('evaluations').filter({ evaluatorId: evaluator.id }).value().length > 0) {
+    return sendError(res, 409, 'DUPLICATE', '이미 동료평가를 제출했습니다')
+  }
+
+  // 평가 대상 = 이 조의 조원 중 나를 뺀 사람입니다.
+  const targetIds = db.get('teamMembers').filter({ teamId }).map('id').value().filter((id) => id !== evaluator.id)
+  const submittedIds = new Set()
+  for (const item of evaluations) {
+    if (submittedIds.has(item.targetTeamMemberId)) {
+      return sendError(res, 400, 'INVALID_INPUT', '같은 조원을 두 번 평가했습니다. id=' + item.targetTeamMemberId)
+    }
+    submittedIds.add(item.targetTeamMemberId)
+  }
+  // 겹치는 값이 없으므로 개수가 같고 모든 대상이 들어 있으면 "전원 한 번씩"입니다.
+  if (submittedIds.size !== targetIds.length || !targetIds.every((id) => submittedIds.has(id))) {
+    return sendError(res, 400, 'INVALID_INPUT', '자신을 뺀 조원 전원을 한 번씩 평가해야 합니다')
+  }
+
+  // 실제 백엔드처럼 한 번에 제출한 평가는 모두 같은 시각입니다. 의견은 앞뒤 공백을 지우고, 비었으면 null입니다.
+  const submittedAt = nowLocalDateTime()
+  for (const item of evaluations) {
+    const scores = {}
+    SCORE_FIELDS.forEach((field) => { scores[field] = item[field] })
+    const comment = isBlank(item.comment) ? null : item.comment.trim()
+    db.get('evaluations')
+      .push({ id: nextId(db, 'evaluations'), evaluatorId: evaluator.id, targetId: item.targetTeamMemberId, ...scores, comment, submittedAt })
+      .write()
+  }
+  const myEvaluations = db.get('evaluations').filter({ evaluatorId: evaluator.id }).value()
+  return res.json(toEvaluationStatusResponse(myEvaluations))
+}
+
 // 주소가 pattern과 맞으면 {id} 자리의 글자를 돌려줍니다. 맞지 않으면 null입니다.
 // 예: matchId(/^\/assignments\/([^/]+)$/, '/assignments/3') → '3'(글자). 숫자 검사는 parseIdOrSendError가 합니다.
 function matchId(pattern, path) {
@@ -520,6 +594,20 @@ module.exports = function (req, res) {
     const deliverableId = parseIdOrSendError(res, downloadIdText)
     if (deliverableId === null) return
     return handleDownloadDeliverable(req, res, loginMember, deliverableId)
+  }
+
+  const myEvaluationTeamIdText = matchId(/^\/teams\/([^/]+)\/evaluations\/mine$/, req.path)
+  if (req.method === 'GET' && myEvaluationTeamIdText !== null) {
+    const teamId = parseIdOrSendError(res, myEvaluationTeamIdText)
+    if (teamId === null) return
+    return handleGetMyEvaluationStatus(req, res, loginMember, teamId)
+  }
+
+  const evaluationsTeamIdText = matchId(/^\/teams\/([^/]+)\/evaluations$/, req.path)
+  if (req.method === 'POST' && evaluationsTeamIdText !== null) {
+    const teamId = parseIdOrSendError(res, evaluationsTeamIdText)
+    if (teamId === null) return
+    return handleSubmitEvaluations(req, res, loginMember, teamId)
   }
 
   const roleMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/role$/)

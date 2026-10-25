@@ -402,3 +402,34 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 내가 채운 가정:
   - 교수와 역할 없는 조원에게는 올리기 form을 숨긴다. 역할 없는 조원에게는 "역할이 배정되면 산출물을 올릴 수 있습니다"를 보인다.
   - 올린 시각은 `T`를 공백으로 바꿔 `2026-10-25 22:35:55`처럼 보인다.
+
+### E-2 동료평가 입력·제출 (E-2-1, E-2-3 — 백엔드, 가짜 API, 화면)
+- 결정:
+  - 주소는 `POST /teams/{teamId}/evaluations`(제출)와 `GET /teams/{teamId}/evaluations/mine`(내 제출 여부)다. 선택지는 (A) 제출 여부만 돌려주기, (B) 내가 낸 점수도 돌려주기였다. 업무 규칙이 "평가와 의견은 교수만 열람"이라서 A로 했다. 제출한 사람도 자기가 낸 점수를 다시 볼 수 없다.
+  - 엔티티 이름은 `Evaluation`, 점수 열은 항목 이름(`goalSharing`, `roleFulfillment`, `encouragement`, `onlineCommunication`, `offlineCommunication`, `progressCheck`)으로 했다. `s1`~`s6`보다 열 이름만 보고 무슨 항목인지 알 수 있다. 같은 이름을 요청 body, `db.json`, 화면 상수의 `key`에 똑같이 쓴다.
+  - 평가자·대상은 회원이 아니라 조 참여(`TeamMember`)를 참조한다(`evaluator_id`, `target_id`). (evaluator_id, target_id)에 unique 제약을 뒀다.
+  - 검사 순서: body 검사(@Valid) 400 → 조 404 → 조원이 아니면 403(교수 포함) → 이미 제출 409 → 대상이 "나를 뺀 조원 전원 한 번씩"이 아니면 400. 이미 제출한 사람이 틀린 body를 보내도 409가 먼저다.
+  - "이미 제출"은 평가자 기준으로 본다. 대상 한 명이라도 평가한 행이 있으면 409다. 한 번에 전원을 저장하므로 일부만 저장된 상태는 생기지 않는다(`@Transactional`).
+  - Service는 요청 DTO의 `EvaluationSubmitRequest.Item` 목록을 그대로 받는다. 다른 Service처럼 값을 하나씩 넘기면 6개 점수 × 조원 수라서 목록으로 넘겼다.
+  - 화면은 `/teams/:teamId/evaluation` 하나에서 "입력 → 확인(한 표로 전원) → 제출" 순서다. 확인 단계에서 "고치기"로 돌아가도 입력은 남는다. 조 화면의 "동료평가" 링크는 조원에게만 보인다.
+  - 평가 항목 문장은 `src/constants/peerEvaluation.js`에 demo-scope 7절 문장 그대로 뒀다. 2점·4점은 "5점과 3점의 중간", "3점과 1점의 중간"으로 표시한다. 위쪽 고정 문구 2개도 같은 파일에 뒀다.
+- 만든 파일:
+  - backend: `entity/Evaluation.java`, `repository/EvaluationRepository.java`, `dto/EvaluationSubmitRequest.java`, `dto/EvaluationStatusResponse.java`, `service/EvaluationService.java`, `controller/EvaluationController.java`
+  - frontend: `src/constants/peerEvaluation.js`, `src/api/evaluations.js`, `src/pages/EvaluationPage.jsx`, `src/components/EvaluationNotice.jsx`, `src/components/EvaluationTargetForm.jsx`, `src/components/EvaluationReview.jsx`
+- 고친 파일: `docs/api-draft.md`, `frontend/mock/middleware.cjs`, `frontend/db.json`(`evaluations: []`), `src/App.jsx`, `src/pages/TeamPage.jsx`, `backend/README.md`, `frontend/README.md`
+- 확인:
+  - `gradlew build`, `npm run build`, `npm run lint` 통과.
+  - 같은 요청 23개(제출 여부, 빈 목록, 빠진 점수, 0점·6점, 대상 빠짐·중복·자기 자신·다른 조, 교수·다른 조 403, 없는 조 404, 정상 제출, 다시 제출 409)를 실제와 가짜에 보냈다. 응답과 status가 모두 같았다.
+  - 데이터베이스에 unique 제약 `evaluation_evaluator_id_target_id_key`가 생긴 것과, 한 번에 낸 행의 `submitted_at`이 모두 같은 것을 확인했다. 의견의 앞뒤 공백은 지워져 저장됐다.
+  - 실제 백엔드로 브라우저에서 student03이 제출했다. 아무것도 고르지 않고 확인을 누르면 빠진 조원 이름이 나오고, 확인 표에 4명의 점수와 의견이 나오고, 제출 후 "제출했습니다. 제출 시각: ..."이 나왔다. 저장된 행이 입력과 같았다.
+- 읽을 때 볼 곳:
+  - `EvaluationSubmitRequest`의 `@Valid`(목록 안쪽까지 검사)와 `Integer`(빠지면 null이라 `@NotNull`에 걸림, `int`면 0이 됨).
+  - `EvaluationService.submit`의 `Set.add`가 false면 중복, `submittedIds.equals(targetsById.keySet())`로 "전원 한 번씩"을 한 줄로 확인하는 곳.
+  - `Evaluation` 생성자에 시각을 밖에서 넘기는 이유: 한 번에 제출한 행이 같은 시각을 갖게 한다.
+  - `EvaluationPage`의 `inputs` 모양 `{ [조 참여 번호]: { goalSharing: 5, ..., comment: '' } }`과 `handleScoreChange`의 두 겹 spread.
+  - radio의 `name={`${target.id}-${criterion.key}`}`: 같은 name끼리 하나만 고를 수 있다.
+- 내가 채운 가정:
+  - 서술 의견은 2000자까지. 공백만 있으면 저장하지 않는다(null).
+  - 같은 사람이 동시에 두 번 제출하면(두 요청이 거의 같은 순간) 두 번째는 unique 제약에 걸려 500이 된다. 데이터는 지켜지고, 화면은 제출 중 버튼을 막아서 시연에서는 생기지 않는다. 409로 바꾸는 처리는 하지 않았다.
+  - 교수가 동료평가 주소를 직접 열면 403 메시지가 화면에 나온다(교수 열람은 2단계).
+  - 시작 데이터에는 평가를 넣지 않았다.
