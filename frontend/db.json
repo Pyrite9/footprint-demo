@@ -1,15 +1,34 @@
 {
   "members": [
-    { "id": 1, "email": "professor@example.com", "password": "pass1234", "name": "이교수", "memberType": "PROFESSOR" },
-    { "id": 2, "email": "student01@example.com", "password": "pass1234", "name": "김민준", "memberType": "STUDENT" },
-    { "id": 3, "email": "student02@example.com", "password": "pass1234", "name": "이서연", "memberType": "STUDENT" },
-    { "id": 4, "email": "student03@example.com", "password": "pass1234", "name": "박도윤", "memberType": "STUDENT" },
-    { "id": 5, "email": "student04@example.com", "password": "pass1234", "name": "최서윤", "memberType": "STUDENT" },
-    { "id": 6, "email": "student05@example.com", "password": "pass1234", "name": "정하준", "memberType": "STUDENT" },
-    { "id": 7, "email": "student06@example.com", "password": "pass1234", "name": "강지우", "memberType": "STUDENT" },
-    { "id": 8, "email": "student07@example.com", "password": "pass1234", "name": "조은우", "memberType": "STUDENT" },
-    { "id": 9, "email": "student08@example.com", "password": "pass1234", "name": "윤하은", "memberType": "STUDENT" },
-    { "id": 10, "email": "student09@example.com", "password": "pass1234", "name": "장시우", "memberType": "STUDENT" },
-    { "id": 11, "email": "student10@example.com", "password": "pass1234", "name": "임지아", "memberType": "STUDENT" }
+    {"id": 1, "email": "professor@example.com", "password": "pass1234", "name": "이교수", "memberType": "PROFESSOR"},
+    {"id": 2, "email": "student01@example.com", "password": "pass1234", "name": "김민준", "memberType": "STUDENT"},
+    {"id": 3, "email": "student02@example.com", "password": "pass1234", "name": "이서연", "memberType": "STUDENT"},
+    {"id": 4, "email": "student03@example.com", "password": "pass1234", "name": "박도윤", "memberType": "STUDENT"},
+    {"id": 5, "email": "student04@example.com", "password": "pass1234", "name": "최서윤", "memberType": "STUDENT"},
+    {"id": 6, "email": "student05@example.com", "password": "pass1234", "name": "정하준", "memberType": "STUDENT"},
+    {"id": 7, "email": "student06@example.com", "password": "pass1234", "name": "강지우", "memberType": "STUDENT"},
+    {"id": 8, "email": "student07@example.com", "password": "pass1234", "name": "조은우", "memberType": "STUDENT"},
+    {"id": 9, "email": "student08@example.com", "password": "pass1234", "name": "윤하은", "memberType": "STUDENT"},
+    {"id": 10, "email": "student09@example.com", "password": "pass1234", "name": "장시우", "memberType": "STUDENT"},
+    {"id": 11, "email": "student10@example.com", "password": "pass1234", "name": "임지아", "memberType": "STUDENT"}
+  ],
+  "assignments": [
+    {"id": 1, "title": "발자국 시연 과제", "startDate": "2026-11-02", "endDate": "2026-12-11", "professorId": 1}
+  ],
+  "teams": [
+    {"id": 1, "assignmentId": 1, "name": "1조", "inviteCode": null},
+    {"id": 2, "assignmentId": 1, "name": "2조", "inviteCode": null}
+  ],
+  "teamMembers": [
+    {"id": 1, "teamId": 1, "memberId": 2, "leader": true, "roleName": "기획", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 2, "teamId": 1, "memberId": 3, "leader": false, "roleName": "백엔드", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 3, "teamId": 1, "memberId": 4, "leader": false, "roleName": "프론트엔드", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 4, "teamId": 1, "memberId": 5, "leader": false, "roleName": "디자인", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 5, "teamId": 1, "memberId": 6, "leader": false, "roleName": "발표", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 6, "teamId": 2, "memberId": 7, "leader": true, "roleName": "기획", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 7, "teamId": 2, "memberId": 8, "leader": false, "roleName": "백엔드", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 8, "teamId": 2, "memberId": 9, "leader": false, "roleName": "백엔드", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 9, "teamId": 2, "memberId": 10, "leader": false, "roleName": "프론트엔드", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 10, "teamId": 2, "memberId": 11, "leader": false, "roleName": "발표", "roleAssignedAt": "2026-10-25T09:00:00"}
   ]
 }
