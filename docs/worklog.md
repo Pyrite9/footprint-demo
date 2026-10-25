@@ -380,3 +380,25 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - `handleUploadDeliverable` 안의 `readRawBody(req).then(...)`: body를 다 읽을 때까지 기다린 뒤 검사한다. 그래서 검사 코드가 `.then` 안에 있다.
 - 내가 채운 가정:
   - 가짜 API에서 20MB를 넘으면 body를 끝까지 읽은 뒤 400을 보낸다(읽는 도중에 끊지 않는다).
+
+### R-1c 산출물 화면 (R-1-1, R-1-2 — 화면)
+- 결정:
+  - 산출물은 조 화면과 나눠 `/teams/:teamId/deliverables` 화면 하나로 둔다. 조 화면에 링크를 둔다. 한 page가 조원·초대·역할·산출물을 모두 갖으면 초심자가 읽기 어렵다.
+  - 순번은 `DeliverableList`가 목록에서 센다(같은 역할 중 id가 작거나 같은 것의 개수). 표시는 `[백엔드 2번째]`. 목록은 하나로 두고 최신이 맨 위다.
+  - 다운로드는 `<a href>`로 바로 열지 않고 `fetch`로 받는다. `<a href>`는 token header를 붙일 수 없다. 받은 Blob을 임시 주소(object URL)로 만들어 `<a download>`를 누른다.
+  - `client.js`를 `send`(공통: token, 실패 처리) + `request`(JSON) + `requestBlob`(파일)로 나눴다. 실패 처리 규칙은 그대로다.
+- 만든 파일: `src/api/deliverables.js`, `src/pages/DeliverablesPage.jsx`, `src/components/DeliverableList.jsx`, `src/components/DeliverableUploadForm.jsx`
+- 고친 파일: `src/api/client.js`, `src/App.jsx`, `src/pages/TeamPage.jsx`(산출물 링크)
+- 확인: `npm run build`, `npm run lint` 통과. 실제 백엔드로 브라우저에서 확인했다.
+  - 역할이 있는 조원(프론트엔드)이 한글 이름 파일 `화면 설계서 수정본.txt`를 올리면 이름이 깨지지 않고 목록 맨 위에 `[프론트엔드 1번째]`로 나왔다. 기존 목록의 순번은 기획 1·2, 백엔드 1·2로 맞았다.
+  - 다운로드 경로는 화면과 같은 방식(fetch + token)으로 받아 내용이 같은 것을 확인했다. 관리자 컴퓨터에 파일이 저장되지 않게 "다운로드" 버튼은 누르지 않았다.
+  - 파일 고르기는 브라우저 자동화의 한계로 화면 JavaScript에서 파일 칸에 시험 파일을 넣어 했다. 올리기 버튼은 화면에서 눌렀다.
+- 읽을 때 볼 곳:
+  - `client.js`의 `send`/`request`/`requestBlob`: 성공 응답을 JSON으로 읽을지 Blob으로 읽을지만 다르다.
+  - `uploadDeliverable`의 `FormData`: `formData.append('file', file)`의 `'file'`이 서버의 `@RequestParam("file")`과 같아야 한다. Content-Type은 붙이지 않는다(브라우저가 구분선과 함께 붙인다).
+  - `DeliverableUploadForm`의 `key={inputKey}`: 파일 칸은 value로 비울 수 없어서, key를 바꿔 React가 칸을 새로 만들게 한다.
+  - `saveBlob`의 `URL.revokeObjectURL`: 임시 주소를 다 쓴 뒤 지워 메모리를 돌려준다.
+  - `setDeliverables([created, ...deliverables])`: 새 산출물을 맨 앞에 둔 새 배열이다(최신이 맨 위).
+- 내가 채운 가정:
+  - 교수와 역할 없는 조원에게는 올리기 form을 숨긴다. 역할 없는 조원에게는 "역할이 배정되면 산출물을 올릴 수 있습니다"를 보인다.
+  - 올린 시각은 `T`를 공백으로 바꿔 `2026-10-25 22:35:55`처럼 보인다.

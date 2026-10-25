@@ -83,6 +83,7 @@ function TeamPage() {
         <main>
             <h1>{team.name}</h1>
             <p><Link to={`/assignments/${team.assignmentId}`}>{team.assignmentTitle}</Link></p>
+            <p><Link to={`/teams/${team.id}/deliverables`}>산출물 보기·올리기</Link></p>
 
             <h2>조원</h2>
             <TeamMemberList

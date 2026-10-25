@@ -5,9 +5,23 @@ const API_URL = import.meta.env.VITE_API_URL
 // 서버가 { code, message } 모양으로 답하지 않았을 때 보여 줄 메시지입니다. (예: 서버가 꺼져 있음, 500 오류)
 const DEFAULT_ERROR_MESSAGE = '요청을 처리하지 못했습니다'
 
-// 모든 API 호출이 거치는 공통 함수입니다. 주소 붙이기, token 붙이기, 실패 처리를 한 곳에서 합니다.
+// 모든 API 호출이 거치는 공통 함수입니다. 응답 body를 JSON으로 읽어 돌려줍니다.
 // options는 { method, body }입니다. body가 FormData면 그대로 보내고, 객체면 JSON으로 바꿔 보냅니다.
 export function request(path, options = {}) {
+  return send(path, options).then((res) => {
+    // 204처럼 body가 없는 성공 응답은 null을 돌려줍니다.
+    return res.status === 204 ? null : res.json()
+  })
+}
+
+// 파일을 내려받을 때 쓰는 공통 함수입니다. 응답 body를 JSON이 아니라 Blob(파일 내용 덩어리)으로 돌려줍니다.
+// <a href>로 바로 열면 token header를 붙일 수 없어서, fetch로 받은 뒤 화면에서 저장합니다.
+export function requestBlob(path) {
+  return send(path, {}).then((res) => res.blob())
+}
+
+// 주소 붙이기, token 붙이기, 실패 처리를 한 곳에서 합니다. 성공하면 fetch의 응답(res)을 그대로 넘깁니다.
+function send(path, options) {
   const token = getToken()
   const headers = {}
   let body = options.body
@@ -28,8 +42,7 @@ export function request(path, options = {}) {
     })
     .then((res) => {
       if (res.ok) {
-        // 204처럼 body가 없는 성공 응답은 null을 돌려줍니다.
-        return res.status === 204 ? null : res.json()
+        return res
       }
 
       // token을 보냈는데 401이면 token이 만료됐거나 틀린 것입니다. token을 지우고 로그인 화면을 새로 엽니다.
