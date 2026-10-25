@@ -1,6 +1,7 @@
 package com.footprint.backend.service;
 
 import com.footprint.backend.entity.Assignment;
+import com.footprint.backend.entity.Team;
 import com.footprint.backend.entity.TeamMember;
 import com.footprint.backend.exception.ForbiddenException;
 import com.footprint.backend.repository.TeamMemberRepository;
@@ -35,5 +36,32 @@ public class TeamAccessChecker {
     public TeamMember checkAssignmentMember(Assignment assignment, Long memberId) {
         return teamMemberRepository.findByTeamAssignmentIdAndMemberId(assignment.getId(), memberId)
                 .orElseThrow(() -> new ForbiddenException("이 과제에 접근할 권한이 없습니다"));
+    }
+
+    // 이 조의 조원이거나 이 조가 속한 과제를 만든 교수인지 확인합니다. 둘 다 아니면 ForbiddenException을 던집니다.
+    // 조의 기록(조원 목록, 산출물)을 볼 때 씁니다.
+    public void checkTeamAccess(Team team, Long memberId) {
+        if (isProfessorOf(team.getAssignment(), memberId)) {
+            return;
+        }
+        checkTeamMember(team, memberId);
+    }
+
+    // 이 조의 조원인지 확인하고 그 조 참여 기록을 돌려줍니다. 조원이 아니면 ForbiddenException을 던집니다.
+    // 조원만 할 수 있는 일(산출물 업로드, 동료평가)에 씁니다. 교수도 여기서는 막힙니다.
+    public TeamMember checkTeamMember(Team team, Long memberId) {
+        return teamMemberRepository.findByTeamIdAndMemberId(team.getId(), memberId)
+                .orElseThrow(() -> new ForbiddenException("이 조에 접근할 권한이 없습니다"));
+    }
+
+    // 이 조의 조장인지 확인하고 그 조 참여 기록을 돌려줍니다. 조장이 아니면 ForbiddenException을 던집니다.
+    // 조장만 할 수 있는 일(초대 코드 발급, 역할 지정)에 씁니다.
+    public TeamMember checkLeader(Team team, Long memberId) {
+        TeamMember teamMember = teamMemberRepository.findByTeamIdAndMemberId(team.getId(), memberId)
+                .orElseThrow(() -> new ForbiddenException("조장만 할 수 있습니다"));
+        if (!teamMember.isLeader()) {
+            throw new ForbiddenException("조장만 할 수 있습니다");
+        }
+        return teamMember;
     }
 }

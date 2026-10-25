@@ -135,3 +135,86 @@ token
 서버 쪽 규칙
 - 접근 검사는 `TeamAccessChecker` 한 곳에서 한다(demo-scope 4절 "권한 검사는 Service 안에서 보이는 메서드 호출로").
 - 조 목록은 조 id 순서다.
+
+---
+
+## 조
+
+### GET /teams/{teamId} — 조 정보 (T-1, 조 화면) · 2026.10.25
+
+조 이름과 그 조가 속한 과제를 받는다. 그 조의 조원과 그 과제를 만든 교수만 부를 수 있다.
+
+200
+```json
+{ "id": 1, "name": "1조", "assignmentId": 1, "assignmentTitle": "발자국 시연 과제" }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `teamId`가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원도 아니고 그 과제를 만든 교수도 아닐 때 |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+
+### GET /teams/{teamId}/members — 조원 목록 (T-1, T-2) · 2026.10.25
+
+조원 목록을 합류한 순서로 받는다. 조장이 맨 앞이다. 권한과 오류는 `GET /teams/{teamId}`와 같다.
+
+200
+```json
+[
+  { "id": 1, "memberId": 2, "name": "김민준", "roleName": "기획", "leader": true },
+  { "id": 2, "memberId": 3, "name": "이서연", "roleName": null, "leader": false }
+]
+```
+
+- `id`는 조 참여 기록 번호다. 역할 지정(T-2-1)의 주소에 쓴다. `memberId`는 회원 번호다.
+- `roleName`은 역할을 배정하기 전이면 `null`이다.
+
+### GET /teams/{teamId}/invite-code — 초대 코드 보기 (T-1-1) · 2026.10.25
+
+조장이 지금 유효한 초대 코드를 본다. 발급한 적이 없으면 `inviteCode`가 `null`이다.
+
+200
+```json
+{ "inviteCode": "3f2b7c1e-8d4a-4c55-9b0e-2a6f1d9e7c10" }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조장이 아닐 때(교수 포함) |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+
+### POST /teams/{teamId}/invite-code — 초대 코드 발급 (T-1-1) · 2026.10.25
+
+조장이 초대 코드를 새로 발급한다. 다시 발급하면 이전 코드는 더 이상 쓸 수 없다. 요청 body는 없다.
+응답과 오류는 `GET /teams/{teamId}/invite-code`와 같다.
+
+화면의 초대 링크는 `<화면 주소>/join/<inviteCode>`이다(예: `http://localhost:5173/join/3f2b7c1e-...`).
+
+### POST /teams/join — 초대 코드로 합류 (T-1-2) · 2026.10.25
+
+학생이 초대 코드로 그 조에 조원으로 합류한다. 역할은 비어 있다(조장이 T-2-1에서 지정).
+
+요청
+```json
+{ "inviteCode": "3f2b7c1e-8d4a-4c55-9b0e-2a6f1d9e7c10" }
+```
+
+200: 합류한 조. 모양은 `GET /teams/{teamId}`와 같다.
+```json
+{ "id": 3, "name": "1조", "assignmentId": 2, "assignmentTitle": "새 과제" }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `inviteCode`가 비었을 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 학생이 아닐 때 |
+| 404 | `NOT_FOUND` | 없는 초대 코드일 때(다시 발급되어 무효가 된 코드 포함) |
+| 409 | `DUPLICATE` | 같은 과제의 다른 조에 이미 있을 때 |
+
+서버 쪽 규칙
+- 이미 그 조의 조원이면 오류 없이 200으로 그 조를 돌려준다(demo-scope 9절 미정 5, 2026.10.25 추천안으로 결정). 링크를 두 번 눌러도 결과가 같다.
+- 한 학생은 같은 과제에서 한 조에만 있다. DB 제약이 아니라 Service가 확인한다.

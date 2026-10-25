@@ -32,4 +32,9 @@ public class Team {
         this.assignment = assignment;
         this.name = name;
     }
+
+    // 초대 코드를 새 값으로 바꿉니다. 이전 코드는 더 이상 이 조를 찾지 못하므로 무효가 됩니다.
+    public void changeInviteCode(String inviteCode) {
+        this.inviteCode = inviteCode;
+    }
 }

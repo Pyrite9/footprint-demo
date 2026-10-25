@@ -66,10 +66,10 @@ public class DataInitializer implements CommandLineRunner {
                 new Assignment("발자국 시연 과제", LocalDate.of(2026, 11, 2), LocalDate.of(2026, 12, 11), professor));
 
         // 목록의 첫 번째 학생이 조장입니다. 2조는 "같은 역할을 여러 조원이 맡을 수 있다"는 규칙을 보이려고 백엔드가 2명입니다.
-        saveTeam(assignment, "1조",
+        saveTeam(assignment, "1조", "demo-team-1",
                 List.of(student01, student02, student03, student04, student05),
                 List.of("기획", "백엔드", "프론트엔드", "디자인", "발표"));
-        saveTeam(assignment, "2조",
+        saveTeam(assignment, "2조", "demo-team-2",
                 List.of(student06, student07, student08, student09, student10),
                 List.of("기획", "백엔드", "백엔드", "프론트엔드", "발표"));
     }
@@ -79,9 +79,12 @@ public class DataInitializer implements CommandLineRunner {
         return memberRepository.save(new Member(email, passwordEncoder.encode(DEV_PASSWORD), name, memberType));
     }
 
-    // 조를 저장하고 조원을 역할과 함께 등록합니다. members와 roleNames는 같은 순서로 짝을 이룹니다.
-    private void saveTeam(Assignment assignment, String name, List<Member> members, List<String> roleNames) {
-        Team team = teamRepository.save(new Team(assignment, name));
+    // 조를 초대 코드와 함께 저장하고 조원을 역할과 함께 등록합니다. members와 roleNames는 같은 순서로 짝을 이룹니다.
+    // 시작 데이터의 초대 코드는 시험하기 쉽게 읽을 수 있는 값으로 둡니다. 조장이 다시 발급하면 무작위 값(UUID)으로 바뀝니다.
+    private void saveTeam(Assignment assignment, String name, String inviteCode, List<Member> members, List<String> roleNames) {
+        Team team = new Team(assignment, name);
+        team.changeInviteCode(inviteCode);
+        teamRepository.save(team);
         for (int i = 0; i < members.size(); i++) {
             boolean leader = (i == 0);
             TeamMember teamMember = new TeamMember(team, members.get(i), leader);

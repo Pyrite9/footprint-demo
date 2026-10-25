@@ -21,4 +21,10 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
 
     // 한 조의 조장 기록을 찾습니다.
     Optional<TeamMember> findByTeamIdAndLeaderTrue(Long teamId);
+
+    // 한 조의 조원 기록을 합류한 순서(id 작은 순)로 찾습니다. 조장은 과제를 만들 때 함께 저장되어 맨 앞입니다.
+    List<TeamMember> findByTeamIdOrderByIdAsc(Long teamId);
+
+    // 한 조에서 한 회원의 조 참여 기록을 찾습니다. 조원이 아니면 빈 Optional입니다.
+    Optional<TeamMember> findByTeamIdAndMemberId(Long teamId, Long memberId);
 }

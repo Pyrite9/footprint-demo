@@ -16,8 +16,8 @@
     {"id": 1, "title": "발자국 시연 과제", "startDate": "2026-11-02", "endDate": "2026-12-11", "professorId": 1}
   ],
   "teams": [
-    {"id": 1, "assignmentId": 1, "name": "1조", "inviteCode": null},
-    {"id": 2, "assignmentId": 1, "name": "2조", "inviteCode": null}
+    {"id": 1, "assignmentId": 1, "name": "1조", "inviteCode": "demo-team-1"},
+    {"id": 2, "assignmentId": 1, "name": "2조", "inviteCode": "demo-team-2"}
   ],
   "teamMembers": [
     {"id": 1, "teamId": 1, "memberId": 2, "leader": true, "roleName": "기획", "roleAssignedAt": "2026-10-25T09:00:00"},
