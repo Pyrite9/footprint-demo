@@ -85,7 +85,8 @@ function TeamPage() {
         <main>
             <h1>{team.name}</h1>
             <p><Link to={`/assignments/${team.assignmentId}`}>{team.assignmentTitle}</Link></p>
-            <p><Link to={`/teams/${team.id}/deliverables`}>산출물 보기·올리기</Link></p>
+            {/* 산출물은 조원만 올립니다. 교수에게는 "보기"만 보여 줍니다. */}
+            <p><Link to={`/teams/${team.id}/deliverables`}>{isMember ? '산출물 보기·올리기' : '산출물 보기'}</Link></p>
             {isMember && <p><Link to={`/teams/${team.id}/evaluation`}>동료평가</Link></p>}
 
             <h2>조원</h2>

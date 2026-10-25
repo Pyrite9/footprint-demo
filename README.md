@@ -45,4 +45,5 @@ DB와 MinIO만 Docker로 켜고, 백엔드와 화면은 내 컴퓨터에서 실�
 - `docs/demo-scope.md`: 시연 범위와 업무 규칙
 - `docs/api-draft.md`: API 명세
 - `docs/postman/`: API를 시연 흐름 순서로 모은 Postman 모음과 쓰는 방법
+- `docs/demo-script.md`: 12.11 시연 대본(준비, 계정, 장면별로 누를 것과 말할 것)
 - `docs/worklog.md`: 작업 기록과 결정
