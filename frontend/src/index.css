@@ -113,10 +113,18 @@
   --radius: 6px;
   --font: 'Pretendard Variable', Pretendard, -apple-system, 'Malgun Gothic', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  /* 글자 크기는 이 다섯 단계만 씁니다. 새 규칙도 px를 직접 쓰지 말고 여기서 고릅니다. */
+  --font-page: 26px; /* 화면 제목(h1) */
+  --font-section: 17px; /* 구역 제목(h2) */
+  --font-body: 15px; /* 본문. 한국어는 GitHub(14px)보다 한 단계 키워야 획이 뭉치지 않습니다. */
+  --font-control: 14px; /* 버튼, 입력 칸, 보조 정보 */
+  --font-tag: 12px; /* 꼬리표(.badge) */
 
   font-family: var(--font);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--font-body);
+  line-height: 1.6;
+  /* Pretendard는 글자 사이를 조금 좁혀야 한국어가 단정해 보입니다. */
+  letter-spacing: -0.01em;
   color: var(--text);
   /* 한국어를 글자 중간이 아니라 띄어쓰기에서 줄 바꿈합니다. 없으면 "이서연"이 "이서/연"으로 끊깁니다. */
   word-break: keep-all;
@@ -138,21 +146,28 @@ body {
 main {
   max-width: 960px;
   margin: 0 auto;
-  padding: 24px 16px 64px;
+  padding: 32px 16px 64px;
 }
 
 h1 {
-  font-size: 24px;
-  font-weight: 600;
-  line-height: 1.25;
-  margin: 0 0 8px;
+  font-size: var(--font-page);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  margin: 0 0 16px;
 }
 
 h2 {
-  font-size: 16px;
+  font-size: var(--font-section);
   font-weight: 600;
-  line-height: 1.5;
-  margin: 24px 0 8px;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+  margin: 32px 0 12px;
+}
+
+/* 기본 굵기(700)는 본문 사이에서 너무 진해서 제목과 같은 600으로 맞춥니다. */
+strong {
+  font-weight: 600;
 }
 
 p {
@@ -170,13 +185,16 @@ a:hover {
 
 code {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--font-control);
+  letter-spacing: 0;
 }
 
+/* 입력 칸과 버튼은 본문보다 한 단계 작게 둡니다. 둘의 높이(32px)가 같아져 한 줄에 놓아도 가지런합니다. */
 input,
 textarea,
 button {
   font: inherit;
+  font-size: var(--font-control);
 }
 
 input:not([type='radio']):not([type='file']),
@@ -228,7 +246,6 @@ button {
   border-radius: var(--radius);
   background: var(--primary-bg);
   color: var(--primary-text);
-  font-size: 14px;
   font-weight: 500;
   line-height: 20px;
   cursor: pointer;
@@ -261,6 +278,11 @@ table {
   border-collapse: collapse;
 }
 
+/* tabular-nums: 숫자 폭을 같게 해서 점수·날짜가 위아래로 가지런히 놓입니다. */
+table {
+  font-variant-numeric: tabular-nums;
+}
+
 th,
 td {
   padding: 8px 12px;
@@ -289,8 +311,14 @@ th {
 
 .app-header .logo {
   color: var(--text);
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--font-section);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* 상단 바의 이름·버튼은 보조 정보라 한 단계 작게 둡니다. */
+.app-header .end {
+  font-size: var(--font-control);
 }
 
 /* 상단 바의 오른쪽 묶음(이름, 테마 버튼, 로그아웃)입니다. margin-left: auto가 남은 공간을 왼쪽에 몰아 오른쪽 끝으로 밉니다. */
@@ -312,9 +340,11 @@ th {
   background: var(--button-bg-hover);
 }
 
-/* 날짜, 크기 같은 보조 정보입니다. */
+/* 날짜, 크기 같은 보조 정보입니다. 본문보다 한 단계 작고 흐리게 둡니다. */
 .muted {
   color: var(--text-muted);
+  font-size: var(--font-control);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 알림 상자 세 가지입니다. 오류는 error(빨강), 완료는 success(초록), 꼭 읽을 안내는 notice(노랑)입니다. */
@@ -346,8 +376,6 @@ th {
 /* 목록(ul)으로 쓴 고정 문구는 글머리 기호(•)가 들어갈 왼쪽 자리를 더 둡니다. */
 ul.notice {
   padding-left: 36px;
-  font-size: 16px;
-  font-weight: 600;
 }
 
 /*
@@ -367,7 +395,7 @@ ul.notice {
   border-bottom: 1px solid var(--border);
   border-radius: var(--radius) var(--radius) 0 0;
   background: var(--bg-subtle);
-  font-size: 14px;
+  font-size: var(--font-body);
 }
 
 /* h2가 없는 상자는 위쪽 여백을 줍니다. */
@@ -391,6 +419,11 @@ ul.notice {
   align-items: center;
   gap: 8px 12px;
   padding: 12px 16px;
+}
+
+/* 목록 줄의 제목 링크(과제명, 조 이름)는 GitHub 저장소 목록처럼 굵게 둡니다. */
+.item-list a {
+  font-weight: 600;
 }
 
 /* 첫 줄을 뺀 모든 줄 위에 선을 긋습니다. "li + li"는 "앞에 li가 있는 li"라는 뜻입니다. */
@@ -419,8 +452,9 @@ ul.notice {
   border: 1px solid var(--border);
   border-radius: 2em;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--font-tag);
   font-weight: 500;
+  letter-spacing: 0;
   line-height: 18px;
   white-space: nowrap;
 }
@@ -471,8 +505,9 @@ main.login {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   max-width: 100%;
+  font-size: var(--font-control);
   font-weight: 600;
 }
 
@@ -505,13 +540,14 @@ main.login {
   display: flex;
   gap: 8px;
   align-items: flex-start;
-  padding: 2px 4px;
+  padding: 3px 8px;
   border-radius: var(--radius);
   cursor: pointer;
 }
 
+/* radio를 글자 첫 줄의 가운데에 맞춥니다(줄 높이 24px - radio 13px) / 2 ≈ 5px. */
 .score-option input {
-  margin-top: 4px;
+  margin: 5px 0 0;
 }
 
 /* 고른 점수 줄을 색으로 표시합니다. :has(input:checked)는 "안에 체크된 radio가 있는 label"이라는 뜻입니다. */
