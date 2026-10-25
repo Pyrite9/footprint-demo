@@ -513,3 +513,26 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 읽을 때 볼 곳:
   - `GlobalExceptionHandler`의 새 handler 2개: Controller에 닿지 못한 요청(없는 주소)도 `@RestControllerAdvice`가 받는다. 단 token이 없으면 Security가 먼저 401로 막는다.
   - `isValidDate`: `new Date`는 13월이면 Invalid Date, 2월 30일이면 3월 2일로 넘어간다. 두 경우를 다 막는다.
+
+## 2026.10.26
+
+### 500 응답 형식 SERVER_ERROR (미정 6 중 500 부분, 관리자 결정)
+- 결정:
+  - 관리자 결정으로 새 code `SERVER_ERROR` 500을 추가했다. 응답은 `{ "code": "SERVER_ERROR", "message": "서버에서 오류가 났습니다" }`. 예외 내용은 응답에 담지 않고 서버 로그(`log.error`)에만 남긴다.
+  - 백엔드는 `GlobalExceptionHandler` 맨 아래에 `@ExceptionHandler(Exception.class)`를 하나 둔다. 이름은 규칙(handle + 예외 이름에서 Exception 뺀 것)대로면 `handle`만 남아서 `handleException`으로 했다.
+  - 모든 예외를 받으면 Spring이 4xx로 처리하던 예외(예: 지원하지 않는 Content-Type 415)까지 500이 된다. 그래서 `ErrorResponse` 중 4xx는 400 `INVALID_INPUT` "요청의 형식이 올바르지 않습니다"로 돌려준다. 선택지는 (A) 4xx는 400 INVALID_INPUT, (B) 원래 상태(415 등)를 그대로 두고 code만 INVALID_INPUT, (C) `ResponseEntityExceptionHandler` 상속이었다. "INVALID_INPUT은 400"을 지키고 상속을 쓰지 않는 A로 했다.
+  - 가짜 API는 `module.exports`를 `[handleRequest, handleError]` 목록으로 바꿨다. json-server가 body-parser 뒤에 차례로 등록하므로, 인자 4개짜리 `handleError`가 처리 중 오류와 body-parser 오류를 받는다. 업로드의 `.then` 안 오류는 `.catch(next)`로 넘긴다.
+  - 같은 handler로 지난 rule-check에서 남긴 "JSON이 아닌 body에 가짜 API가 HTML 400을 줌"도 고쳤다(`err.type === 'entity.parse.failed'` → 400 "요청 body의 형식이 올바르지 않습니다").
+- 고친 파일: `exception/GlobalExceptionHandler.java`, `frontend/mock/middleware.cjs`, `frontend/src/api/client.js`(주석), `docs/api-draft.md`(공통 규칙), `CLAUDE.md`(code 목록), `frontend/README.md`
+- 확인:
+  - 일부러 500 만들기: 실제는 MinIO 컨테이너를 멈추고 다운로드 → 500 `SERVER_ERROR`, 서버 로그에 "처리하지 못한 예외입니다"와 원인. 가짜는 시작 파일 자리를 폴더로 바꾸고 다운로드 → 같은 500 body. 시험 뒤 MinIO와 파일을 되돌렸다.
+  - JSON이 아닌 body: 실제·가짜 모두 400 "요청 body의 형식이 올바르지 않습니다".
+  - `Content-Type: text/plain`: 실제 400 "요청의 형식이 올바르지 않습니다"(전에는 Spring 기본 415), 가짜 400 "입력값이 올바르지 않습니다". 상태와 code는 같고 문구만 다르다(가짜는 body를 읽지 못해 빈 body로 검사).
+  - `gradlew build`, `npm run build`, `npm run lint` 통과. A-1~E-2 시험 요청 결과가 고치기 전과 같았다. Postman 52개 test가 실제·가짜 모두 통과.
+- 읽을 때 볼 곳:
+  - `handleException`이 맨 아래 있어도 순서 때문에 먼저 잡히지 않는다. Spring은 예외 종류가 가장 가까운 handler를 고른다(`NotFoundException`은 `handleNotFound`).
+  - `e instanceof ErrorResponse errorResponse`: 검사와 변수 선언을 한 번에 하는 Java 문법(pattern matching)이다.
+  - 가짜 API의 `handleError(err, req, res, next)`: `next`를 쓰지 않아도 인자 4개를 맞춰야 Express가 오류 처리용으로 알아본다.
+- 내가 채운 가정:
+  - 문구 "서버에서 오류가 났습니다", "요청의 형식이 올바르지 않습니다".
+  - 미정 6의 남은 부분(400에 틀린 필드 담기)은 이번에도 하지 않았다. 지금은 "입력값이 올바르지 않습니다" 한 문구다.

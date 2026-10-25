@@ -56,7 +56,7 @@ docs/       demo-scope.md, api-draft.md, worklog.md
 - 목록 응답은 연결된 데이터를 펼친 모양. 예: 조원 목록 `{ "id", "name", "roleName" }`.
 - API 경로는 복수형(`/assignments`, `/teams/{teamId}/members`).
 - 오류 응답은 `ApiErrorResponse { code, message }` 하나. 처리는 `GlobalExceptionHandler` 한 곳. handler 이름은 `handle` + 예외 이름에서 `Exception` 뺀 것.
-- `code` 목록: `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409. 새 code가 필요하면 먼저 묻는다.
+- `code` 목록: `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409, `SERVER_ERROR` 500(2026.10.26 관리자 결정). 새 code가 필요하면 먼저 묻는다.
 - 전용 예외: `NotFoundException`, `DuplicateException`, `ForbiddenException`. `IllegalArgumentException`을 404로 바꾸지 않는다.
 - 시작 데이터는 `config/DataInitializer`(`CommandLineRunner`). 개발 중 `ddl-auto: create`.
 - 설정값은 `application.yml`에 `${ENV:개발용기본값}` 형태. 조원이 환경 변수 없이 실행돼야 한다. 예: `${JWT_SECRET:...}`.

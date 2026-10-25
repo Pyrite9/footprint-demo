@@ -51,7 +51,7 @@ http://localhost:5173 을 열면 로그인 화면이 나옵니다. 시작 계정
 ## 가짜 API를 쓸 때 알아 둘 것
 
 - 가짜 API는 `db.json`, `mock/middleware.cjs`로 만듭니다. 응답 모양은 실제 API(`docs/api-draft.md`)와 같습니다.
-- 주소마다 `mock/middleware.cjs`의 `handle...` 함수 하나가 실제 API 하나를 흉내 냅니다. 실제 API에 없는 주소는 404입니다. json-server가 기본으로 만드는 주소(`/members` 등)도 막습니다(비밀번호가 그대로 보이기 때문입니다).
+- 주소마다 `mock/middleware.cjs`의 `handle...` 함수 하나가 실제 API 하나를 흉내 냅니다. 실제 API에 없는 주소는 404입니다. 처리하다 오류가 나면 `handleError`가 실제처럼 500 `SERVER_ERROR`(JSON이 아닌 body는 400)로 답합니다. json-server가 기본으로 만드는 주소(`/members` 등)도 막습니다(비밀번호가 그대로 보이기 때문입니다).
 - `db.json`의 시작 데이터(과제 1개, 조 2개, 조원 10명)는 실제 백엔드의 시작 데이터와 같습니다. 목록 이름은 `assignments`, `teams`, `teamMembers`이고 연결은 `assignmentId`, `teamId`, `memberId` 같은 번호로 합니다.
 - 계정은 실제 백엔드의 시작 계정과 같습니다(`backend/README.md`). 비밀번호는 모두 `pass1234`입니다.
 - 가짜 token은 `mock-token-<회원 id>`입니다. 서명이 없으므로 화면 코드는 token을 풀어 읽지 않고 그대로 보내기만 합니다.

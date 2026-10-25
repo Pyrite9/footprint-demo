@@ -386,7 +386,8 @@ function handleGetDeliverables(req, res, loginMember, teamId) {
 }
 
 // POST /teams/{teamId}/deliverables: 역할이 있는 조원이 파일 하나를 올립니다. 검사 순서는 실제 백엔드와 같습니다.
-function handleUploadDeliverable(req, res, loginMember, teamId) {
+// next: 파일을 읽는 도중(.then 안)에 난 오류는 Express가 스스로 잡지 못해서, next로 아래 handleError에 넘깁니다.
+function handleUploadDeliverable(req, res, next, loginMember, teamId) {
   const db = req.app.db
   const boundaryMatch = (req.headers['content-type'] || '').match(/^multipart\/form-data;.*boundary="?([^";]+)"?/)
   if (!boundaryMatch) {
@@ -426,7 +427,7 @@ function handleUploadDeliverable(req, res, loginMember, teamId) {
     }
     db.get('deliverables').push(deliverable).write()
     return res.json(toDeliverableResponse(db, deliverable))
-  })
+  }).catch(next)
 }
 
 // GET /deliverables/{deliverableId}/download: 파일 본문을 내려줍니다.
@@ -540,7 +541,7 @@ function parseIdOrSendError(res, value) {
 }
 
 // 요청마다 실행됩니다. 주소에 맞는 handle 함수가 직접 응답합니다.
-module.exports = function (req, res) {
+function handleRequest(req, res, next) {
   if (req.method === 'POST' && req.path === '/auth/login') {
     return handleLogin(req, res)
   }
@@ -599,7 +600,7 @@ module.exports = function (req, res) {
     const teamId = parseIdOrSendError(res, deliverablesTeamIdText)
     if (teamId === null) return
     if (req.method === 'GET') return handleGetDeliverables(req, res, loginMember, teamId)
-    return handleUploadDeliverable(req, res, loginMember, teamId)
+    return handleUploadDeliverable(req, res, next, loginMember, teamId)
   }
 
   const downloadIdText = matchId(/^\/deliverables\/([^/]+)\/download$/, req.path)
@@ -635,3 +636,18 @@ module.exports = function (req, res) {
   // 실제 API에 없는 주소입니다. json-server의 기본 주소(/members 등)로 넘기면 비밀번호까지 그대로 보이므로 막습니다.
   return sendError(res, 404, 'NOT_FOUND', '없는 주소입니다')
 }
+
+// 요청을 처리하다 난 오류를 받습니다. 실제 백엔드의 GlobalExceptionHandler에서 맨 아래 handleException과 같은 역할입니다.
+// Express는 인자가 4개인 함수를 "오류 처리용"으로 알아봅니다. next는 쓰지 않아도 4개를 맞춰야 합니다.
+function handleError(err, req, res, next) {
+  // JSON으로 읽을 수 없는 body입니다. json-server의 body-parser가 이 오류를 냅니다. 실제 백엔드의 handleHttpMessageNotReadable과 같습니다.
+  if (err.type === 'entity.parse.failed') {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
+  }
+  // 그 밖은 가짜 API의 잘못입니다. 원인은 터미널에만 찍고, 응답에는 담지 않습니다.
+  console.error(err)
+  return sendError(res, 500, 'SERVER_ERROR', '서버에서 오류가 났습니다')
+}
+
+// json-server가 이 목록을 순서대로 등록합니다. 요청은 handleRequest가 처리하고, 오류가 나면 handleError로 갑니다.
+module.exports = [handleRequest, handleError]

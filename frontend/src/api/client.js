@@ -2,7 +2,7 @@ import { getToken, removeToken } from './token'
 
 const API_URL = import.meta.env.VITE_API_URL
 
-// 서버가 { code, message } 모양으로 답하지 않았을 때 보여 줄 메시지입니다. (예: 서버가 꺼져 있음, 500 오류)
+// 서버가 { code, message } 모양으로 답하지 않았을 때 보여 줄 메시지입니다. (예: 서버가 꺼져 있어 응답 자체가 없음)
 const DEFAULT_ERROR_MESSAGE = '요청을 처리하지 못했습니다'
 
 // 모든 API 호출이 거치는 공통 함수입니다. 응답 body를 JSON으로 읽어 돌려줍니다.

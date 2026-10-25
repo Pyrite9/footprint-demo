@@ -1,8 +1,12 @@
 package com.footprint.backend.exception;
 
 import com.footprint.backend.dto.ApiErrorResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -17,8 +21,12 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 // 던져진 예외를 받아 status와 ApiErrorResponse로 바꿔 응답합니다.
 // token 없이 막힌 주소에 온 요청의 401은 Controller 앞에서 막히므로 여기가 아니라 SecurityConfig에서 처리합니다.
 // 여기의 401은 로그인 API가 이메일·비밀번호를 거절한 경우입니다.
+// 위에서부터 더 구체적인 예외의 handler가 먼저 고릅니다. 어디에도 맞지 않는 예외는 맨 아래 handleException이 받습니다.
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    // 예상하지 못한 예외의 원인을 서버 로그에 남길 때 씁니다.
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     // 대상이 없을 때 404 NOT_FOUND로 응답합니다.
     @ExceptionHandler(NotFoundException.class)
@@ -107,5 +115,21 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiErrorResponse handleHttpRequestMethodNotSupported(HttpRequestMethodNotSupportedException e) {
         return new ApiErrorResponse("NOT_FOUND", "없는 주소입니다");
+    }
+
+    // 위 handler들이 받지 않은 나머지 예외를 받습니다. 이름은 규칙대로면 handle만 남아서 handleException으로 둡니다.
+    // 상태 코드가 요청마다 달라서 @ResponseStatus 대신 ResponseEntity로 상태와 body를 함께 돌려줍니다.
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiErrorResponse> handleException(Exception e) {
+        // Spring이 "요청이 틀렸다"고 판단한 예외(ErrorResponse 중 4xx, 예: 지원하지 않는 Content-Type)는 서버 오류가 아닙니다.
+        // code 목록에 맞춰 400 INVALID_INPUT으로 돌려줍니다.
+        if (e instanceof ErrorResponse errorResponse && errorResponse.getStatusCode().is4xxClientError()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiErrorResponse("INVALID_INPUT", "요청의 형식이 올바르지 않습니다"));
+        }
+        // 그 밖은 서버의 잘못(500)입니다. 원인은 로그에만 남기고, 응답에는 내부 내용(예외 메시지)을 담지 않습니다.
+        log.error("처리하지 못한 예외입니다", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ApiErrorResponse("SERVER_ERROR", "서버에서 오류가 났습니다"));
     }
 }

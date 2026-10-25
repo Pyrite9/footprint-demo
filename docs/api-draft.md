@@ -3,10 +3,11 @@
 `../footprint-study/docs/api.md`가 생기기 전까지 쓰는 시연본의 API 초안이다. Controller를 만들기 전에 여기에 먼저 적고 관리자 확인을 받는다.
 
 공통
-- 오류 응답은 모두 `{ "code": "...", "message": "..." }`. `code`는 `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409.
+- 오류 응답은 모두 `{ "code": "...", "message": "..." }`. `code`는 `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409, `SERVER_ERROR` 500.
 - `/auth/**` 말고는 모두 header에 `Authorization: Bearer <accessToken>`이 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
 - 없는 주소, 또는 주소는 있지만 그 method가 없는 요청(예: `DELETE /assignments/1`)은 404 `NOT_FOUND` "없는 주소입니다"(2026.10.25, 미정 6 중 404 부분). token이 없으면 그보다 먼저 401이다.
-- 서버 내부 오류(500)는 아직 Spring 기본 모양이다(미정 6 중 500 부분, 새 `code`가 필요해서 남겨 둠). 화면은 `code`가 없는 실패를 "요청을 처리하지 못했습니다"로 보여 준다.
+- 서버 내부 오류는 500 `SERVER_ERROR` "서버에서 오류가 났습니다"(2026.10.26 관리자 결정, 미정 6 중 500 부분). 원인(예외 내용)은 응답에 담지 않고 서버 로그에만 남긴다.
+- 위 code에 들어가지 않는 요청 오류(예: 지원하지 않는 Content-Type)는 400 `INVALID_INPUT` "요청의 형식이 올바르지 않습니다".
 
 ---
 
