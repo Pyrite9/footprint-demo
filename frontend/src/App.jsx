@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import RequireLogin from './components/RequireLogin'
 import AssignmentCreatePage from './pages/AssignmentCreatePage'
+import AssignmentDetailPage from './pages/AssignmentDetailPage'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 
@@ -15,6 +16,8 @@ function App() {
                 <Route element={<RequireLogin />}>
                     <Route path="/" element={<HomePage />} />
                     <Route path="/assignments/new" element={<AssignmentCreatePage />} />
+                    {/* :assignmentId 자리의 값은 page에서 useParams()로 꺼냅니다. React Router는 더 구체적인 /assignments/new를 먼저 고르므로 "new"가 id로 읽히지 않습니다. */}
+                    <Route path="/assignments/:assignmentId" element={<AssignmentDetailPage />} />
                 </Route>
 
                 {/* 없는 주소는 첫 화면으로 보냅니다. */}

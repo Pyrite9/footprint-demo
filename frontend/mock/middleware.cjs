@@ -107,6 +107,71 @@ function handleCreateAssignment(req, res, loginMember) {
   return res.json({ id: assignment.id, title, startDate, endDate })
 }
 
+// 과제 목록과 상세에 쓰는 과제 모양 { id, title, startDate, endDate }입니다. 실제 AssignmentResponse와 같습니다.
+function toAssignmentResponse(assignment) {
+  const { id, title, startDate, endDate } = assignment
+  return { id, title, startDate, endDate }
+}
+
+// GET /assignments: 교수는 만든 과제, 학생은 참여한 과제를 최신순으로 돌려줍니다.
+function handleGetAssignments(req, res, loginMember) {
+  const db = req.app.db
+  if (loginMember.memberType === 'PROFESSOR') {
+    const assignments = db.get('assignments').filter({ professorId: loginMember.id }).sortBy('id').reverse().value()
+    return res.json(assignments.map(toAssignmentResponse))
+  }
+  // 조 참여 기록(teamMembers) → 조(teams) → 과제(assignments) 순서로 번호를 따라갑니다.
+  const myTeamMembers = db.get('teamMembers').filter({ memberId: loginMember.id }).sortBy('id').reverse().value()
+  const assignments = myTeamMembers.map((teamMember) => {
+    const team = db.get('teams').find({ id: teamMember.teamId }).value()
+    return db.get('assignments').find({ id: team.assignmentId }).value()
+  })
+  return res.json(assignments.map(toAssignmentResponse))
+}
+
+// GET /assignments/{assignmentId}: 과제와 볼 수 있는 조 목록을 돌려줍니다. 교수는 조 전부, 학생은 자기 조만입니다.
+function handleGetAssignment(req, res, loginMember, assignmentId) {
+  const db = req.app.db
+  const assignment = db.get('assignments').find({ id: assignmentId }).value()
+  if (!assignment) {
+    return sendError(res, 404, 'NOT_FOUND', '과제가 없습니다. id=' + assignmentId)
+  }
+
+  let teams = db.get('teams').filter({ assignmentId }).sortBy('id').value()
+  if (assignment.professorId !== loginMember.id) {
+    const teamIds = teams.map((team) => team.id)
+    const myTeamMember = db.get('teamMembers').find((teamMember) => teamMember.memberId === loginMember.id && teamIds.includes(teamMember.teamId)).value()
+    if (!myTeamMember) {
+      return sendError(res, 403, 'FORBIDDEN', '이 과제에 접근할 권한이 없습니다')
+    }
+    teams = teams.filter((team) => team.id === myTeamMember.teamId)
+  }
+
+  const professor = db.get('members').find({ id: assignment.professorId }).value()
+  const teamSummaries = teams.map((team) => {
+    const leaderTeamMember = db.get('teamMembers').find({ teamId: team.id, leader: true }).value()
+    const leader = db.get('members').find({ id: leaderTeamMember.memberId }).value()
+    return { id: team.id, name: team.name, leaderName: leader.name }
+  })
+  return res.json({ ...toAssignmentResponse(assignment), professorName: professor.name, teams: teamSummaries })
+}
+
+// 주소가 pattern과 맞으면 {id} 자리의 글자를 돌려줍니다. 맞지 않으면 null입니다.
+// 예: matchId(/^\/assignments\/([^/]+)$/, '/assignments/3') → '3'(글자). 숫자 검사는 parseIdOrSendError가 합니다.
+function matchId(pattern, path) {
+  const match = path.match(pattern)
+  return match ? match[1] : null
+}
+
+// 실제 백엔드처럼 주소의 {id} 자리가 숫자가 아니면 400을 보냅니다. 숫자이면 숫자로 바꿔 돌려줍니다.
+function parseIdOrSendError(res, value) {
+  if (!/^\d+$/.test(value)) {
+    sendError(res, 400, 'INVALID_INPUT', '주소의 값이 올바르지 않습니다')
+    return null
+  }
+  return Number(value)
+}
+
 // 요청마다 실행됩니다. 주소에 맞는 handle 함수가 직접 응답합니다.
 module.exports = function (req, res) {
   if (req.method === 'POST' && req.path === '/auth/login') {
@@ -124,6 +189,16 @@ module.exports = function (req, res) {
   }
   if (req.method === 'POST' && req.path === '/assignments') {
     return handleCreateAssignment(req, res, loginMember)
+  }
+  if (req.method === 'GET' && req.path === '/assignments') {
+    return handleGetAssignments(req, res, loginMember)
+  }
+
+  const assignmentIdText = matchId(/^\/assignments\/([^/]+)$/, req.path)
+  if (req.method === 'GET' && assignmentIdText !== null) {
+    const assignmentId = parseIdOrSendError(res, assignmentIdText)
+    if (assignmentId === null) return
+    return handleGetAssignment(req, res, loginMember, assignmentId)
   }
 
   // 실제 API에 없는 주소입니다. json-server의 기본 주소(/members 등)로 넘기면 비밀번호까지 그대로 보이므로 막습니다.

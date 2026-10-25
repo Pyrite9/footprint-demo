@@ -8,6 +8,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 // 던져진 예외를 받아 status와 ApiErrorResponse로 바꿔 응답합니다.
 // token 없이 막힌 주소에 온 요청의 401은 Controller 앞에서 막히므로 여기가 아니라 SecurityConfig에서 처리합니다.
@@ -55,6 +56,13 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiErrorResponse handleNotValid(MethodArgumentNotValidException e) {
         return new ApiErrorResponse("INVALID_INPUT", "입력값이 올바르지 않습니다");
+    }
+
+    // 주소의 값이 받을 타입과 맞지 않을 때(예: /assignments/abc) 400 INVALID_INPUT으로 응답합니다.
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiErrorResponse handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        return new ApiErrorResponse("INVALID_INPUT", "주소의 값이 올바르지 않습니다");
     }
 
     // JSON으로 읽을 수 없는 요청 body를 400 INVALID_INPUT으로 응답합니다.

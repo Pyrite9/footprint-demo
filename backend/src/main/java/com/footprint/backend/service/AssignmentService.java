@@ -7,6 +7,7 @@ import com.footprint.backend.entity.Team;
 import com.footprint.backend.entity.TeamMember;
 import com.footprint.backend.exception.ForbiddenException;
 import com.footprint.backend.exception.InvalidInputException;
+import com.footprint.backend.exception.NotFoundException;
 import com.footprint.backend.repository.AssignmentRepository;
 import com.footprint.backend.repository.MemberRepository;
 import com.footprint.backend.repository.TeamMemberRepository;
@@ -20,7 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-// 과제를 만듭니다. 과제, 조, 조장을 한 번에 저장합니다.
+// 과제를 만들고 조회합니다. 만들 때는 과제, 조, 조장을 한 번에 저장합니다.
 @Service
 public class AssignmentService {
 
@@ -30,15 +31,17 @@ public class AssignmentService {
     private final AssignmentRepository assignmentRepository;
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamAccessChecker teamAccessChecker;
 
     public AssignmentService(MemberService memberService, MemberRepository memberRepository,
                              AssignmentRepository assignmentRepository, TeamRepository teamRepository,
-                             TeamMemberRepository teamMemberRepository) {
+                             TeamMemberRepository teamMemberRepository, TeamAccessChecker teamAccessChecker) {
         this.memberService = memberService;
         this.memberRepository = memberRepository;
         this.assignmentRepository = assignmentRepository;
         this.teamRepository = teamRepository;
         this.teamMemberRepository = teamMemberRepository;
+        this.teamAccessChecker = teamAccessChecker;
     }
 
     // 과제를 만들고, leaderEmails 순서대로 "1조", "2조"…와 각 조의 조장을 저장합니다.
@@ -62,6 +65,39 @@ public class AssignmentService {
             teamMemberRepository.save(new TeamMember(team, leaders.get(i), true));
         }
         return assignment;
+    }
+
+    // 로그인한 회원이 볼 수 있는 과제 목록입니다. 교수는 자기가 만든 과제, 학생은 조원으로 참여한 과제입니다.
+    public List<Assignment> findAllForMember(Long memberId) {
+        Member member = memberService.findById(memberId);
+        if (member.getMemberType() == MemberType.PROFESSOR) {
+            return assignmentRepository.findByProfessorIdOrderByIdDesc(memberId);
+        }
+        // 조 참여 기록에서 조 → 과제로 따라갑니다. 한 학생은 한 과제에서 한 조에만 있으므로 같은 과제가 두 번 나오지 않습니다.
+        return teamMemberRepository.findByMemberIdOrderByIdDesc(memberId).stream()
+                .map(teamMember -> teamMember.getTeam().getAssignment())
+                .toList();
+    }
+
+    // 과제 하나를 찾습니다. 과제를 만든 교수나 그 과제의 조원이 아니면 ForbiddenException을 던집니다.
+    public Assignment findById(Long assignmentId, Long memberId) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new NotFoundException("과제가 없습니다. id=" + assignmentId));
+        teamAccessChecker.checkAssignmentAccess(assignment, memberId);
+        return assignment;
+    }
+
+    // 과제 상세에 보여 줄 조장 기록 목록입니다. 교수는 조 전부, 학생은 자기 조 하나만 받습니다.
+    // 조마다 조장이 한 명이라 조장 기록 하나가 조 하나입니다(조 이름과 조장 이름을 함께 꺼낼 수 있습니다).
+    public List<TeamMember> findVisibleTeamLeaders(Assignment assignment, Long memberId) {
+        if (teamAccessChecker.isProfessorOf(assignment, memberId)) {
+            return teamMemberRepository.findByTeamAssignmentIdAndLeaderTrueOrderByTeamId(assignment.getId());
+        }
+        TeamMember myTeamMember = teamAccessChecker.checkAssignmentMember(assignment, memberId);
+        Long myTeamId = myTeamMember.getTeam().getId();
+        TeamMember leader = teamMemberRepository.findByTeamIdAndLeaderTrue(myTeamId)
+                .orElseThrow(() -> new NotFoundException("조장이 없습니다. teamId=" + myTeamId));
+        return List.of(leader);
     }
 
     // 교수가 아니면 ForbiddenException을 던집니다. 과제는 교수만 만듭니다.
