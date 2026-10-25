@@ -24,3 +24,8 @@ export function issueInviteCode(teamId) {
 export function joinTeam(inviteCode) {
   return request('/teams/join', { method: 'POST', body: { inviteCode } })
 }
+
+// 조장이 조원(teamMemberId: 조 참여 번호)에게 역할을 지정합니다. 역할이 지정된 조원 { id, memberId, name, roleName, leader }를 돌려줍니다.
+export function assignRole(teamId, teamMemberId, roleName) {
+  return request(`/teams/${teamId}/members/${teamMemberId}/role`, { method: 'POST', body: { roleName } })
+}

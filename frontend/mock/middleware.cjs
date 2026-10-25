@@ -273,6 +273,31 @@ function handleJoinTeam(req, res, loginMember) {
   return res.json(toTeamResponse(db, team))
 }
 
+// POST /teams/{teamId}/members/{teamMemberId}/role: 조장이 역할이 없는 조원에게 역할을 지정합니다.
+function handleAssignRole(req, res, loginMember, teamId, teamMemberId) {
+  const db = req.app.db
+  const { roleName } = req.body
+  // @NotBlank @Size(max = 255) 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다.
+  if (isBlank(roleName) || roleName.length > 255) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
+  }
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team || !checkLeader(db, res, team, loginMember)) return
+
+  const target = db.get('teamMembers').find({ id: teamMemberId, teamId }).value()
+  if (!target) {
+    return sendError(res, 404, 'NOT_FOUND', '이 조의 조원이 아닙니다. id=' + teamMemberId)
+  }
+  if (target.roleName !== null) {
+    return sendError(res, 409, 'DUPLICATE', '이미 역할이 지정된 조원입니다')
+  }
+
+  // 실제 백엔드처럼 지정 시각은 서버(가짜 API)의 현재 시각입니다.
+  db.get('teamMembers').find({ id: teamMemberId }).assign({ roleName: roleName.trim(), roleAssignedAt: new Date().toISOString() }).write()
+  const updated = db.get('teamMembers').find({ id: teamMemberId }).value()
+  return res.json(toTeamMemberResponse(db, updated))
+}
+
 // 주소가 pattern과 맞으면 {id} 자리의 글자를 돌려줍니다. 맞지 않으면 null입니다.
 // 예: matchId(/^\/assignments\/([^/]+)$/, '/assignments/3') → '3'(글자). 숫자 검사는 parseIdOrSendError가 합니다.
 function matchId(pattern, path) {
@@ -342,6 +367,15 @@ module.exports = function (req, res) {
     if (teamId === null) return
     if (req.method === 'GET') return handleGetInviteCode(req, res, loginMember, teamId)
     return handleIssueInviteCode(req, res, loginMember, teamId)
+  }
+
+  const roleMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/role$/)
+  if (req.method === 'POST' && roleMatch) {
+    const teamId = parseIdOrSendError(res, roleMatch[1])
+    if (teamId === null) return
+    const teamMemberId = parseIdOrSendError(res, roleMatch[2])
+    if (teamMemberId === null) return
+    return handleAssignRole(req, res, loginMember, teamId, teamMemberId)
   }
 
   // 실제 API에 없는 주소입니다. json-server의 기본 주소(/members 등)로 넘기면 비밀번호까지 그대로 보이므로 막습니다.

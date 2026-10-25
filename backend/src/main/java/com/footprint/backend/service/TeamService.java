@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-// 조 정보와 조원 목록을 조회하고, 초대 코드 발급과 초대 코드로 합류를 처리합니다.
+// 조 정보와 조원 목록을 조회하고, 초대 코드 발급, 초대 코드로 합류, 역할 지정을 처리합니다.
 @Service
 public class TeamService {
 
@@ -85,6 +85,25 @@ public class TeamService {
 
         teamMemberRepository.save(new TeamMember(team, member, false));
         return team;
+    }
+
+    // 조장이 조원 한 명에게 역할을 지정합니다. 역할이 없는 조원에게만 지정할 수 있습니다(역할 변경은 2단계).
+    @Transactional
+    public TeamMember assignRole(Long teamId, Long teamMemberId, String roleName, Long memberId) {
+        Team team = findTeam(teamId);
+        teamAccessChecker.checkLeader(team, memberId);
+
+        // 다른 조의 조원 번호를 넣어도 찾지 못하도록 조 번호와 함께 확인합니다.
+        TeamMember target = teamMemberRepository.findById(teamMemberId)
+                .filter(teamMember -> teamMember.getTeam().getId().equals(teamId))
+                .orElseThrow(() -> new NotFoundException("이 조의 조원이 아닙니다. id=" + teamMemberId));
+        if (target.getRoleName() != null) {
+            throw new DuplicateException("이미 역할이 지정된 조원입니다");
+        }
+
+        // 앞뒤 공백을 지웁니다. " 백엔드"와 "백엔드"가 다른 역할로 나뉘면 산출물 순번이 끊깁니다.
+        target.assignRole(roleName.trim());
+        return target;
     }
 
     // 조를 찾습니다. 없으면 NotFoundException을 던집니다.

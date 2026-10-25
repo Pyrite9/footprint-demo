@@ -1,6 +1,7 @@
 package com.footprint.backend.controller;
 
 import com.footprint.backend.dto.InviteCodeResponse;
+import com.footprint.backend.dto.RoleAssignRequest;
 import com.footprint.backend.dto.TeamJoinRequest;
 import com.footprint.backend.dto.TeamMemberResponse;
 import com.footprint.backend.dto.TeamResponse;
@@ -51,6 +52,13 @@ public class TeamController {
     @PostMapping("/{teamId}/invite-code")
     public InviteCodeResponse issueInviteCode(@AuthenticationPrincipal Long memberId, @PathVariable Long teamId) {
         return new InviteCodeResponse(teamService.issueInviteCode(teamId, memberId));
+    }
+
+    // 조장이 조원에게 역할을 지정하고, 역할이 지정된 조원을 돌려줍니다.
+    @PostMapping("/{teamId}/members/{teamMemberId}/role")
+    public TeamMemberResponse assignRole(@AuthenticationPrincipal Long memberId, @PathVariable Long teamId,
+                                         @PathVariable Long teamMemberId, @Valid @RequestBody RoleAssignRequest request) {
+        return TeamMemberResponse.from(teamService.assignRole(teamId, teamMemberId, request.roleName(), memberId));
     }
 
     // 초대 코드로 조에 합류하고 합류한 조를 돌려줍니다.
