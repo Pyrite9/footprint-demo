@@ -72,7 +72,7 @@ function EvaluationPage() {
     if (error) {
         return (
             <main>
-                <p>{error}</p>
+                <p className="error">{error}</p>
                 <p><Link to="/">과제 목록으로</Link></p>
             </main>
         )
@@ -84,12 +84,12 @@ function EvaluationPage() {
 
     return (
         <main>
+            <p className="links"><Link to={`/teams/${team.id}`}>← {team.name}</Link></p>
             <h1>{team.name} 동료평가</h1>
             <EvaluationNotice />
-            <p><Link to={`/teams/${team.id}`}>조 화면으로</Link></p>
 
             {status.submitted && (
-                <p>동료평가를 제출했습니다. 제출 시각: {status.submittedAt.replace('T', ' ')}. 제출한 평가는 고칠 수 없습니다.</p>
+                <p className="success">동료평가를 제출했습니다. 제출 시각: {status.submittedAt.replace('T', ' ')}. 제출한 평가는 고칠 수 없습니다.</p>
             )}
 
             {!status.submitted && targets.length === 0 && <p>평가할 조원이 없습니다.</p>}
@@ -114,12 +114,14 @@ function EvaluationPage() {
                 <>
                     <p>아래 내용으로 제출합니다. 제출한 평가는 고칠 수 없습니다.</p>
                     <EvaluationReview targets={targets} inputs={inputs} />
-                    <button type="button" onClick={() => setReviewing(false)} disabled={submitting}>고치기</button>{' '}
-                    <button type="button" onClick={() => handleSubmit(targets)} disabled={submitting}>제출</button>
+                    <div className="row">
+                        <button type="button" className="secondary" onClick={() => setReviewing(false)} disabled={submitting}>고치기</button>
+                        <button type="button" onClick={() => handleSubmit(targets)} disabled={submitting}>제출</button>
+                    </div>
                 </>
             )}
 
-            {actionError && <p>{actionError}</p>}
+            {actionError && <p className="error">{actionError}</p>}
         </main>
     )
 }

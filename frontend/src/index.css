@@ -1,111 +1,361 @@
+/*
+  화면 전체의 스타일입니다. 이 파일 하나만 씁니다(main.jsx가 불러옵니다).
+  1) 색과 크기는 :root의 변수(--이름)로 정하고, 아래에서는 var(--이름)로 씁니다. 색을 바꿀 때는 :root만 고칩니다.
+  2) 대부분은 태그(button, table 등)에 바로 겁니다. 그래서 새 화면도 태그만 쓰면 같은 모양이 됩니다.
+  3) class는 태그만으로 구분할 수 없는 곳에만 붙입니다. 아래 "class" 부분에 모아 두었습니다.
+*/
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-text: #1f2328;
+  --color-muted: #5b6270;
+  --color-border: #d6dae1;
+  --color-accent: #2453c7;
+  --color-accent-hover: #1b419e;
+  --color-accent-soft: #e8eefb;
+  --color-error: #b42318;
+  --color-error-soft: #fdecea;
+  --color-notice: #7a4b00;
+  --color-notice-soft: #fff4d6;
+  --color-success: #1a6b3c;
+  --color-success-soft: #e6f4ec;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --radius: 8px;
+  --font: 'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  --font-mono: Consolas, ui-monospace, monospace;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-text);
+  /* 한국어를 글자 중간이 아니라 띄어쓰기에서 줄 바꿈합니다. 없으면 "이서연"이 "이서/연"으로 끊깁니다. */
+  word-break: keep-all;
+  /* 시연은 프로젝터로 하므로 밝은 화면 하나만 둡니다. 운영체제가 어두운 모드여도 입력 칸이 밝게 나옵니다. */
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+/* padding과 border를 width 안에 포함해서 계산합니다. width: 100%인 입력 칸이 화면 밖으로 넘치지 않습니다. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background: var(--color-bg);
 }
 
+/* 화면 내용이 들어가는 가운데 기둥입니다. 넓은 화면에서도 한 줄이 너무 길어지지 않게 폭을 제한합니다. */
 #root {
-  width: 1126px;
-  max-width: 100%;
+  max-width: 880px;
   margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+  padding: 32px 16px 64px;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
+/* ---------- 글자 ---------- */
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
+  font-size: 28px;
+  line-height: 1.3;
   margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+h2 {
+  font-size: 20px;
+  line-height: 1.4;
+  margin: 32px 0 12px;
+}
+
+p {
+  margin: 0 0 12px;
+}
+
+a {
+  color: var(--color-accent);
+}
+
+a:hover {
+  color: var(--color-accent-hover);
 }
 
 code {
+  font-family: var(--font-mono);
   font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+}
+
+/* ---------- 입력 ---------- */
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+input:not([type='radio']):not([type='file']),
+textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* 입력 칸을 누르면 테두리를 강조해 지금 어디에 쓰는지 보이게 합니다. */
+input:focus,
+textarea:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+/* 이메일은 길어서 기본 폭이면 잘립니다. 좁은 화면에서는 화면 폭을 넘지 않습니다(max-width). */
+input[type='email'] {
+  width: 280px;
+  max-width: 100%;
+}
+
+button {
+  padding: 8px 16px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius);
+  background: var(--color-accent);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--color-accent-hover);
+}
+
+/* 요청을 보내는 중에 막아 둔 버튼입니다(disabled). 눌리지 않는다는 것이 보이게 흐리게 합니다. */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+fieldset {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+legend {
+  padding: 0 4px;
+  font-weight: bold;
+}
+
+/* ---------- 표 ---------- */
+
+/* 표를 감싸는 상자입니다. 화면이 좁아 표가 넘치면 표만 가로로 밀어 볼 수 있게 합니다(화면 전체가 옆으로 밀리지 않습니다). */
+.table-scroll {
+  margin: 0 0 16px;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+}
+
+th,
+td {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--color-accent-soft);
+}
+
+/* ---------- class ---------- */
+
+/* 덜 중요한 버튼입니다(빼기, 조 추가, 고치기, 다운로드, 로그아웃 등). 테두리만 있는 흰 버튼입니다. */
+.secondary {
+  background: var(--color-surface);
+  color: var(--color-accent);
+}
+
+.secondary:hover {
+  background: var(--color-accent-soft);
+}
+
+/* 날짜, 크기 같은 보조 정보입니다. */
+.muted {
+  color: var(--color-muted);
+}
+
+/* 오류 메시지입니다. 화면마다 {error && <p className="error">...}로 씁니다. */
+.error {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+
+/* 완료 안내입니다(예: 동료평가를 제출했습니다). */
+.success {
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+/* 동료평가 화면 맨 위의 고정 문구입니다. 눈에 띄게 노란 상자로 둡니다. */
+.notice {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border: 1px solid #f0c75e;
+  border-radius: var(--radius);
+  background: var(--color-notice-soft);
+  color: var(--color-notice);
+}
+
+/* 목록(ul)으로 쓴 고정 문구는 글머리 기호(•)가 들어갈 왼쪽 자리를 더 둡니다. */
+ul.notice {
+  padding-left: 36px;
+  font-size: 18px;
+}
+
+/* 흰 상자입니다. 초대 링크, 업로드 form, 평가 대상 한 명처럼 한 덩어리로 보여야 하는 곳에 씁니다. */
+.panel {
+  margin: 16px 0;
+  padding: 16px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.panel h2 {
+  margin-top: 0;
+}
+
+/* 과제·조·조원·산출물처럼 같은 모양이 반복되는 목록입니다. 줄마다 흰 상자로 그립니다. */
+.item-list {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.item-list li {
+  /* flex: 한 줄 안의 내용(이름, 입력 칸, 버튼)을 가로로 늘어놓고, 좁으면 다음 줄로 넘깁니다(wrap). */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+/* 목록 줄 오른쪽 끝에 붙일 버튼·form입니다. margin-left: auto가 남은 공간을 왼쪽에 몰아 오른쪽으로 밉니다. */
+.item-list .end {
+  margin-left: auto;
+}
+
+/* 목록 줄 안의 form(역할 지정)은 줄 바깥 여백을 없앱니다. */
+.item-list .row {
+  margin: 0;
+}
+
+/* 역할 이름처럼 짧은 꼬리표입니다(예: [백엔드 2번째]). */
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* 화면 위쪽의 이동 링크 줄입니다(과제로, 산출물, 동료평가 등). */
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0 0 16px;
+}
+
+/* 버튼이나 입력 칸을 가로로 늘어놓는 줄입니다. 좁으면 다음 줄로 넘깁니다. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 12px;
+}
+
+/* 로그인 form입니다. 칸을 세로로 쌓습니다. */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+}
+
+.login-form input {
+  width: 100%;
+}
+
+/* 과제 만들기 form의 "이름 + 칸" 한 줄입니다. 이름을 칸 위에 둡니다. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 100%;
+}
+
+/* 초대 링크 주소입니다. 긴 주소가 화면 밖으로 넘치지 않게 아무 곳에서나 줄을 바꿉니다. */
+.invite-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  word-break: break-all;
+}
+
+/* 동료평가에서 한 사람의 6개 항목입니다. 넓은 화면에서는 2칸으로 놓아 화면 길이를 줄입니다. */
+.criteria {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+@media (min-width: 720px) {
+  .criteria {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* 점수 하나(radio + 문장)입니다. 줄 전체를 눌러도 고를 수 있게 label을 한 줄로 채웁니다. */
+.score-option {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.score-option input {
+  margin-top: 5px;
+}
+
+/* 고른 점수 줄을 색으로 표시합니다. :has(input:checked)는 "안에 체크된 radio가 있는 label"이라는 뜻입니다. */
+.score-option:has(input:checked) {
+  border-radius: 4px;
+  background: var(--color-accent-soft);
 }

@@ -31,12 +31,13 @@ function LoginPage() {
     return (
         <main>
             <h1>발자국 로그인</h1>
-            <form onSubmit={handleSubmit}>
+            <p className="muted">조별과제 과정기록 & 평가지원 서비스</p>
+            <form onSubmit={handleSubmit} className="panel login-form">
                 <input type="email" value={email} placeholder="이메일" onChange={(event) => setEmail(event.target.value)} />
                 <input type="password" value={password} placeholder="비밀번호" onChange={(event) => setPassword(event.target.value)} />
                 <button type="submit">로그인</button>
+                {error && <p className="error">{error}</p>}
             </form>
-            {error && <p>{error}</p>}
         </main>
     )
 }

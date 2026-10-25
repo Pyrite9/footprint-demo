@@ -6,8 +6,8 @@ function RoleAssignForm({ value, onChange, onSubmit, disabled }) {
     }
 
     return (
-        <form onSubmit={handleSubmit} style={{ display: 'inline' }}>
-            {' '}
+        // end: 조원 목록 줄의 오른쪽 끝에 붙입니다. row: 입력 칸과 버튼을 가로로 놓습니다(index.css).
+        <form onSubmit={handleSubmit} className="row end">
             <input value={value} placeholder="역할명" onChange={(event) => onChange(event.target.value)} />
             <button type="submit" disabled={disabled}>지정</button>
         </form>

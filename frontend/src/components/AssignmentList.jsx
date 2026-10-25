@@ -7,11 +7,11 @@ function AssignmentList({ assignments }) {
     }
 
     return (
-        <ul>
+        <ul className="item-list">
             {assignments.map((assignment) => (
                 <li key={assignment.id}>
-                    <Link to={`/assignments/${assignment.id}`}>{assignment.title}</Link>{' '}
-                    ({assignment.startDate} ~ {assignment.endDate})
+                    <Link to={`/assignments/${assignment.id}`}>{assignment.title}</Link>
+                    <span className="muted">{assignment.startDate} ~ {assignment.endDate}</span>
                 </li>
             ))}
         </ul>

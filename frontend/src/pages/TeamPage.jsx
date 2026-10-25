@@ -70,7 +70,7 @@ function TeamPage() {
     if (error) {
         return (
             <main>
-                <p>{error}</p>
+                <p className="error">{error}</p>
                 <p><Link to="/">과제 목록으로</Link></p>
             </main>
         )
@@ -83,11 +83,13 @@ function TeamPage() {
 
     return (
         <main>
+            <p className="links"><Link to={`/assignments/${team.assignmentId}`}>← {team.assignmentTitle}</Link></p>
             <h1>{team.name}</h1>
-            <p><Link to={`/assignments/${team.assignmentId}`}>{team.assignmentTitle}</Link></p>
-            {/* 산출물은 조원만 올립니다. 교수에게는 "보기"만 보여 줍니다. */}
-            <p><Link to={`/teams/${team.id}/deliverables`}>{isMember ? '산출물 보기·올리기' : '산출물 보기'}</Link></p>
-            {isMember && <p><Link to={`/teams/${team.id}/evaluation`}>동료평가</Link></p>}
+            <nav className="links">
+                {/* 산출물은 조원만 올립니다. 교수에게는 "보기"만 보여 줍니다. */}
+                <Link to={`/teams/${team.id}/deliverables`}>{isMember ? '산출물 보기·올리기' : '산출물 보기'}</Link>
+                {isMember && <Link to={`/teams/${team.id}/evaluation`}>동료평가</Link>}
+            </nav>
 
             <h2>조원</h2>
             <TeamMemberList
@@ -100,7 +102,7 @@ function TeamPage() {
             />
 
             {isLeader && <InviteLinkPanel inviteCode={inviteCode} onIssue={handleIssueInviteCode} issuing={issuing} />}
-            {actionError && <p>{actionError}</p>}
+            {actionError && <p className="error">{actionError}</p>}
         </main>
     )
 }

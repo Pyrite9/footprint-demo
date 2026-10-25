@@ -45,51 +45,53 @@ function AssignmentCreatePage() {
 
     return (
         <main>
+            <p className="links"><Link to="/">← 과제 목록</Link></p>
             <h1>과제 만들기</h1>
-            <p>등록한 과제는 고치거나 지울 수 없습니다.</p>
+            <p className="notice">등록한 과제는 고치거나 지울 수 없습니다.</p>
             <form onSubmit={handleSubmit}>
-                <p>
-                    <label>
-                        과제명{' '}
-                        <input value={title} onChange={(event) => setTitle(event.target.value)} />
-                    </label>
-                </p>
-                <p>
-                    <label>
-                        시작일{' '}
-                        <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-                    </label>{' '}
-                    <label>
-                        종료일{' '}
-                        <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-                    </label>
-                </p>
-
-                <h2>조와 조장 ({leaderEmails.length}개 조)</h2>
-                {leaderEmails.map((email, index) => (
-                    // 칸에는 따로 id가 없어서 순서(index)를 key로 씁니다. 입력값은 state에서 오므로 칸을 빼도 값이 어긋나지 않습니다.
-                    <p key={index}>
-                        <label>
-                            {index + 1}조 조장 이메일{' '}
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(event) => handleLeaderEmailChange(index, event.target.value)}
-                            />
+                <div className="panel">
+                    <p>
+                        <label className="field">
+                            과제명
+                            <input value={title} onChange={(event) => setTitle(event.target.value)} />
                         </label>
-                        {leaderEmails.length > 1 && (
-                            <button type="button" onClick={() => handleRemoveTeam(index)}>빼기</button>
-                        )}
                     </p>
-                ))}
-                <p>
-                    <button type="button" onClick={handleAddTeam}>조 추가</button>
-                </p>
+                    <div className="row">
+                        <label className="field">
+                            시작일
+                            <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+                        </label>
+                        <label className="field">
+                            종료일
+                            <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+                        </label>
+                    </div>
+                </div>
+
+                <div className="panel">
+                    <h2>조와 조장 ({leaderEmails.length}개 조)</h2>
+                    {leaderEmails.map((email, index) => (
+                        // 칸에는 따로 id가 없어서 순서(index)를 key로 씁니다. 입력값은 state에서 오므로 칸을 빼도 값이 어긋나지 않습니다.
+                        <div key={index} className="row">
+                            <label>
+                                {index + 1}조 조장 이메일{' '}
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(event) => handleLeaderEmailChange(index, event.target.value)}
+                                />
+                            </label>
+                            {leaderEmails.length > 1 && (
+                                <button type="button" className="secondary" onClick={() => handleRemoveTeam(index)}>빼기</button>
+                            )}
+                        </div>
+                    ))}
+                    <button type="button" className="secondary" onClick={handleAddTeam}>조 추가</button>
+                </div>
 
                 <button type="submit" disabled={submitting}>과제 만들기</button>
             </form>
-            {error && <p>{error}</p>}
-            <p><Link to="/">돌아가기</Link></p>
+            {error && <p className="error">{error}</p>}
         </main>
     )
 }

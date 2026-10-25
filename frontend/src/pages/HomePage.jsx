@@ -37,8 +37,8 @@ function HomePage() {
     if (error) {
         return (
             <main>
-                <p>{error}</p>
-                <button type="button" onClick={handleLogout}>로그아웃</button>
+                <p className="error">{error}</p>
+                <button type="button" className="secondary" onClick={handleLogout}>로그아웃</button>
             </main>
         )
     }
@@ -46,14 +46,14 @@ function HomePage() {
     return (
         <main>
             <h1>발자국</h1>
-            <p>
-                {me.name} ({MEMBER_TYPE_LABELS[me.memberType]})님, 환영합니다.{' '}
-                <button type="button" onClick={handleLogout}>로그아웃</button>
-            </p>
+            <div className="row">
+                <span>{me.name} ({MEMBER_TYPE_LABELS[me.memberType]})님, 환영합니다.</span>
+                <button type="button" className="secondary" onClick={handleLogout}>로그아웃</button>
+            </div>
 
             <h2>과제 목록</h2>
             {/* 과제는 교수만 만듭니다. 버튼을 숨기는 것은 화면 편의이고, 실제로 막는 것은 서버의 403입니다. */}
-            {me.memberType === 'PROFESSOR' && <p><Link to="/assignments/new">과제 만들기</Link></p>}
+            {me.memberType === 'PROFESSOR' && <p><Link to="/assignments/new">+ 과제 만들기</Link></p>}
             <AssignmentList assignments={assignments} />
         </main>
     )

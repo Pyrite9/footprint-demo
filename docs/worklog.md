@@ -553,3 +553,32 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 시연 데이터: 과제명 "웹프로그래밍 조별과제", 기간 2026-11-16 ~ 2026-12-11, 1조 조장 student01·2조 조장 student06, 역할 기획·백엔드·프론트엔드, 올릴 파일 이름 3개.
   - 장면별 "말할 것" 문장과 예상 질문의 답. 발표자가 바꿔 써도 된다.
   - 실시간 진행이 꼬였을 때 시작 데이터의 "발자국 시연 과제"로 넘어가는 대안.
+
+### 화면 디자인 (1단계 "밀리면 뒤로 보내는 것"이던 항목)
+- 결정:
+  - 새 라이브러리 없이 `src/index.css` 한 파일로 했다. 선택지는 (A) CSS 한 파일, (B) Tailwind, (C) MUI 같은 컴포넌트 라이브러리, (D) 화면마다 CSS Module이었다. B·C는 조원 6명이 라이브러리 문법까지 배워야 하고, D는 파일이 화면 수만큼 늘어난다. 읽을 곳이 한 곳인 A로 했다. 새 의존성은 없다.
+  - Vite 템플릿의 CSS(보라색, 56px 제목, 가운데 정렬, 어두운 모드)를 모두 걷어 냈다. 색과 둥근 정도는 `:root` 변수로 모았다.
+  - 규칙은 먼저 태그(`button`, `input`, `table`, `fieldset`)에 걸고, 태그로 구분할 수 없는 곳에만 class를 붙였다. class는 17개: `secondary`, `muted`, `error`, `success`, `notice`, `panel`, `item-list`, `end`, `badge`, `links`, `row`, `login-form`, `field`, `invite-link`, `criteria`, `score-option`, `table-scroll`(설명은 CSS 주석).
+  - 밝은 화면 하나만 둔다(`color-scheme: light`). 시연은 프로젝터로 하고, 어두운 모드까지 두면 색을 두 벌 관리해야 한다.
+  - 한국어 줄 바꿈은 `word-break: keep-all`. 없으면 좁은 화면 표에서 "이서연"이 "이서/연"으로 끊겼다.
+  - 동료평가 6개 항목은 720px 이상에서 2칸 grid로 놓아 화면 길이를 반으로 줄였다. 고른 점수 줄은 `:has(input:checked)`로 색을 칠했다. 확인 표는 좁은 화면에서 표만 가로로 밀리게 `table-scroll`로 감쌌다.
+  - 오류 메시지는 모두 `<p className="error">`, 성공은 `success`, 고정 문구와 "고칠 수 없습니다" 안내는 `notice`(노란 상자)로 통일했다.
+  - 화면 위 이동 링크는 "← 상위 화면" 한 줄로 맨 위에 두고, 맨 아래의 "과제 목록으로", "조 화면으로", "돌아가기"는 뺐다. 불러오기 실패 화면의 "과제 목록으로"는 남겼다.
+  - inline style 3곳(`style={{ display: ... }}`)을 class로 바꿨다. `EvaluationReview`의 `border={1} cellPadding={4}`도 CSS로 옮겼다.
+  - 화면 문구가 바뀐 곳에 맞게 `docs/demo-script.md`를 고쳤다(예: "김민준 (조장) · 기획" → "김민준 조장" + "기획" 꼬리표).
+- 고친 파일: `src/index.css`, pages 8개 전부, components 10개(`AssignmentList`, `TeamSummaryList`, `TeamMemberList`, `RoleAssignForm`, `InviteLinkPanel`, `DeliverableUploadForm`, `DeliverableList`, `EvaluationNotice`, `EvaluationTargetForm`, `EvaluationReview`), `docs/demo-script.md`. API, 가짜 API, 동작은 바꾸지 않았다.
+- 확인:
+  - `npm run build`, `npm run lint` 통과. 백엔드는 이번에 고치지 않았다.
+  - 개발 서버로 화면 8개를 브라우저에서 열어 봤다: 로그인(틀린 비밀번호 오류 포함), 과제 목록, 과제 만들기(조 2개), 과제 상세, 조 화면(조장: 역할명 칸·초대 링크 발급 전/후, 교수), 합류(없는 코드 오류), 산출물(올리기 상자·목록), 동료평가(입력·확인 표·제출 완료).
+  - 휴대폰 폭(375px)에서 같은 화면을 열어 가로로 넘치는 화면이 없는 것을 확인했다(`scrollWidth`와 `clientWidth`가 같음).
+  - `docker compose up -d --build frontend` 후 Docker 화면에도 반영된 것을 확인했다.
+- 읽을 때 볼 곳:
+  - `index.css` 맨 위 주석: 변수 → 태그 → class 순서. 새 화면은 태그만 써도 같은 모양이 되고, 필요할 때만 아래 class를 골라 붙인다.
+  - React에서는 `class`가 아니라 `className`이라고 쓴다(`class`는 JavaScript 예약어).
+  - `.item-list li`의 `display: flex`와 `.end`의 `margin-left: auto`: 다운로드 버튼과 역할명 칸을 줄 오른쪽 끝으로 미는 방법이다.
+  - `InviteLinkPanel`의 `className={inviteLink ? 'secondary' : undefined}`: 조건에 따라 class를 붙이거나 안 붙이는 방법이다. `undefined`이면 React가 class 속성을 아예 쓰지 않는다.
+  - 개발 서버(Vite)는 저장할 때마다 화면을 바꾸지만(HMR), 저장 도중 JSX 문법 오류가 잠깐 나면 CSS가 옛 내용으로 남을 수 있다. 화면이 이상하면 F5로 새로 고친다.
+- 내가 채운 가정:
+  - 색(파랑 `#2453c7` 강조, 노랑 안내, 빨강 오류, 초록 완료), 글꼴(맑은 고딕 우선), 본문 16px, 기둥 폭 880px.
+  - 로그인 화면의 부제 "조별과제 과정기록 & 평가지원 서비스", 과제 만들기 링크의 "+", 산출물 목록 제목 "올린 산출물 (최신순)", 올리기 상자 제목 "산출물 올리기".
+  - 조장 표시를 "(조장)"에서 회색 "조장"으로, 역할명을 꼬리표로 바꾼 것.

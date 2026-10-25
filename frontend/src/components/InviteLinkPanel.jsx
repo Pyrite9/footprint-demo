@@ -5,11 +5,12 @@ function InviteLinkPanel({ inviteCode, onIssue, issuing }) {
     const inviteLink = inviteCode ? `${window.location.origin}/join/${inviteCode}` : null
 
     return (
-        <section>
+        <section className="panel">
             <h2>초대 링크</h2>
-            {inviteLink ? <p><code>{inviteLink}</code></p> : <p>아직 발급하지 않았습니다.</p>}
-            <p>다시 발급하면 이전 링크로는 합류할 수 없습니다.</p>
-            <button type="button" onClick={onIssue} disabled={issuing}>
+            {inviteLink ? <p><code className="invite-link">{inviteLink}</code></p> : <p>아직 발급하지 않았습니다.</p>}
+            <p className="muted">다시 발급하면 이전 링크로는 합류할 수 없습니다.</p>
+            {/* 이미 발급했으면 다시 발급은 덜 중요한 동작이라 흰 버튼(secondary)으로 둡니다. */}
+            <button type="button" className={inviteLink ? 'secondary' : undefined} onClick={onIssue} disabled={issuing}>
                 {inviteLink ? '다시 발급' : '발급'}
             </button>
         </section>

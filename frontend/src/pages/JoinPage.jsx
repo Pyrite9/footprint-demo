@@ -23,11 +23,13 @@ function JoinPage() {
 
     return (
         <main>
+            <p className="links"><Link to="/">← 과제 목록</Link></p>
             <h1>조 합류</h1>
-            <p>초대 링크로 조에 합류합니다. 한 과제에서는 한 조에만 합류할 수 있습니다.</p>
-            <button type="button" onClick={handleJoin} disabled={joining}>합류하기</button>
-            {error && <p>{error}</p>}
-            <p><Link to="/">과제 목록으로</Link></p>
+            <div className="panel">
+                <p>초대 링크로 조에 합류합니다. 한 과제에서는 한 조에만 합류할 수 있습니다.</p>
+                <button type="button" onClick={handleJoin} disabled={joining}>합류하기</button>
+            </div>
+            {error && <p className="error">{error}</p>}
         </main>
     )
 }

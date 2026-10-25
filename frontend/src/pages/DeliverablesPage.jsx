@@ -66,7 +66,7 @@ function DeliverablesPage() {
     if (error) {
         return (
             <main>
-                <p>{error}</p>
+                <p className="error">{error}</p>
                 <p><Link to="/">과제 목록으로</Link></p>
             </main>
         )
@@ -78,8 +78,8 @@ function DeliverablesPage() {
 
     return (
         <main>
+            <p className="links"><Link to={`/teams/${team.id}`}>← {team.name}</Link></p>
             <h1>{team.name} 산출물</h1>
-            <p><Link to={`/teams/${team.id}`}>조 화면으로</Link></p>
 
             {canUpload && (
                 <DeliverableUploadForm
@@ -90,9 +90,10 @@ function DeliverablesPage() {
                     inputKey={fileInputKey}
                 />
             )}
-            {myTeamMember && myTeamMember.roleName === null && <p>역할이 배정되면 산출물을 올릴 수 있습니다.</p>}
-            {actionError && <p>{actionError}</p>}
+            {myTeamMember && myTeamMember.roleName === null && <p className="notice">역할이 배정되면 산출물을 올릴 수 있습니다.</p>}
+            {actionError && <p className="error">{actionError}</p>}
 
+            <h2>올린 산출물 (최신순)</h2>
             <DeliverableList deliverables={deliverables} onDownload={handleDownload} downloadingId={downloadingId} />
         </main>
     )

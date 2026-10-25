@@ -5,13 +5,12 @@ import RoleAssignForm from './RoleAssignForm'
 // roleNameInputs는 { 조 참여 번호: 입력 중인 역할명 } 모양입니다.
 function TeamMemberList({ members, canAssignRole, roleNameInputs, onRoleNameChange, onAssignRole, assigningId }) {
     return (
-        <ul>
+        <ul className="item-list">
             {members.map((member) => (
                 <li key={member.id}>
-                    {member.name}
-                    {member.leader && ' (조장)'}
-                    {' · '}
-                    {member.roleName ?? '역할 없음'}
+                    <strong>{member.name}</strong>
+                    {member.leader && <span className="muted">조장</span>}
+                    {member.roleName === null ? <span className="muted">역할 없음</span> : <span className="badge">{member.roleName}</span>}
                     {canAssignRole && member.roleName === null && (
                         <RoleAssignForm
                             value={roleNameInputs[member.id] ?? ''}

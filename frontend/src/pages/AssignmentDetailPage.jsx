@@ -23,7 +23,7 @@ function AssignmentDetailPage() {
     if (error) {
         return (
             <main>
-                <p>{error}</p>
+                <p className="error">{error}</p>
                 <p><Link to="/">과제 목록으로</Link></p>
             </main>
         )
@@ -31,11 +31,11 @@ function AssignmentDetailPage() {
 
     return (
         <main>
+            <p className="links"><Link to="/">← 과제 목록</Link></p>
             <h1>{assignment.title}</h1>
-            <p>기간 {assignment.startDate} ~ {assignment.endDate} · 담당 교수 {assignment.professorName}</p>
+            <p className="muted">기간 {assignment.startDate} ~ {assignment.endDate} · 담당 교수 {assignment.professorName}</p>
             <h2>조</h2>
             <TeamSummaryList teams={assignment.teams} />
-            <p><Link to="/">과제 목록으로</Link></p>
         </main>
     )
 }

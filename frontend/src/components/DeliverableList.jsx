@@ -6,13 +6,20 @@ function DeliverableList({ deliverables, onDownload, downloadingId }) {
     }
 
     return (
-        <ul>
+        <ul className="item-list">
             {deliverables.map((deliverable) => (
                 <li key={deliverable.id}>
-                    [{deliverable.roleName} {sequenceOf(deliverables, deliverable)}번째]{' '}
-                    {deliverable.fileName} ({formatFileSize(deliverable.fileSize)}) · {deliverable.uploaderName} ·{' '}
-                    {deliverable.uploadedAt.replace('T', ' ')}{' '}
-                    <button type="button" onClick={() => onDownload(deliverable)} disabled={downloadingId === deliverable.id}>
+                    <span className="badge">{deliverable.roleName} {sequenceOf(deliverables, deliverable)}번째</span>
+                    <strong>{deliverable.fileName}</strong>
+                    <span className="muted">
+                        {formatFileSize(deliverable.fileSize)} · {deliverable.uploaderName} · {deliverable.uploadedAt.replace('T', ' ')}
+                    </span>
+                    <button
+                        type="button"
+                        className="secondary end"
+                        onClick={() => onDownload(deliverable)}
+                        disabled={downloadingId === deliverable.id}
+                    >
                         다운로드
                     </button>
                 </li>
