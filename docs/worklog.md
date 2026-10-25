@@ -489,3 +489,27 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 내가 채운 가정:
   - 시험 계정 배치: 조장 student01, 조원 student02, 다른 조 student06(새 과제의 2조 조장).
   - 20MB를 넘는 업로드는 큰 파일이 필요해서 모음에 넣지 않았다(시험 스크립트에서 확인함).
+
+### 전체 rule-check (backend/src, frontend/src, frontend/mock)
+- 검사: 금지 패턴 grep(백엔드·프론트엔드·계산 코드), 클래스·public 메서드 주석, Controller·Service 구조, `@Transactional`, 접근 범위 검사, 시각 출처, 화면 state, 실제·가짜 API 응답 비교(경계값 10개를 양쪽에 보냄).
+- 문제 없음: 금지 라이브러리·어노테이션 없음(`StorageServiceTests`의 `@Autowired`는 테스트 생성자 주입에 필요해서 둠), 화면의 `async/await`·`src/api` 밖 `fetch` 없음, 점수 합계·평균·순위 계산 없음, Controller가 Entity를 그대로 돌려주는 곳 없음, 값을 바꾸는 Service 메서드는 모두 `@Transactional`, 조의 기록을 읽는 Service 메서드는 모두 `TeamAccessChecker`를 부름, 클라이언트가 보낸 시각을 저장하는 곳 없음, 계산 가능한 값을 state로 둔 곳 없음, demo-scope 8절 기능 없음.
+- 고친 것(수정 필요):
+  - `GlobalExceptionHandler`의 handler 이름 4개가 "handle + 예외 이름에서 Exception 뺀 것" 규칙과 달랐다. `handleNotValid` → `handleMethodArgumentNotValid`, `handleTypeMismatch` → `handleMethodArgumentTypeMismatch`, `handleMissingPart` → `handleMissingServletRequestPart`, `handleNotReadable` → `handleHttpMessageNotReadable`.
+  - 없는 주소와 없는 method에서 실제 백엔드는 Spring 기본 모양 `{ timestamp, status, error, path }`(404, 405)이고 가짜 API는 `{ code, message }` 404였다. 실제 백엔드에 `handleNoResourceFound`, `handleHttpRequestMethodNotSupported`를 넣어 둘 다 404 `NOT_FOUND` "없는 주소입니다"로 맞췄다.
+  - 가짜 API가 빈 날짜 `""`(화면에서 날짜를 비우고 제출하면 생김)에 "요청 body의 형식이 올바르지 않습니다"를 줬다. 실제는 `""`를 null로 읽어 "입력값이 올바르지 않습니다"다. 가짜 API를 실제에 맞췄다.
+  - 가짜 API가 달력에 없는 날짜(`2026-02-30`)를 통과시켰다. `isValidDate`로 실제처럼 400 "요청 body의 형식이 올바르지 않습니다"로 막았다. `leaderEmails`가 목록이 아닐 때도 같은 메시지로 맞췄다.
+  - `BackendApplication.main`에 주석이 없었다.
+- 고친 것(선택 사항):
+  - `TeamMember.roleAssignedAt`만 초 아래를 버리지 않았다. 다른 기록 시각(`uploadedAt`, `submittedAt`)처럼 `truncatedTo(SECONDS)`.
+  - `spring.jpa.open-in-view: true`를 명시하고 이유를 적었다. Controller의 `XxxResponse.from(entity)`가 LAZY 연관을 읽으려면 필요하다. 시작할 때 나던 WARN이 사라졌다.
+- 결정:
+  - 미정 6 중 "없는 주소": 404 `NOT_FOUND` "없는 주소입니다". method가 없는 요청도 405가 아니라 404로 했다. 선택지는 (A) 404 NOT_FOUND, (B) 405 + 새 code였다. code 목록을 늘리지 않는 A로 했다. 가짜 API와 같은 응답이다.
+  - 미정 6 중 "500 응답 형식"과 "400에 틀린 필드 담기"는 남겼다. 500을 `{ code, message }`로 바꾸려면 새 code(예: `SERVER_ERROR`)가 필요한데, CLAUDE.md 코드 규칙이 "새 code가 필요하면 먼저 묻는다"라서 관리자 결정으로 남긴다. 화면은 code 없는 실패를 이미 "요청을 처리하지 못했습니다"로 보여 준다.
+- 고치지 않은 것(선택 사항):
+  - 가짜 API에 JSON이 아닌 body를 보내면 json-server의 body-parser가 HTML 400을 준다(실제는 `{ code, message }` 400). 화면은 항상 JSON을 보내서 생기지 않는다. 막으려면 error 처리 middleware를 따로 둬야 해서 두지 않았다.
+  - 숫자 칸에 글자 `"2"`를 보내면 실제(Jackson)는 숫자로 바꿔 받고 가짜는 400 "입력값이 올바르지 않습니다"다. 화면과 Postman 모음은 숫자로 보내서 생기지 않는다.
+- 고친 파일: `exception/GlobalExceptionHandler.java`, `BackendApplication.java`, `entity/TeamMember.java`, `application.yml`, `frontend/mock/middleware.cjs`, `docs/api-draft.md`(공통 규칙에 없는 주소·500 상태)
+- 확인: `gradlew build`, `npm run build`, `npm run lint` 통과. 컨테이너 백엔드를 새로 만들어 A-1~E-2 시험 요청을 다시 보냈고 고치기 전 결과와 모두 같았다. Postman 모음 52개 test가 실제·가짜 모두 통과. 경계값 10개 비교에서 남은 차이는 위 "고치지 않은 것" 2건뿐이다.
+- 읽을 때 볼 곳:
+  - `GlobalExceptionHandler`의 새 handler 2개: Controller에 닿지 못한 요청(없는 주소)도 `@RestControllerAdvice`가 받는다. 단 token이 없으면 Security가 먼저 401로 막는다.
+  - `isValidDate`: `new Date`는 13월이면 Invalid Date, 2월 30일이면 3월 2일로 넘어간다. 두 경우를 다 막는다.

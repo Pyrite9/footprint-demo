@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 // team_member 테이블과 대응합니다. "어느 회원이 어느 조에 어떤 역할로 있는지"를 나타내는 조 참여 기록입니다.
 // 산출물과 평가는 회원이 아니라 이 조 참여를 참조합니다. 조 단위 권한 검사의 기준입니다.
@@ -44,9 +45,9 @@ public class TeamMember {
         this.leader = leader;
     }
 
-    // 역할을 지정합니다. 지정 시각은 서버의 현재 시각으로 기록합니다.
+    // 역할을 지정합니다. 지정 시각은 서버의 현재 시각으로 기록합니다. 다른 기록 시각처럼 초 아래는 버립니다.
     public void assignRole(String roleName) {
         this.roleName = roleName;
-        this.roleAssignedAt = LocalDateTime.now();
+        this.roleAssignedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
     }
 }

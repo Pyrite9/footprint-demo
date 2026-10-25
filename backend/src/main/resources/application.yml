@@ -10,6 +10,9 @@ spring:
       max-file-size: 20MB
       max-request-size: 20MB
   jpa:
+    # Controller에서 XxxResponse.from(entity)로 바꿀 때 연결된 Entity(예: 조원의 회원 이름)를 그때 읽어 옵니다(LAZY).
+    # 그러려면 응답을 만드는 동안 DB 연결이 열려 있어야 해서 open-in-view를 켭니다. 기본값도 true지만, 적지 않으면 시작할 때 WARN이 나옵니다.
+    open-in-view: true
     hibernate:
       ddl-auto: create
     show-sql: true

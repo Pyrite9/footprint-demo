@@ -5,6 +5,8 @@
 공통
 - 오류 응답은 모두 `{ "code": "...", "message": "..." }`. `code`는 `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409.
 - `/auth/**` 말고는 모두 header에 `Authorization: Bearer <accessToken>`이 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
+- 없는 주소, 또는 주소는 있지만 그 method가 없는 요청(예: `DELETE /assignments/1`)은 404 `NOT_FOUND` "없는 주소입니다"(2026.10.25, 미정 6 중 404 부분). token이 없으면 그보다 먼저 401이다.
+- 서버 내부 오류(500)는 아직 Spring 기본 모양이다(미정 6 중 500 부분, 새 `code`가 필요해서 남겨 둠). 화면은 `code`가 없는 실패를 "요청을 처리하지 못했습니다"로 보여 준다.
 
 ---
 

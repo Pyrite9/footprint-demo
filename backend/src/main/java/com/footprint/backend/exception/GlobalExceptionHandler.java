@@ -2,8 +2,8 @@ package com.footprint.backend.exception;
 
 import com.footprint.backend.dto.ApiErrorResponse;
 import org.springframework.http.HttpStatus;
-
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -12,6 +12,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 // 던져진 예외를 받아 status와 ApiErrorResponse로 바꿔 응답합니다.
 // token 없이 막힌 주소에 온 요청의 401은 Controller 앞에서 막히므로 여기가 아니라 SecurityConfig에서 처리합니다.
@@ -57,21 +58,21 @@ public class GlobalExceptionHandler {
     // @Valid 검사에 걸린 입력값을 400 INVALID_INPUT으로 응답합니다.
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiErrorResponse handleNotValid(MethodArgumentNotValidException e) {
+    public ApiErrorResponse handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
         return new ApiErrorResponse("INVALID_INPUT", "입력값이 올바르지 않습니다");
     }
 
     // 주소의 값이 받을 타입과 맞지 않을 때(예: /assignments/abc) 400 INVALID_INPUT으로 응답합니다.
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiErrorResponse handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+    public ApiErrorResponse handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException e) {
         return new ApiErrorResponse("INVALID_INPUT", "주소의 값이 올바르지 않습니다");
     }
 
     // 업로드 요청에 file 칸이 빠졌을 때 400 INVALID_INPUT으로 응답합니다.
     @ExceptionHandler(MissingServletRequestPartException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiErrorResponse handleMissingPart(MissingServletRequestPartException e) {
+    public ApiErrorResponse handleMissingServletRequestPart(MissingServletRequestPartException e) {
         return new ApiErrorResponse("INVALID_INPUT", "파일이 없습니다");
     }
 
@@ -89,8 +90,22 @@ public class GlobalExceptionHandler {
     // JSON으로 읽을 수 없는 요청 body를 400 INVALID_INPUT으로 응답합니다.
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiErrorResponse handleNotReadable(HttpMessageNotReadableException e) {
+    public ApiErrorResponse handleHttpMessageNotReadable(HttpMessageNotReadableException e) {
         return new ApiErrorResponse("INVALID_INPUT", "요청 body의 형식이 올바르지 않습니다");
     }
 
+    // 없는 주소(예: /nope)에 온 요청을 404 NOT_FOUND로 응답합니다. 없으면 Spring 기본 모양({ timestamp, status, ... })이 나갑니다.
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiErrorResponse handleNoResourceFound(NoResourceFoundException e) {
+        return new ApiErrorResponse("NOT_FOUND", "없는 주소입니다");
+    }
+
+    // 주소는 있지만 그 method가 없는 요청(예: DELETE /assignments/1)도 "없는 주소"로 보고 404 NOT_FOUND로 응답합니다.
+    // 405용 code를 따로 두지 않고 다섯 가지 code 안에서 처리하기 위해서입니다. 가짜 API도 같은 응답입니다.
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiErrorResponse handleHttpRequestMethodNotSupported(HttpRequestMethodNotSupportedException e) {
+        return new ApiErrorResponse("NOT_FOUND", "없는 주소입니다");
+    }
 }

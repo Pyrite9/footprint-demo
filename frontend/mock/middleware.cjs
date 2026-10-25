@@ -18,6 +18,15 @@ const NOT_VALID_MESSAGE = '입력값이 올바르지 않습니다'
 const NOT_READABLE_MESSAGE = '요청 body의 형식이 올바르지 않습니다'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
+// "2026-11-02" 모양이고 달력에 있는 날짜이면 true입니다. 실제 백엔드는 2026-13-01 같은 날짜를 JSON을 읽는 단계에서 거절합니다.
+function isValidDate(text) {
+  if (typeof text !== 'string' || !DATE_PATTERN.test(text)) return false
+  // 13월처럼 아예 없는 날짜는 Invalid Date가 되고, 2월 30일처럼 넘치는 날짜는 다음 달로 넘어갑니다.
+  // 그래서 숫자로 바뀌었는지 보고, 다시 글자로 바꿔 처음과 같은지 봅니다.
+  const date = new Date(text + 'T00:00:00Z')
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(text)
+}
+
 // 실제 백엔드의 ApiErrorResponse와 같은 모양 { code, message }로 오류를 보냅니다.
 function sendError(res, status, code, message) {
   res.status(status).json({ code, message })
@@ -74,10 +83,14 @@ function handleMe(req, res, loginMember) {
 // POST /assignments: 교수가 과제, 조, 조장을 한 번에 만듭니다. 검사 순서는 실제 백엔드와 같습니다.
 function handleCreateAssignment(req, res, loginMember) {
   const db = req.app.db
-  const { title, startDate, endDate, leaderEmails } = req.body
+  const { title, leaderEmails } = req.body
+  // 실제 백엔드(Jackson)는 빈 글자 ""로 온 날짜를 null로 읽습니다. 그래서 아래 2번 검사(@NotNull)에 걸립니다.
+  const startDate = req.body.startDate === '' ? null : req.body.startDate
+  const endDate = req.body.endDate === '' ? null : req.body.endDate
 
-  // 1. 날짜 형식이 틀리면 실제 백엔드는 JSON을 읽는 단계에서 거절합니다.
-  if ((startDate != null && !DATE_PATTERN.test(startDate)) || (endDate != null && !DATE_PATTERN.test(endDate))) {
+  // 1. 날짜가 틀렸거나 leaderEmails가 목록이 아니면 실제 백엔드는 JSON을 읽는 단계에서 거절합니다.
+  if ((startDate != null && !isValidDate(startDate)) || (endDate != null && !isValidDate(endDate))
+    || (leaderEmails != null && !Array.isArray(leaderEmails))) {
     return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
   }
   // 2. @NotBlank @Size(max = 255), @NotNull, @NotEmpty 검사입니다.

@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class BackendApplication {
 
+	// 서버를 켭니다. IntelliJ의 실행 버튼이나 gradlew bootRun이 이 메서드를 부릅니다.
 	public static void main(String[] args) {
 		SpringApplication.run(BackendApplication.class, args);
 	}
