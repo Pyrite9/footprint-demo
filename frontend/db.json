@@ -1,0 +1,15 @@
+{
+  "members": [
+    { "id": 1, "email": "professor@example.com", "password": "pass1234", "name": "이교수", "memberType": "PROFESSOR" },
+    { "id": 2, "email": "student01@example.com", "password": "pass1234", "name": "김민준", "memberType": "STUDENT" },
+    { "id": 3, "email": "student02@example.com", "password": "pass1234", "name": "이서연", "memberType": "STUDENT" },
+    { "id": 4, "email": "student03@example.com", "password": "pass1234", "name": "박도윤", "memberType": "STUDENT" },
+    { "id": 5, "email": "student04@example.com", "password": "pass1234", "name": "최서윤", "memberType": "STUDENT" },
+    { "id": 6, "email": "student05@example.com", "password": "pass1234", "name": "정하준", "memberType": "STUDENT" },
+    { "id": 7, "email": "student06@example.com", "password": "pass1234", "name": "강지우", "memberType": "STUDENT" },
+    { "id": 8, "email": "student07@example.com", "password": "pass1234", "name": "조은우", "memberType": "STUDENT" },
+    { "id": 9, "email": "student08@example.com", "password": "pass1234", "name": "윤하은", "memberType": "STUDENT" },
+    { "id": 10, "email": "student09@example.com", "password": "pass1234", "name": "장시우", "memberType": "STUDENT" },
+    { "id": 11, "email": "student10@example.com", "password": "pass1234", "name": "임지아", "memberType": "STUDENT" }
+  ]
+}

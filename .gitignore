@@ -1,0 +1,28 @@
+# Node
+node_modules/
+dist/
+
+# Java
+build/
+target/
+out/
+.gradle/
+
+# IDE
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+
+# 환경 변수 (예시 파일과 화면 기본 설정만 올린다)
+.env*
+!.env.example
+!frontend/.env
+
+# Claude Code 개인 설정
+.claude/settings.local.json
+
+# OS, 로그
+.DS_Store
+Thumbs.db
+*.log

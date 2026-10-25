@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:footprint}
+    username: ${POSTGRES_USER:footprint}
+    password: ${POSTGRES_PASSWORD:change-me}
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  # HS256 서명 키입니다. 32바이트(영문 32자) 이상이어야 합니다. 배포할 때는 환경 변수 JWT_SECRET으로 바꿉니다.
+  secret: ${JWT_SECRET:footprint-demo-dev-secret-key-change-me-0000}
+  # token 유효 시간(분)입니다. 1440분은 24시간입니다.
+  expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+
+storage:
+  # MinIO(S3 호환 저장소) 접속값입니다. 기본값은 infra/.env.example과 같습니다.
+  endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ROOT_USER:footprint}
+  secret-key: ${MINIO_ROOT_PASSWORD:change-me-please}
+  # 산출물 파일 본문을 넣는 버킷 이름입니다. 서버가 시작할 때 없으면 만듭니다.
+  bucket: ${STORAGE_BUCKET:footprint}
