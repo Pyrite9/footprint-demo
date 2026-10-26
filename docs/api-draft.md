@@ -1,6 +1,6 @@
 # API 초안
 
-`../footprint-study/docs/api.md`가 생기기 전까지 쓰는 시연본의 API 초안이다. Controller를 만들기 전에 여기에 먼저 적고 관리자 확인을 받는다.
+`../footprint-study/docs/api.md`가 생기기 전까지 쓰는 시연본의 API 초안이다. Controller를 만들기 전에 여기에 먼저 적고, 확인을 기다리지 않고 바로 만든다(2026.10.25 관리자 결정). 정한 이유는 `docs/worklog.md`의 그 단위 항목 "결정" 줄에 남긴다. 제목의 "확인 2026.10.25"는 이 결정 전에 관리자 확인을 받은 API라는 표시다.
 
 공통
 - 오류 응답은 모두 `{ "code": "...", "message": "..." }`. `code`는 `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409, `SERVER_ERROR` 500.
