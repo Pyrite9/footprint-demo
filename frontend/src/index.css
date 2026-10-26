@@ -501,6 +501,29 @@ main.login {
   width: 100%;
 }
 
+/* 구글이 그려 넣는 버튼(가로 300px)을 칸 가운데에 둡니다. 버튼 모양은 구글이 정해서 바꾸지 않습니다. */
+.google-button {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+/* 접어 둔 "시작 계정으로 로그인"입니다. 펼치면 아래에 이메일·비밀번호 form이 나옵니다. */
+.login-fallback {
+  margin-top: 16px;
+  text-align: left;
+}
+
+.login-fallback summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-control);
+}
+
+.login-fallback form {
+  margin-top: 8px;
+}
+
 /* "이름 + 칸" 한 묶음입니다. 이름을 칸 위에 둡니다. */
 .field {
   display: flex;

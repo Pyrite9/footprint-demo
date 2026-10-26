@@ -1,5 +1,6 @@
 package com.footprint.backend.controller;
 
+import com.footprint.backend.dto.GoogleLoginRequest;
 import com.footprint.backend.dto.LoginRequest;
 import com.footprint.backend.dto.LoginResponse;
 import com.footprint.backend.service.AuthService;
@@ -24,5 +25,11 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return new LoginResponse(authService.login(request.email(), request.password()));
+    }
+
+    // 화면의 구글 버튼이 받은 ID token을 받아 token을 돌려줍니다. 처음 온 구글 계정은 회원으로 저장됩니다.
+    @PostMapping("/google")
+    public LoginResponse loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        return new LoginResponse(authService.loginWithGoogle(request.credential()));
     }
 }

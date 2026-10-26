@@ -688,3 +688,32 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 구글 token에는 교수·학생 구분이 없다. 회원 유형을 정하는 방법이 따로 필요하다.
 - 고친 파일: `docs/worklog.md`
 - 내가 채운 가정: spike 페이지에 `hd` 제한을 걸지 않았다(어느 도메인 계정이 들어오는지 보려고). Client ID는 비밀값이 아니지만 구현 단위에서 설정값으로 넣기 전까지 저장소에 적지 않는다.
+
+### M-1-1·M-2-1 구글 로그인 (미정 1 확정)
+- 결정:
+  - 관리자 결정(2026.10.26): 12.11 기본 로그인은 구글(학교 계정). 교수는 설정값의 교수 이메일 목록으로 판별. 이메일·비밀번호 로그인은 개발·백업용으로 남긴다. demo-scope 9절 미정 1과 3절 M-1 줄에 적었다.
+  - 방식: 화면의 구글 버튼(Google Identity Services)이 ID token을 받아 `POST /auth/google`로 보내고, 서버가 검증한 뒤 **지금과 같은 우리 JWT**를 준다. 로그인 뒤의 JWT filter, Service, 접근 검사는 그대로다. 선택지는 (A) 이 방식, (B) Spring Security `oauth2Login`(서버 redirect)이었다. B는 기본이 session이라 JWT와 섞으려면 성공 handler에서 token을 화면 주소로 넘겨야 하고 동작이 설정 뒤에 숨어서 A로 했다.
+  - 새 의존성: `com.google.api-client:google-api-client:2.9.1`(2026.09 배포). `GoogleIdTokenVerifier`가 서명(구글 공개키), 만료, 발급자, `aud`를 확인한다. 대안은 `spring-boot-starter-oauth2-resource-server`의 `NimbusJwtDecoder`+구글 JWKS였다. 검증 규칙을 validator 설정으로 조립해야 해서 읽기 어려워 고르지 않았다.
+  - 책임 나누기: `security/GoogleTokenVerifier`는 "구글이 확인한 사람인가"(서명, `email_verified`)만, `AuthService`는 우리 규칙(허용 도메인 `hd`, 회원 찾기·만들기, 교수 판별)을 맡는다.
+  - 응답: 학교 도메인이 아니면 403 `FORBIDDEN`(구글이 확인한 사람이지만 권한이 없음), 그 밖의 검증 실패는 401로 묶는다, 구글 공개키를 못 받으면 500.
+  - 회원: 이메일로 찾고 없으면 만든다(M-1-1 회원 등록을 대신함). `Member.password`는 nullable(구글 회원은 null). 회원 유형은 처음 만들 때만 정한다. 구글 `sub`는 저장하지 않는다.
+  - 화면: 구글 script는 npm 패키지 없이 `src/google.js`가 한 번만 붙인다. 비밀번호 form은 `<details>`로 접었다(state 없음).
+  - Client ID는 비밀값이 아니라서 `application.yml`, `frontend/.env`(`VITE_GOOGLE_CLIENT_ID`), `frontend/Dockerfile` 기본값에 넣었다. 교수 이메일은 실제 사람의 이메일이라 저장소에 넣지 않고 `PROFESSOR_EMAILS`로 받는다.
+- 만든 파일: `security/GoogleTokenVerifier`, `dto/GoogleLoginRequest`, `frontend/src/google.js`, `frontend/src/components/GoogleLoginButton.jsx`
+- 고친 파일: `build.gradle`, `application.yml`, `entity/Member`, `service/AuthService`, `controller/AuthController`, `mock/middleware.cjs`, `src/api/auth.js`, `src/pages/LoginPage.jsx`, `src/index.css`, `frontend/.env`, `frontend/Dockerfile`, `infra/.env.example`, `backend/README.md`("구글 로그인" 절), `docs/api-draft.md`, `docs/demo-scope.md`, `docs/demo-script.md`(시작 계정은 펼쳐서 입력)
+- 확인:
+  - `gradlew build`(테스트 포함), `npm run build`, `npm run lint` 통과.
+  - 실제 백엔드: 빈 credential 400, 깨진 token 401, 서명을 꾸민 token 401(구글 공개키를 받아 비교), 시작 계정 비밀번호 로그인 200.
+  - 관리자 Chrome에서 학교 계정으로 구글 로그인 성공: 과제 목록("볼 수 있는 과제가 없습니다")과 위쪽 막대에 이름·학생. DB에 `g.yju.ac.kr` 회원 1행이 비밀번호 null, STUDENT로 저장됨.
+  - 가짜 API(db 복사본, `PROFESSOR_EMAILS` 지정): 학교 계정 → 학생으로 저장, 다시 로그인하면 같은 회원, 목록의 이메일 → PROFESSOR(대소문자 무시), 개인 Gmail 403, `email_verified` false 401, 구글 회원의 비밀번호 로그인 401.
+  - 화면: StrictMode에서도 버튼 iframe과 script가 하나씩. 앱 안의 브라우저 창은 팝업을 막아서 구글 계정 선택 창이 열리지 않는다(일반 Chrome은 된다).
+- 읽을 때 볼 곳:
+  - `GoogleTokenVerifier`의 `parse`와 `isValid`를 나눈 이유: 둘 다 `IOException`을 던지는데, `parse`의 것은 token 모양이 깨진 것(401)이고 `isValid`의 것은 구글 공개키를 못 받은 것(500)이다.
+  - `AuthService` 생성자의 `@Value(...) List<String>`: 쉼표로 구분한 값을 Spring이 목록으로 바꿔 준다. 빈 값이면 빈 목록이다.
+  - `GoogleLoginButton`의 `useEffectEvent`: 구글 callback은 처음 한 번만 등록하지만 부를 때는 최신 props를 쓴다. `ignore`는 StrictMode에서 effect가 두 번 돌아도 버튼을 한 번만 그리게 한다.
+  - `useRef`: 구글 script가 버튼을 그려 넣을 실제 DOM 칸을 잡는다.
+- 내가 채운 가정:
+  - 오류 문구는 구글 버튼 칸 하나에만 보인다(비밀번호 로그인 실패도 그 칸).
+  - 같은 계정이 처음 로그인을 거의 동시에 두 번 하면 unique 제약으로 500이 날 수 있다. 구글 버튼은 callback을 한 번만 부르므로 고치지 않았다.
+  - Postman 모음에는 구글 로그인 요청을 넣지 않았다(ID token을 Postman에서 받을 수 없음).
+  - 시연 대본은 시작 계정 그대로 두고, 구글로 시연할 때의 준비(테스트 사용자 4명, 교수 이메일, 같은 브라우저에 4개 계정)만 적었다. 어느 쪽으로 시연할지는 관리자가 정한다.

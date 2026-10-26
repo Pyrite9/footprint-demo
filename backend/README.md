@@ -74,7 +74,7 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 ## 시작 계정
 
 서버가 시작할 때 `config/DataInitializer`가 넣습니다. 비밀번호는 모두 `pass1234`이고 데이터베이스에는 BCrypt로 바꾼 값이 저장됩니다.
-로그인 방식(구글 계정 로그인 여부)이 정해지면 바뀔 수 있습니다.
+12.11 시연의 기본 로그인은 구글(학교 계정)이고, 시작 계정은 개발·백업용입니다. 화면에서는 로그인 화면 아래 "시작 계정으로 로그인 (개발·백업용)"을 펼쳐서 씁니다.
 
 | 이메일 | 이름 | 회원 유형 |
 |---|---|---|
@@ -89,6 +89,21 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 | student08@example.com | 윤하은 | STUDENT |
 | student09@example.com | 장시우 | STUDENT |
 | student10@example.com | 임지아 | STUDENT |
+
+## 구글 로그인
+
+화면의 구글 버튼 → `POST /auth/google` → 서버가 ID token을 검증하고 우리 token을 줍니다(`docs/api-draft.md`). 처음 로그인한 구글 계정은 회원으로 저장됩니다.
+
+- 설정값(`application.yml`의 `google`):
+  - `GOOGLE_CLIENT_ID`: Google Cloud의 OAuth Client ID. 기본값이 들어 있어 따로 넣지 않아도 됩니다. `frontend/.env`의 `VITE_GOOGLE_CLIENT_ID`와 같아야 합니다.
+  - `GOOGLE_ALLOWED_DOMAINS`: 받는 학교 도메인. 기본 `g.yju.ac.kr`.
+  - `PROFESSOR_EMAILS`: 교수로 저장할 이메일(쉼표로 구분). 기본값은 비어 있어서 모두 학생으로 저장됩니다. 실제 이메일이라 저장소에 적지 않습니다.
+- 교수 이메일 넣는 법:
+  - 내 컴퓨터에서 bootRun: 같은 PowerShell 창에서 먼저 `$env:PROFESSOR_EMAILS="교수이메일@g.yju.ac.kr"` 후 `.\gradlew.bat bootRun`. macOS는 `PROFESSOR_EMAILS=... ./gradlew bootRun`.
+  - docker compose: `infra/.env`에 `PROFESSOR_EMAILS=...` 한 줄을 넣습니다(`infra/.env.example` 참고).
+- 회원 유형은 처음 로그인할 때 한 번만 정해집니다. 학생으로 먼저 로그인한 뒤 목록에 넣으면 바뀌지 않습니다. 서버를 다시 켜면(데이터베이스가 새로 만들어지면) 다시 정해집니다.
+- 로그인할 수 있는 구글 계정: Google Cloud의 동의 화면이 "테스트 중"이면 그곳의 "테스트 사용자"에 넣은 계정만 됩니다. 시연·개발에 쓸 학교 계정을 먼저 넣어 둡니다.
+- 서버는 구글 공개키를 받으려고 인터넷에 접속합니다. 인터넷이 없으면 구글 로그인은 500이 나고, 시작 계정 로그인은 됩니다.
 
 ## 시작 과제와 조
 

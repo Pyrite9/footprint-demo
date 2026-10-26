@@ -20,7 +20,7 @@ public class Member {
     private String email;
 
     // 입력한 비밀번호 그대로가 아니라 BCrypt로 바꾼 값을 저장합니다.
-    @Column(nullable = false)
+    // 구글 로그인으로 만든 회원은 비밀번호를 받지 않아서 null입니다. 그래서 nullable입니다.
     private String password;
 
     @Column(nullable = false)

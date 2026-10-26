@@ -13,6 +13,9 @@ COPY . .
 # 백엔드 주소는 빌드할 때 화면 파일 안에 들어갑니다(Vite의 VITE_ 변수). 값은 docker-compose.yml의 args에서 받습니다.
 ARG VITE_API_URL=http://127.0.0.1:8080
 ENV VITE_API_URL=$VITE_API_URL
+# 구글 로그인 버튼의 OAuth Client ID입니다. 비밀값이 아니고, 백엔드의 google.client-id와 같아야 합니다.
+ARG VITE_GOOGLE_CLIENT_ID=729696424693-ktasf5hijpb7v53ga17j1469e8batb8f.apps.googleusercontent.com
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN npm run build
 
 # 2단계: nginx로 화면 파일을 내려줍니다.

@@ -75,6 +75,51 @@ function handleLogin(req, res) {
   return res.json({ accessToken: 'mock-token-' + member.id })
 }
 
+// 실제 백엔드의 google.allowed-domains, google.professor-emails와 같은 값입니다. 환경 변수로 바꿀 수 있습니다.
+const GOOGLE_ALLOWED_DOMAINS = (process.env.GOOGLE_ALLOWED_DOMAINS ?? 'g.yju.ac.kr').split(',').map((text) => text.trim())
+const PROFESSOR_EMAILS = (process.env.PROFESSOR_EMAILS ?? '').split(',').map((text) => text.trim().toLowerCase()).filter((text) => text !== '')
+
+// 구글 ID token의 가운데 부분(payload)을 풀어 읽습니다. 모양이 깨졌으면 undefined입니다.
+// 실제 백엔드와 다른 점: 가짜 API는 구글의 서명을 확인하지 못합니다. 화면 개발용이라 payload만 믿습니다.
+function readGooglePayload(credential) {
+  try {
+    return JSON.parse(Buffer.from(credential.split('.')[1], 'base64url').toString('utf8'))
+  } catch {
+    return undefined
+  }
+}
+
+// POST /auth/google: 구글 ID token으로 로그인합니다. 처음 온 계정이면 회원으로 저장합니다.
+function handleGoogleLogin(req, res) {
+  const { credential } = req.body
+  if (isBlank(credential)) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
+  }
+
+  const payload = readGooglePayload(credential)
+  if (!payload || payload.email_verified !== true || isBlank(payload.email)) {
+    return sendError(res, 401, 'UNAUTHORIZED', '구글 로그인을 확인하지 못했습니다')
+  }
+  if (!GOOGLE_ALLOWED_DOMAINS.includes(payload.hd)) {
+    return sendError(res, 403, 'FORBIDDEN', '학교 계정(' + GOOGLE_ALLOWED_DOMAINS.join(', ') + ')으로만 로그인할 수 있습니다')
+  }
+
+  const db = req.app.db
+  let member = db.get('members').find({ email: payload.email }).value()
+  if (!member) {
+    member = {
+      id: nextId(db, 'members'),
+      email: payload.email,
+      // 구글로 만든 회원은 비밀번호가 없습니다. 실제 백엔드의 null과 같습니다.
+      password: null,
+      name: payload.name ?? payload.email,
+      memberType: PROFESSOR_EMAILS.includes(payload.email.toLowerCase()) ? 'PROFESSOR' : 'STUDENT',
+    }
+    db.get('members').push(member).write()
+  }
+  return res.json({ accessToken: 'mock-token-' + member.id })
+}
+
 // GET /members/me: 비밀번호를 뺀 내 정보를 돌려줍니다.
 function handleMe(req, res, loginMember) {
   const { id, email, name, memberType } = loginMember
@@ -549,6 +594,9 @@ function parseIdOrSendError(res, value) {
 function handleRequest(req, res, next) {
   if (req.method === 'POST' && req.path === '/auth/login') {
     return handleLogin(req, res)
+  }
+  if (req.method === 'POST' && req.path === '/auth/google') {
+    return handleGoogleLogin(req, res)
   }
 
   // 그 밖의 주소는 실제 백엔드처럼 token이 있어야 합니다.

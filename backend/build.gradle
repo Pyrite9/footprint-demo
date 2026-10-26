@@ -34,6 +34,8 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.13.0'
     // MinIO(S3 호환 저장소)에 S3 API로 접근합니다.
     implementation 'software.amazon.awssdk:s3:2.55.14'
+    // 구글 로그인의 ID token을 검증합니다(GoogleIdTokenVerifier). 구글 공개키를 받아 오는 HTTP와 JSON 처리도 함께 들어옵니다.
+    implementation 'com.google.api-client:google-api-client:2.9.1'
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'

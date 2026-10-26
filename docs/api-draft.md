@@ -35,6 +35,36 @@
 token
 - 서명 HS256. 유효 시간 24시간(`jwt.expiration-minutes`). refresh token은 없다.
 - payload: `sub` = 회원 id(문자열), `memberType` = `PROFESSOR` 또는 `STUDENT`.
+- 12.11 시연의 기본 로그인은 아래 `POST /auth/google`이다. 이메일·비밀번호 로그인은 시작 계정용(개발·백업)으로 남긴다(2026.10.26 관리자 결정, demo-scope 9절 미정 1).
+
+### POST /auth/google — 구글 로그인 (M-1-1, M-2-1)
+
+화면의 구글 버튼이 받은 ID token(`credential`)을 보내고 우리 서버의 token을 받는다. token 없이 부를 수 있다.
+처음 로그인한 구글 계정은 회원으로 저장된다(M-1-1 회원 등록). 응답은 `POST /auth/login`과 같다.
+
+요청
+```json
+{ "credential": "eyJhbGciOiJSUzI1NiIs..." }
+```
+
+200
+```json
+{ "accessToken": "eyJhbGciOiJIUzI1NiJ9..." }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `credential`이 비었을 때 |
+| 401 | `UNAUTHORIZED` | 구글의 서명이 틀렸거나, 만료됐거나, 다른 앱(Client ID)용이거나, 구글이 이메일을 확인하지 않은 계정일 때. 구분하지 않고 같은 메시지를 준다 |
+| 403 | `FORBIDDEN` | 허용한 학교 도메인(`hd`, 기본 `g.yju.ac.kr`)의 계정이 아닐 때 |
+
+서버 쪽 규칙
+- ID token 검증은 Google 라이브러리(`GoogleIdTokenVerifier`)가 한다: 서명(구글 공개키), 만료, 발급자(`accounts.google.com`), 받는 앱(`aud` = `google.client-id`).
+- 그다음 서버가 `email_verified`가 true인지, `hd`가 `google.allowed-domains`에 있는지 본다.
+- 같은 이메일의 회원이 있으면 그 회원으로 로그인한다. 없으면 새로 만든다. 이름은 구글 이름, 비밀번호는 없음(null).
+- 회원 유형: 이메일이 `google.professor-emails`(쉼표로 구분한 목록)에 있으면 `PROFESSOR`, 아니면 `STUDENT`. 처음 만들 때만 정하고, 나중에 목록을 바꿔도 이미 있는 회원의 유형은 바뀌지 않는다.
+- 비밀번호가 없는 회원(구글로 만든 회원)은 `POST /auth/login`으로 로그인할 수 없다(401).
+- 가짜 API는 구글 서명을 확인하지 못한다. payload만 풀어 같은 규칙(`email_verified`, `hd`, 교수 목록)을 적용한다.
 
 ---
 
