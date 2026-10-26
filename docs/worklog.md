@@ -625,3 +625,44 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 확인: `npm run build`, `npm run lint` 통과. 개발 서버로 과제 목록, 조 화면, 산출물, 동료평가(입력·확인 표), 로그인을 라이트·다크와 휴대폰 폭(375px)에서 열어 가로로 넘치지 않는 것을 확인했다.
 - 읽을 때 볼 곳: `:root`의 `--font-*` 다섯 줄. 글자 크기를 바꾸고 싶으면 규칙이 아니라 이 변수를 고친다.
 - 내가 채운 가정: 다섯 단계의 크기 값(26/17/15/14/12px)과 글자 사이 간격 값.
+
+### 시니어 리뷰와 리팩터링 (리뷰어 6관점 + 반박 검증)
+- 결정:
+  - 관리자 지시(2026.10.26): "시니어 개발자 평가자를 대거 투입하고 리팩터링". 리뷰어 6명(백엔드 보안·정합성, 백엔드 일관성, React, API 계약, 업무 규칙, 실행·문서)이 코드를 읽기만 하며 지적하고, 관점마다 반박 담당 1명이 지적을 하나씩 다시 열어 반박했다. 66건 중 20건이 반박돼 빠졌고 46건을 원인별로 묶어 고쳤다.
+  - 동료평가 동시 제출: 두 요청이 "이미 제출했는지" 검사를 같이 통과하면 두 번째가 unique 제약에 걸려 500이 났다. `saveAllAndFlush`로 INSERT를 바로 보내고 `DataIntegrityViolationException`을 잡아 409 `DUPLICATE`로 바꿨다. 위 E-2 항목의 가정("동시 제출은 500, 409 처리 안 함")을 demo-scope 4절(409)에 맞춰 바꾼 것이다. 선택지는 (A) Service 한 곳에서 catch, (B) `GlobalExceptionHandler`에서 `DataIntegrityViolationException` 전체를 409로 바꾸기였다. B는 NOT NULL·길이 위반 같은 진짜 버그까지 409로 가려서 A로 했다.
+  - 동료평가 목록 안의 `null` 원소(`{"evaluations":[null]}`)가 검사를 통과해 500이 났다. `List<@NotNull @Valid Item>`으로 원소마다 검사한다. 가짜 API는 이미 400이었다.
+  - 같은 조 동시 합류(같은 순간 두 번)도 500이 날 수 있지만 고치지 않고 api-draft에 적었다. 화면이 합류 중 버튼을 막는다.
+  - 조장 화면에서 두 조원의 역할 지정을 거의 동시에 누르면, 나중에 끝난 쪽이 옛 `members`로 목록을 덮어써 앞 결과가 화면에서 사라졌다. 지정 중에는 모든 줄의 버튼을 막는다(`assigningId !== null`). 함수형 업데이트(`setMembers(prev => ...)`)는 새 패턴이라 쓰지 않았다.
+  - `ThemeToggle`의 state를 `AppLayout`(page)으로 옮겼다. 위 "GitHub Primer" 항목에 적은 예외(component가 state를 가짐)를 없애고 CLAUDE.md "state는 page" 규칙에 맞췄다.
+  - 초대 코드 Service가 String 대신 `Team`을 돌려주고 Controller가 `InviteCodeResponse.from(team)`을 부른다. 다른 API와 같은 "Service는 Entity, 변환은 Controller" 모양이다. JSON은 그대로다.
+  - 로그인 회원 번호는 Service 메서드의 **마지막 인자**로 통일했다(`AssignmentService.create`만 맨 앞이었다).
+  - `DeliverableService`에도 `private findTeam`을 두어 조를 찾는 두 곳의 복사를 없앴다. 공통 부모 클래스는 만들지 않았다.
+  - 리뷰가 낸 "업로드의 빈 파일 검사를 권한 검사 뒤로" 제안은 따르지 않았다. 파일이 없거나 20MB를 넘는 요청은 Spring이 Service 전에 400으로 막고 가짜 API도 파일 검사를 먼저 해서, 지금 순서가 더 일관된다. 이유를 주석으로 남겼다.
+  - 테스트 `BackendApplicationTests`도 `footprint-test` 버킷을 쓴다. 전에는 시작 데이터 파일이 시연용 `footprint` 버킷에 빌드마다 쌓였다. 빌드가 개발 DB를 지우고 시작 데이터를 다시 넣는 것은 그대로라 README와 대본에 "시연·리허설 중에는 빌드하지 않는다"를 적었다.
+  - `infra/docker-compose.yml`의 PostgreSQL·MinIO 포트를 `127.0.0.1`에만 연다. 기본 비밀번호가 저장소에 있어서 같은 와이파이의 다른 컴퓨터에 열지 않는다. compose 안의 백엔드는 service 이름으로 접속해서 영향이 없다.
+  - `frontend/.env`의 `VITE_API_URL`을 `http://127.0.0.1:8080`으로 바꿨다. Docker 화면·Postman·대본이 이미 이 주소였고, `localhost:8080`(IPv6 `::1`)이 멈춘 일이 있었다(위 "한 번에 실행" 항목).
+  - 가짜 API의 접근 검사 함수를 실제 `TeamAccessChecker`와 같은 이름·같은 반환으로 맞췄다: `checkAssignmentMember` 추가, `checkTeamMember`·`checkLeader`는 실패하면 `undefined`, 성공하면 조 참여 기록.
+  - 리뷰가 "관리자 결정이 필요"로 올린 3건은 손대지 않았다(아래 "관리자에게 물을 것").
+- 만든·고친 파일:
+  - 백엔드: `dto/EvaluationSubmitRequest`, `dto/InviteCodeResponse`, `service/EvaluationService`, `service/TeamService`, `service/AssignmentService`, `service/DeliverableService`, `controller/TeamController`, `controller/AssignmentController`, `security/JwtProvider`(claim 주석), `exception/GlobalExceptionHandler`(주석), `config/WebConfig`(주석), 테스트 `BackendApplicationTests`
+  - 화면: `pages/AppLayout`, `components/ThemeToggle`, `components/TeamMemberList`, `pages/TeamPage`, `pages/EvaluationPage`, `pages/DeliverablesPage`(setter 축약형을 화살표 함수로), `pages/AssignmentCreatePage`, `pages/JoinPage`(catch에서만 버튼을 푸는 이유 주석), `components/AssignmentList`("볼 수 있는 과제가 없습니다" — 교수 화면에도 맞는 문구)
+  - 가짜 API: `mock/middleware.cjs`
+  - 설정·문서: `infra/docker-compose.yml`, `frontend/.env`, `README.md`(Compose v2.24 이상), `backend/README.md`(bootRun 전 `cd ..\backend`, curl 다운로드 이름, 빌드가 DB를 지운다는 경고), `docs/api-draft.md`(동시 요청, invite-code 400 줄), `docs/demo-script.md`(준비 확인 주소 `/members/me`, 빌드 금지), `docs/postman/README.md`(API 16개·요청 29개)
+- 확인:
+  - `gradlew build`(테스트 포함), `npm run build`, `npm run lint` 통과. JAVA_HOME이 없는 경로(`jdk-21.x.x.x-hotspot`)로 잡혀 있어서 이번에는 명령에만 `jdk-21.0.12.101-hotspot`을 넣어 빌드했다.
+  - 실제 백엔드: `{"evaluations":[null]}` → 400 `INVALID_INPUT`. 같은 평가를 동시에 두 번 → 200 하나와 409 하나(로그에 unique 제약 위반이 찍혀 catch 경로가 실행된 것을 확인). 초대 코드 GET·POST 응답 모양은 그대로 `{ "inviteCode": ... }`.
+  - 화면: 역할 없는 조원 3명인 조에서 한 줄의 "지정"을 누르는 동안 세 버튼이 모두 막히고, 차례로 지정한 역할 3개가 모두 남는다. 테마 버튼은 누를 때마다 `data-theme`과 글자가 바뀐다.
+  - 가짜 API(복사한 db로 실행): 교수는 조 2개, 학생은 자기 조만, 어느 조에도 없는 학생은 과제 상세 403, 조원이 초대 코드를 보면 403, 다른 조 조원 목록 403.
+- 읽을 때 볼 곳:
+  - `EvaluationService.submit` 끝의 try/catch: 앞의 "이미 제출했는지" 검사만으로는 거의 동시에 온 두 요청을 못 막는다. 마지막 방어선은 DB의 unique 제약이고, 그 오류를 409로 바꾸는 곳이다. 로그에 Hibernate의 ERROR 한 줄이 찍히는 것은 정상이다.
+  - `List<@NotNull @Valid Item>`: 꺾쇠 안의 어노테이션은 목록 자체가 아니라 원소 하나하나에 붙는다.
+  - `TeamPage`의 `assigningId`: "무엇을 지정 중인가"(번호)를 기억하지만 버튼 잠금은 "지정 중인가"(`!== null`)로만 본다.
+  - `AppLayout`이 `ThemeToggle`에 `theme`과 `onToggle`을 넘기는 모양: 다른 component(`RoleAssignForm`의 `value`/`onSubmit`)와 같은 "값과 할 일을 props로" 패턴이다.
+- 관리자에게 물을 것(문서 충돌, 손대지 않음):
+  - handler 이름: 학습 저장소 `decisions.md`의 규칙("handle + 예외 이름에서 Exception 뺀 것")과 그 예시(`handleNotValid`)가 서로 다르다. 시연본은 규칙 문자 그대로(`handleMethodArgumentNotValid`)다. 위 2026.10.25 항목의 `handleNotValid`는 바꾸기 전 이름이다.
+  - `docs/api-draft.md` 3행·CLAUDE.md 앞부분의 "관리자 확인 전에는 Controller를 만들지 않는다"와 2026.10.25 결정("api-draft에 적고 바로 만든다")이 어긋난다. `확인` 표시가 붙은 제목은 3개뿐이다.
+  - JWT의 `memberType` claim: 넣지만 읽는 곳이 없다(권한 검사는 DB의 회원 유형). 위 2026.10.25 항목의 "token에는 회원 번호만"과도 다르다. 이번에는 "참고용" 주석만 달았다.
+- 내가 채운 가정:
+  - 리뷰 지적 중 취향 문제(들여쓰기·wildcard import 일괄 정리, 4개 화면의 effect cleanup, N+1, 로그인 시각 차이로 이메일 존재가 드러나는 것)는 고치지 않았다.
+  - `saveAll` 대신 `saveAllAndFlush`: 지금 id 생성 방식(IDENTITY)이면 `saveAll`도 INSERT를 바로 보내지만, 그 사실에 기대지 않으려고 골랐다.
+  - 시험하면서 개발 DB에 과제 "Refactor check"(1조에 김민준·이서연·박도윤)와 1조 평가를 만들었다. 서버를 다시 켜면 시작 데이터로 돌아간다.

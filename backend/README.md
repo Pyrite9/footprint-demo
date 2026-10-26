@@ -17,7 +17,14 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
    macOS는 둘째 줄이 `cp .env.example .env`입니다. `.env`는 처음 한 번만 만들면 됩니다.
    학습 저장소의 `infra`와 포트(5432, 9000, 9001)가 같습니다. 학습용이 켜져 있으면 그 폴더에서 `docker compose down`을 먼저 실행합니다.
 
-2. IntelliJ에서 `backend` 폴더를 열고 `BackendApplication`의 `main`을 실행합니다. 터미널에서는 `.\gradlew.bat bootRun`(macOS는 `./gradlew bootRun`)입니다.
+2. IntelliJ에서 `backend` 폴더를 열고 `BackendApplication`의 `main`을 실행합니다. 터미널에서는 1번에 이어 `backend` 폴더로 옮겨 실행합니다.
+
+   ```powershell
+   cd ..\backend
+   .\gradlew.bat bootRun
+   ```
+
+   macOS는 `cd ../backend`, `./gradlew bootRun`입니다. bootRun은 서버가 꺼질 때까지 터미널을 차지합니다. 3번은 새 터미널을 `backend` 폴더에서 열어 실행합니다.
 
 3. 확인: 로그인 API를 부르면 `{"accessToken": "..."}`가 옵니다. 주소와 응답 모양은 `docs/api-draft.md`에 있습니다.
 
@@ -49,17 +56,18 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
    $token = (Invoke-RestMethod -Method Post -Uri http://localhost:8080/auth/login -ContentType "application/json" -Body '{"email":"student02@example.com","password":"pass1234"}').accessToken
    curl.exe -X POST http://localhost:8080/teams/1/deliverables -H "Authorization: Bearer $token" -F "file=@README.md"
    curl.exe http://localhost:8080/teams/1/deliverables -H "Authorization: Bearer $token"
-   curl.exe -OJ http://localhost:8080/deliverables/1/download -H "Authorization: Bearer $token"
+   curl.exe -o download.txt http://localhost:8080/deliverables/1/download -H "Authorization: Bearer $token"
    ```
 
-   `-OJ`는 서버가 알려 준 파일 이름(`기획서.txt`)으로 저장합니다. macOS는 `curl.exe` 대신 `curl`입니다.
+   `-o download.txt`는 받은 내용을 그 이름으로 저장합니다. curl은 한글 파일 이름(RFC 5987 형식)을 풀지 못해서 이름을 직접 정합니다. 한글 이름이 깨지지 않는 것은 브라우저로 확인합니다(`docs/demo-script.md` 장면 6). macOS는 `curl.exe` 대신 `curl`입니다.
 
 4. 파일 저장소 확인: MinIO 콘솔 http://localhost:9001 에 `infra/.env`의 `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`로 로그인합니다. 서버가 시작할 때 만든 `footprint` 버킷이 보이면 성공입니다.
 
 ## 빌드와 테스트
 
 `.\gradlew.bat build`(macOS는 `./gradlew build`)는 테스트도 함께 실행합니다. 테스트가 실제 PostgreSQL과 MinIO에 접속하므로 **빌드 전에 `infra`의 `docker compose up -d`가 켜져 있어야 합니다.** 꺼져 있으면 테스트가 실패합니다.
-`StorageServiceTests`는 시연용 버킷이 아니라 `footprint-test` 버킷을 씁니다. 빌드할 때마다 이 버킷에 작은 시험 파일이 하나씩 쌓입니다.
+테스트는 시연용 버킷이 아니라 `footprint-test` 버킷을 씁니다. 빌드할 때마다 이 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓입니다.
+**빌드(테스트)도 서버를 켤 때처럼 데이터베이스를 지우고 시작 데이터를 다시 넣습니다.** 화면에서 만든 과제·산출물·평가가 사라지므로 시연·리허설 중에는 빌드하지 않습니다.
 
 실행 로그에 `Using generated security password: ...`가 나옵니다. Spring Security가 기본으로 만드는 계정입니다. 이 프로젝트는 이 계정을 쓰지 않으므로 무시합니다.
 

@@ -26,6 +26,7 @@ docker compose down
 
 ### 켜기 전에 확인할 것
 
+- `docker compose version`이 v2.24 이상이어야 합니다. 맨 위 `docker-compose.yml`이 쓰는 `include`와 `env_file`의 `required`가 그 버전부터 됩니다.
 - 학습 저장소(`footprint-study`)의 infra가 켜져 있으면 먼저 끕니다. 포트(5432, 9000, 9001)가 같습니다.
 - 개발 중에 켠 백엔드(8080)와 화면 개발 서버(5173)도 끕니다. 같은 포트를 씁니다.
 - `infra/.env`가 없어도 됩니다. 없으면 `infra/.env.example`과 같은 기본값을 씁니다.
