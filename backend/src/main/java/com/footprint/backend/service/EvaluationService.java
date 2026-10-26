@@ -10,6 +10,7 @@ import com.footprint.backend.exception.NotFoundException;
 import com.footprint.backend.repository.EvaluationRepository;
 import com.footprint.backend.repository.TeamMemberRepository;
 import com.footprint.backend.repository.TeamRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +47,7 @@ public class EvaluationService {
     }
 
     // 자신을 뺀 조원 전원의 평가를 한 번에 저장합니다. 한 명이라도 빠지거나 이미 제출했으면 아무것도 저장하지 않습니다.
+    // 대상 조원마다 값이 여러 개라서 요청 DTO의 Item 목록을 그대로 받습니다. 다른 Service는 Controller가 풀어 준 값을 받습니다.
     // @Transactional: 여러 행을 저장하다 중간에 실패하면 앞에서 저장한 행도 함께 취소됩니다.
     @Transactional
     public List<Evaluation> submit(Long teamId, List<EvaluationSubmitRequest.Item> items, Long memberId) {
@@ -83,7 +85,13 @@ public class EvaluationService {
                     item.onlineCommunication(), item.offlineCommunication(), item.progressCheck(),
                     toComment(item.comment()), submittedAt));
         }
-        return evaluationRepository.saveAll(evaluations);
+        // 위의 "이미 제출했는지" 검사를 두 요청이 거의 동시에 통과하면, 두 번째 요청은 DB의 unique 제약에 걸립니다.
+        // saveAllAndFlush는 INSERT를 지금 바로 보내서 그 오류를 여기서 잡아 409로 바꿀 수 있게 합니다.
+        try {
+            return evaluationRepository.saveAllAndFlush(evaluations);
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateException("이미 동료평가를 제출했습니다");
+        }
     }
 
     // 서술 의견의 앞뒤 공백을 지웁니다. 비었으면 null로 저장합니다(의견은 선택입니다).
