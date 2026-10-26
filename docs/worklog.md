@@ -672,6 +672,6 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - handler 이름은 지금처럼 규칙을 문자 그대로 따른다(`handleMethodArgumentNotValid`). 이유: 학습 저장소 `decisions.md`에서 규칙("handle + 예외 이름에서 Exception 뺀 것")과 예시(`handleNotValid`)가 어긋나는데, 예시를 따르면 줄이는 방법을 사람마다 다르게 정하게 된다. 규칙 문자 그대로면 예외 이름만 보고 handler 이름이 하나로 정해져서 조원이 새 handler를 만들 때 고민할 것이 없다. 예외는 `handleException` 하나다(규칙대로면 `handle`만 남는다).
   - `docs/api-draft.md` 3행을 2026.10.25 결정에 맞게 고쳤다: "먼저 적고, 확인을 기다리지 않고 바로 만든다". 제목의 "확인 2026.10.25" 표시 3개는 지우지 않고, 이 결정 전에 확인을 받은 API라는 뜻으로 3행에 설명을 붙였다.
   - JWT의 `memberType` claim은 남긴다. 권한 검사는 지금처럼 DB의 회원 유형으로 하고, claim은 token을 열어 볼 때의 참고용이다(`JwtProvider` 주석 그대로). 위 2026.10.25 항목의 "token에는 회원 번호만"은 이 결정으로 바뀐 것으로 본다.
-- 고친 파일: `docs/api-draft.md`(3행), `docs/worklog.md`
+  - 프로젝트 `CLAUDE.md`의 "확인 전에는 그 API의 Controller를 만들지 않는다" 문장도 같은 결정에 맞게 "먼저 쓰고, 확인을 기다리지 않고 바로 만든다"로 고쳤다(관리자 추가 지시).
+- 고친 파일: `docs/api-draft.md`(3행), `CLAUDE.md`(31행), `docs/worklog.md`
 - 확인: 문서만 고쳐서 빌드는 다시 돌리지 않았다.
-- 남은 것: 프로젝트 `CLAUDE.md`의 "확인 전에는 그 API의 Controller를 만들지 않는다" 문장도 2026.10.25 결정과 어긋난다. 이번 지시 범위가 api-draft 3행이라 손대지 않았다.

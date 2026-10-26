@@ -28,7 +28,7 @@
 @docs/demo-scope.md
 @../footprint-study/docs/decisions.md
 
-API 명세가 아직 없으면 코드보다 **`docs/api-draft.md`를 먼저 쓰고 관리자 확인을 받는다.** 확인 전에는 그 API의 Controller를 만들지 않는다.
+API 명세가 아직 없으면 코드보다 **`docs/api-draft.md`를 먼저 쓴다.** 관리자 확인을 기다리지 않고 바로 만든다(2026.10.25 관리자 결정, 아래 "묻지 않고 추천안으로 진행하고 기록할 것").
 
 ## 고정 스택과 구조
 
