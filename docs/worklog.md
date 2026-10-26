@@ -675,3 +675,16 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 프로젝트 `CLAUDE.md`의 "확인 전에는 그 API의 Controller를 만들지 않는다" 문장도 같은 결정에 맞게 "먼저 쓰고, 확인을 기다리지 않고 바로 만든다"로 고쳤다(관리자 추가 지시).
 - 고친 파일: `docs/api-draft.md`(3행), `CLAUDE.md`(31행), `docs/worklog.md`
 - 확인: 문서만 고쳐서 빌드는 다시 돌리지 않았다.
+
+### 구글 로그인 spike (미정 1 확인)
+- 결정:
+  - 관리자 지시(2026.10.26): 미정 1(12.11 로그인 방식)을 정하기 전에, 학교 계정으로 구글 로그인이 되는지부터 확인한다. 걱정한 위험은 학교 Workspace가 외부 앱 로그인을 막아 두었을 가능성이었다.
+  - 방식: 저장소 밖 임시 HTML 한 장(Google Identity Services 버튼)을 `http://localhost:5173`에 띄우고, 받은 ID token의 payload를 브라우저 안에서만 풀어 보았다. 서명 검증은 하지 않았다(실제 구현에서 서버가 한다). spike 파일은 저장소에 넣지 않았다.
+  - Google Cloud 설정(관리자가 직접): 개인 계정의 새 프로젝트, 동의 화면 대상 "외부(External)", 게시 상태 "테스트 중"(테스트 사용자에 학교 계정 추가), 웹 애플리케이션 OAuth client, 승인된 JavaScript 원본 `http://localhost`, `http://localhost:5173`. 리디렉션 URI와 client secret은 쓰지 않는다.
+- 결과: 관리자의 학교 계정으로 로그인 성공. `hd`=`g.yju.ac.kr`, `email_verified`=true, `iss`=`https://accounts.google.com`, `aud`가 Client ID와 일치. 학교 정책에 막히지 않는다.
+- 아직 모르는 것:
+  - 교수 계정의 이메일 도메인(`g.yju.ac.kr`이 아니면 `hd` 검사로 교수가 막힌다).
+  - "테스트 중" 상태는 테스트 사용자로 넣은 계정만 로그인된다. 시연 계정 4개 이상과 조원 계정을 넣거나 "프로덕션"으로 게시해야 한다. 기본 범위(openid, email, profile)만 쓰면 심사가 필요 없는지는 확인하지 않았다.
+  - 구글 token에는 교수·학생 구분이 없다. 회원 유형을 정하는 방법이 따로 필요하다.
+- 고친 파일: `docs/worklog.md`
+- 내가 채운 가정: spike 페이지에 `hd` 제한을 걸지 않았다(어느 도메인 계정이 들어오는지 보려고). Client ID는 비밀값이 아니지만 구현 단위에서 설정값으로 넣기 전까지 저장소에 적지 않는다.
