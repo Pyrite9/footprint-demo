@@ -51,6 +51,7 @@ function nextId(db, collection) {
 }
 
 // Authorization header의 token으로 회원을 찾습니다. token이 없거나 틀리면 undefined입니다.
+// 실제 백엔드와 다른 점 하나: 없는 회원 번호의 token도 여기서 401이 됩니다(실제는 GET /members/me가 404).
 function findLoginMember(req) {
   const header = req.headers.authorization
   if (!header || !header.startsWith(BEARER_TOKEN_PREFIX)) return undefined
@@ -169,11 +170,8 @@ function handleGetAssignment(req, res, loginMember, assignmentId) {
 
   let teams = db.get('teams').filter({ assignmentId }).sortBy('id').value()
   if (assignment.professorId !== loginMember.id) {
-    const teamIds = teams.map((team) => team.id)
-    const myTeamMember = db.get('teamMembers').find((teamMember) => teamMember.memberId === loginMember.id && teamIds.includes(teamMember.teamId)).value()
-    if (!myTeamMember) {
-      return sendError(res, 403, 'FORBIDDEN', '이 과제에 접근할 권한이 없습니다')
-    }
+    const myTeamMember = checkAssignmentMember(db, res, assignment, loginMember)
+    if (!myTeamMember) return
     teams = teams.filter((team) => team.id === myTeamMember.teamId)
   }
 
@@ -198,32 +196,39 @@ function toTeamResponse(db, team) {
   return { id: team.id, name: team.name, assignmentId: assignment.id, assignmentTitle: assignment.title }
 }
 
-// 실제 TeamAccessChecker.checkTeamAccess와 같습니다. 그 조의 조원이거나 그 과제를 만든 교수이면 true입니다.
-// 아니면 403을 보내고 false를 돌려줍니다. 부른 쪽은 false이면 바로 끝냅니다.
-function checkTeamAccess(db, res, team, loginMember) {
-  const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
-  if (assignment.professorId === loginMember.id) return true
-  return checkTeamMember(db, res, team, loginMember) !== null
-}
+// 아래 check 함수들은 실제 TeamAccessChecker와 같은 이름, 같은 규칙입니다.
+// 실패하면 403을 보내고 false나 undefined를 돌려줍니다. 부른 쪽은 if (!결과) return 으로 바로 끝냅니다.
 
-// 실제 TeamAccessChecker.checkTeamMember와 같습니다. 조원이면 조 참여 기록, 아니면 403을 보내고 null입니다.
-function checkTeamMember(db, res, team, loginMember) {
-  const teamMember = db.get('teamMembers').find({ teamId: team.id, memberId: loginMember.id }).value()
-  if (!teamMember) {
-    sendError(res, 403, 'FORBIDDEN', '이 조에 접근할 권한이 없습니다')
-    return null
-  }
+// 실제 TeamAccessChecker.checkAssignmentMember와 같습니다. 이 과제의 조원이면 조 참여 기록, 아니면 403을 보내고 undefined입니다.
+function checkAssignmentMember(db, res, assignment, loginMember) {
+  const teamIds = db.get('teams').filter({ assignmentId: assignment.id }).map('id').value()
+  const teamMember = db.get('teamMembers').find((item) => item.memberId === loginMember.id && teamIds.includes(item.teamId)).value()
+  if (!teamMember) sendError(res, 403, 'FORBIDDEN', '이 과제에 접근할 권한이 없습니다')
   return teamMember
 }
 
-// 실제 TeamAccessChecker.checkLeader와 같습니다. 조장이면 true, 아니면 403을 보내고 false입니다.
+// 실제 TeamAccessChecker.checkTeamAccess와 같습니다. 그 조의 조원이거나 그 과제를 만든 교수이면 true, 아니면 403을 보내고 false입니다.
+function checkTeamAccess(db, res, team, loginMember) {
+  const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
+  if (assignment.professorId === loginMember.id) return true
+  return checkTeamMember(db, res, team, loginMember) !== undefined
+}
+
+// 실제 TeamAccessChecker.checkTeamMember와 같습니다. 조원이면 조 참여 기록, 아니면 403을 보내고 undefined입니다.
+function checkTeamMember(db, res, team, loginMember) {
+  const teamMember = db.get('teamMembers').find({ teamId: team.id, memberId: loginMember.id }).value()
+  if (!teamMember) sendError(res, 403, 'FORBIDDEN', '이 조에 접근할 권한이 없습니다')
+  return teamMember
+}
+
+// 실제 TeamAccessChecker.checkLeader와 같습니다. 조장이면 조 참여 기록, 아니면 403을 보내고 undefined입니다.
 function checkLeader(db, res, team, loginMember) {
   const teamMember = db.get('teamMembers').find({ teamId: team.id, memberId: loginMember.id }).value()
   if (!teamMember || !teamMember.leader) {
     sendError(res, 403, 'FORBIDDEN', '조장만 할 수 있습니다')
-    return false
+    return undefined
   }
-  return true
+  return teamMember
 }
 
 // 조를 찾습니다. 없으면 404를 보내고 undefined입니다.
