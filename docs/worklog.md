@@ -717,3 +717,16 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 같은 계정이 처음 로그인을 거의 동시에 두 번 하면 unique 제약으로 500이 날 수 있다. 구글 버튼은 callback을 한 번만 부르므로 고치지 않았다.
   - Postman 모음에는 구글 로그인 요청을 넣지 않았다(ID token을 Postman에서 받을 수 없음).
   - 시연 대본은 시작 계정 그대로 두고, 구글로 시연할 때의 준비(테스트 사용자 4명, 교수 이메일, 같은 브라우저에 4개 계정)만 적었다. 어느 쪽으로 시연할지는 관리자가 정한다.
+
+### GitHub public 저장소로 공개 (관리자 결정)
+- 결정:
+  - 관리자 결정(2026.10.26): 비공개로 둘 이유가 없어 `Pyrite9/footprint-demo`를 public으로 만든다. CLAUDE.md "반드시 먼저 말할 것"의 "공개 문서에 쓰지 않는다"를 지우고, 학습 저장소 쪽 금지만 남겼다. 대신 "비밀값과 실제 사람의 이메일·이름은 commit 하지 않는다"를 적었다.
+- 고친 파일: `CLAUDE.md`
+- 확인(push 전 보안 검토):
+  - 추적 파일: 비밀값은 개발용 기본값(`change-me`, `change-me-please`, `footprint-demo-dev-secret-key-change-me-0000`)뿐이다. Google OAuth Client ID는 비밀값이 아니다(화면 번들에도 들어감). client secret은 쓰지 않는다.
+  - 교수 이메일 `PROFESSOR_EMAILS`는 빈 값이다. 실제 값은 gitignore된 `infra/.env`에만 있다.
+  - commit 이력 전체(31개): `@g.yju.ac.kr` 주소, GitHub·Google·AWS token 형식, 개인 키, 실제 JWT가 없다. `.env` 계열로 commit된 적이 있는 것은 `frontend/.env`, `infra/.env.example`뿐이고 모든 버전이 개발용 값이다.
+  - 포트는 모두 `127.0.0.1`에만 연다(같은 네트워크의 다른 컴퓨터가 DB·MinIO에 붙지 못함). CORS는 `http://localhost:5173`만 받는다.
+  - commit 작성자 이메일은 공개된다. 같은 이메일이 관리자의 다른 public 저장소 commit에 이미 있어서 새로 드러나는 것은 아니다.
+- 읽을 때 볼 곳: 이 저장소를 접속 가능한 주소에 배포할 때는 `JWT_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`를 환경 변수로 반드시 바꾼다. 기본값이 공개돼 있어서, 그대로 두면 누구나 token을 위조할 수 있다.
+- 내가 채운 가정: 시작 데이터의 이름(김민준, 이서연 등)은 흔한 이름으로 지은 가짜 이름으로 보고 그대로 두었다. 조원의 실제 이름과 겹치면 바꾼다.

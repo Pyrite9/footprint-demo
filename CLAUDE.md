@@ -94,7 +94,8 @@ docs/       demo-scope.md, api-draft.md, worklog.md
 
 - `git push`, 원격 저장소 설정은 하기 전에 반드시 관리자에게 말한다. **PR은 절대 자동으로 만들지 않는다.**
 - 외부 플랫폼 작업(메일 발송 등).
-- `../footprint-study`는 **읽기만** 한다. 고치거나 commit 하지 않는다. 시연본 관련 내용을 학습 저장소, 공개 문서, PR에 쓰지 않는다.
+- `../footprint-study`는 **읽기만** 한다. 고치거나 commit 하지 않는다. 시연본 관련 내용을 학습 저장소와 그 PR에 쓰지 않는다.
+- 이 저장소는 GitHub public 저장소다(2026.10.26 관리자 결정). 비밀값, 실제 사람의 이메일·이름은 commit 하지 않고 gitignore된 `.env`나 환경 변수로 넣는다. 개발용 기본값(`change-me` 등)만 저장소에 둔다.
 
 ## 주석
 
