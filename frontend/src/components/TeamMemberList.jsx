@@ -16,7 +16,7 @@ function TeamMemberList({ members, canAssignRole, roleNameInputs, onRoleNameChan
                             value={roleNameInputs[member.id] ?? ''}
                             onChange={(value) => onRoleNameChange(member.id, value)}
                             onSubmit={() => onAssignRole(member.id)}
-                            disabled={assigningId === member.id}
+                            disabled={assigningId !== null}
                         />
                     )}
                 </li>

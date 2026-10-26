@@ -20,7 +20,8 @@ function TeamPage() {
     const [issuing, setIssuing] = useState(false)
     // 조원마다 입력 중인 역할명입니다. { 조 참여 번호: 역할명 } 모양입니다.
     const [roleNameInputs, setRoleNameInputs] = useState({})
-    // 지금 역할을 지정하는 중인 조 참여 번호입니다. 그 줄의 버튼만 막습니다.
+    // 지금 역할을 지정하는 중인 조 참여 번호입니다. 지정 중에는 모든 줄의 버튼을 막습니다.
+    // 두 줄을 동시에 지정하면 먼저 끝난 결과를 나중에 끝난 쪽이 옛 members로 덮어써 화면에서 사라지기 때문입니다.
     const [assigningId, setAssigningId] = useState(null)
 
     useEffect(() => {

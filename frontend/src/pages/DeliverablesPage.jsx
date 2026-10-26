@@ -84,7 +84,7 @@ function DeliverablesPage() {
             {canUpload && (
                 <DeliverableUploadForm
                     roleName={myTeamMember.roleName}
-                    onFileChange={setSelectedFile}
+                    onFileChange={(file) => setSelectedFile(file)}
                     onUpload={handleUpload}
                     uploading={uploading}
                     inputKey={fileInputKey}

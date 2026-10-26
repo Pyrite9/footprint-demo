@@ -63,7 +63,7 @@ function EvaluationPage() {
         setSubmitting(true)
         const evaluations = targets.map((target) => ({ targetTeamMemberId: target.id, ...inputs[target.id] }))
         submitEvaluations(teamId, evaluations)
-            .then(setStatus)
+            .then((data) => setStatus(data))
             .catch((err) => setActionError(err.message))
             .finally(() => setSubmitting(false))
     }

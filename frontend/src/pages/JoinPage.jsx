@@ -17,6 +17,7 @@ function JoinPage() {
             .then((team) => navigate(`/teams/${team.id}`))
             .catch((err) => {
                 setError(err.message)
+                // finally가 아니라 여기서 버튼을 풉니다. 성공하면 다른 화면으로 가서 이 화면이 사라지기 때문입니다.
                 setJoining(false)
             })
     }
