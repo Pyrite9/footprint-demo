@@ -110,7 +110,7 @@ public class GlobalExceptionHandler {
     }
 
     // 주소는 있지만 그 method가 없는 요청(예: DELETE /assignments/1)도 "없는 주소"로 보고 404 NOT_FOUND로 응답합니다.
-    // 405용 code를 따로 두지 않고 다섯 가지 code 안에서 처리하기 위해서입니다. 가짜 API도 같은 응답입니다.
+    // 405용 code를 따로 두지 않고 정해 둔 code 목록 안에서 처리하기 위해서입니다. 가짜 API도 같은 응답입니다.
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ApiErrorResponse handleHttpRequestMethodNotSupported(HttpRequestMethodNotSupportedException e) {

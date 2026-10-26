@@ -45,13 +45,13 @@ public class TeamController {
     // 지금 유효한 초대 코드를 돌려줍니다. 조장만 부를 수 있습니다.
     @GetMapping("/{teamId}/invite-code")
     public InviteCodeResponse findInviteCode(@AuthenticationPrincipal Long memberId, @PathVariable Long teamId) {
-        return new InviteCodeResponse(teamService.findInviteCode(teamId, memberId));
+        return InviteCodeResponse.from(teamService.findInviteCode(teamId, memberId));
     }
 
     // 초대 코드를 새로 발급합니다. 조장만 부를 수 있습니다.
     @PostMapping("/{teamId}/invite-code")
     public InviteCodeResponse issueInviteCode(@AuthenticationPrincipal Long memberId, @PathVariable Long teamId) {
-        return new InviteCodeResponse(teamService.issueInviteCode(teamId, memberId));
+        return InviteCodeResponse.from(teamService.issueInviteCode(teamId, memberId));
     }
 
     // 조장이 조원에게 역할을 지정하고, 역할이 지정된 조원을 돌려줍니다.

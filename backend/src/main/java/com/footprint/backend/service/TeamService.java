@@ -46,22 +46,22 @@ public class TeamService {
         return teamMemberRepository.findByTeamIdOrderByIdAsc(team.getId());
     }
 
-    // 지금 유효한 초대 코드를 찾습니다. 조장만 볼 수 있습니다. 발급한 적이 없으면 null입니다.
-    public String findInviteCode(Long teamId, Long memberId) {
+    // 초대 코드를 보려는 조를 찾습니다. 조장만 볼 수 있습니다. 발급한 적이 없으면 조의 inviteCode가 null입니다.
+    public Team findInviteCode(Long teamId, Long memberId) {
         Team team = findTeam(teamId);
         teamAccessChecker.checkLeader(team, memberId);
-        return team.getInviteCode();
+        return team;
     }
 
-    // 초대 코드를 새로 발급합니다. 조장만 할 수 있습니다. 이전 코드는 무효가 됩니다.
+    // 초대 코드를 새로 발급하고 그 조를 돌려줍니다. 조장만 할 수 있습니다. 이전 코드는 무효가 됩니다.
     // @Transactional: 메서드가 끝날 때 바뀐 inviteCode가 DB에 저장됩니다(save를 따로 부르지 않아도 됩니다).
     @Transactional
-    public String issueInviteCode(Long teamId, Long memberId) {
+    public Team issueInviteCode(Long teamId, Long memberId) {
         Team team = findTeam(teamId);
         teamAccessChecker.checkLeader(team, memberId);
         // UUID는 겹칠 일이 사실상 없는 무작위 문자열입니다. 짐작해서 다른 조에 들어갈 수 없게 합니다.
         team.changeInviteCode(UUID.randomUUID().toString());
-        return team.getInviteCode();
+        return team;
     }
 
     // 초대 코드로 그 조에 합류합니다. 이미 그 조의 조원이면 아무것도 바꾸지 않고 그 조를 돌려줍니다.

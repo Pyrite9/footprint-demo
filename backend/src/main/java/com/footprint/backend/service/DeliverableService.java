@@ -36,11 +36,11 @@ public class DeliverableService {
     // 순서: 파일 본문을 MinIO에 먼저 저장하고, 성공하면 데이터베이스에 저장합니다.
     @Transactional
     public Deliverable upload(Long teamId, MultipartFile file, Long memberId) {
+        // 빈 파일 검사를 권한 검사보다 먼저 합니다. 파일이 없거나 20MB를 넘는 요청도 Spring이 Service 전에 400으로 막기 때문입니다.
         if (file.isEmpty()) {
             throw new InvalidInputException("빈 파일은 올릴 수 없습니다");
         }
-        Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new NotFoundException("조가 없습니다. id=" + teamId));
+        Team team = findTeam(teamId);
         // 조원만 올립니다. 교수는 이 조의 조원이 아니라서 여기서 막힙니다.
         TeamMember uploader = teamAccessChecker.checkTeamMember(team, memberId);
         if (uploader.getRoleName() == null) {
@@ -56,8 +56,7 @@ public class DeliverableService {
 
     // 조의 산출물을 최신순으로 찾습니다. 그 조의 조원과 그 과제를 만든 교수가 볼 수 있습니다.
     public List<Deliverable> findAll(Long teamId, Long memberId) {
-        Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new NotFoundException("조가 없습니다. id=" + teamId));
+        Team team = findTeam(teamId);
         teamAccessChecker.checkTeamAccess(team, memberId);
         return deliverableRepository.findByTeamMemberTeamIdOrderByIdDesc(teamId);
     }
@@ -73,5 +72,11 @@ public class DeliverableService {
     // 산출물의 파일 본문을 MinIO에서 꺼냅니다. MinIO에 본문이 없으면 NotFoundException입니다.
     public Resource loadFile(Deliverable deliverable) {
         return storageService.load(deliverable.getStorageKey());
+    }
+
+    // 조를 찾습니다. 없으면 NotFoundException을 던집니다.
+    private Team findTeam(Long teamId) {
+        return teamRepository.findById(teamId)
+                .orElseThrow(() -> new NotFoundException("조가 없습니다. id=" + teamId));
     }
 }

@@ -33,7 +33,7 @@ public class AssignmentController {
     public AssignmentResponse create(@AuthenticationPrincipal Long memberId,
                                      @Valid @RequestBody AssignmentCreateRequest request) {
         Assignment assignment = assignmentService.create(
-                memberId, request.title(), request.startDate(), request.endDate(), request.leaderEmails());
+                request.title(), request.startDate(), request.endDate(), request.leaderEmails(), memberId);
         return AssignmentResponse.from(assignment);
     }
 

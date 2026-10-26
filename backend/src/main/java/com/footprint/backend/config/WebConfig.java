@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-// 프론트 개발 서버(http://localhost:5173) 에서 백엔드로의 접근(allowedMethods)을 허용합니다
+// 화면(http://localhost:5173)이 백엔드를 부를 수 있도록 CORS를 허용합니다.
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 

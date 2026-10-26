@@ -47,7 +47,7 @@ public class AssignmentService {
     // 과제를 만들고, leaderEmails 순서대로 "1조", "2조"…와 각 조의 조장을 저장합니다.
     // @Transactional: 과제·조·조장 저장이 하나의 트랜잭션입니다. 중간에 예외가 나면 앞에서 저장한 것도 모두 취소됩니다.
     @Transactional
-    public Assignment create(Long memberId, String title, LocalDate startDate, LocalDate endDate, List<String> leaderEmails) {
+    public Assignment create(String title, LocalDate startDate, LocalDate endDate, List<String> leaderEmails, Long memberId) {
         Member professor = memberService.findById(memberId);
         checkProfessor(professor);
 

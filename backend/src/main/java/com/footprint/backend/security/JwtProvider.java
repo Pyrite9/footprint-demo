@@ -33,6 +33,7 @@ public class JwtProvider {
         return Jwts.builder()
                 // sub(subject)는 "이 token의 주인"입니다. 문자열만 들어가므로 id를 문자열로 바꿉니다.
                 .subject(String.valueOf(member.getId()))
+                // 참고용입니다. 권한 검사는 Service가 DB에 저장된 회원 유형으로 합니다.
                 .claim("memberType", member.getMemberType().name())
                 .issuedAt(now)
                 .expiration(expiration)
