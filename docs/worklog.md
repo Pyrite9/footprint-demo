@@ -741,3 +741,8 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 확인: `git ls-files -s backend/gradlew`가 `100755`. Linux 점검: `gradlew`는 `.gitattributes`로 LF 고정, `frontend/src` import 경로는 대소문자까지 실제 파일과 같음, `package-lock.json`에 Linux용 rolldown 모듈 있음.
 - 읽을 때 볼 곳: Windows에서는 파일 모드가 바뀐 게 눈에 보이지 않는다. `git diff`에 `old mode 100644 / new mode 100755`로만 나온다.
 - 내가 채운 가정: 노트북은 x86_64로 보았다.
+
+### 노트북 이식 가이드 올리기
+- 만든 파일: `docs/laptop-setup.md`(노트북 Claude Code에게 넘기는 설치·설정 지시서)
+- 결정: 노트북에서 바로 받을 수 있게 저장소에 올렸다. 저장소 맨 위 대신 `docs/`에 둔다. 관리자 git 이메일은 public 저장소라 적지 않고 "관리자에게 묻는다"로 바꿨다.
+- 읽을 때 볼 곳: 전역 CLAUDE.md·메모리 내용이 그대로 들어 있다. 데스크톱에서 그 둘을 바꾸면 이 문서도 함께 고친다.
