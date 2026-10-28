@@ -730,3 +730,14 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - commit 작성자 이메일은 공개된다. 같은 이메일이 관리자의 다른 public 저장소 commit에 이미 있어서 새로 드러나는 것은 아니다.
 - 읽을 때 볼 곳: 이 저장소를 접속 가능한 주소에 배포할 때는 `JWT_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`를 환경 변수로 반드시 바꾼다. 기본값이 공개돼 있어서, 그대로 두면 누구나 token을 위조할 수 있다.
 - 내가 채운 가정: 시작 데이터의 이름(김민준, 이서연 등)은 흔한 이름으로 지은 가짜 이름으로 보고 그대로 두었다. 조원의 실제 이름과 겹치면 바꾼다.
+
+## 2026.10.28
+
+### 노트북(Arch Linux) 작업 준비
+- 결정:
+  - `backend/gradlew`가 git에 실행 권한 없이(`100644`) 저장돼 있어서 Linux·macOS에서 clone 하면 `./gradlew`가 `Permission denied`로 실패한다. Windows에서 commit 해서 생긴 문제다. `git update-index --chmod=+x`로 `100755`로 바꿨다. 내용은 그대로다.
+  - CLAUDE.md "실행 환경"에 노트북(Arch Linux)에서는 bash 기준으로 안내한다는 줄을 더했다. 조원이 읽는 README 안내는 Windows·macOS 기준 그대로 둔다.
+- 고친 파일: `backend/gradlew`(파일 모드만), `CLAUDE.md`
+- 확인: `git ls-files -s backend/gradlew`가 `100755`. Linux 점검: `gradlew`는 `.gitattributes`로 LF 고정, `frontend/src` import 경로는 대소문자까지 실제 파일과 같음, `package-lock.json`에 Linux용 rolldown 모듈 있음.
+- 읽을 때 볼 곳: Windows에서는 파일 모드가 바뀐 게 눈에 보이지 않는다. `git diff`에 `old mode 100644 / new mode 100755`로만 나온다.
+- 내가 채운 가정: 노트북은 x86_64로 보았다.

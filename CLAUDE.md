@@ -115,5 +115,6 @@ docs/       demo-scope.md, api-draft.md, worklog.md
 ## 실행 환경
 
 관리자 컴퓨터는 Windows다. 안내 명령은 PowerShell 기준으로 쓰고, 다르면 macOS를 한 줄 덧붙인다.
+관리자는 Arch Linux 노트북에서도 작업한다(2026.10.28). 그 노트북에서 실행 중이면 명령은 bash 기준으로 쓴다(`./gradlew`). 저장소 문서의 안내는 그대로 Windows·macOS 기준으로 둔다.
 DB와 MinIO는 `infra/`에서 `docker compose up -d`. 접속값은 `infra/.env.example`.
 학습 저장소의 `infra`와 포트(5432, 9000, 9001)가 같다. 둘을 동시에 켜지 않는다. 켜져 있으면 학습용을 먼저 끄라고 안내한다.
