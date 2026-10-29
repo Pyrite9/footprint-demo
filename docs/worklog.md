@@ -772,3 +772,26 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 보드의 코드 링크는 노트북 ext4 clone의 commit을 가리킨다. 코드가 바뀌면 새 보드를 만들지 않고 보드 대상 commit을 옮긴 뒤 본문을 고친다.
   - `/mnt/work`(NTFS)를 대상으로 하면 백엔드 Java 코드가 보드에 표시되지 않는다. 그래서 ext4 clone을 대상으로 둔다.
 - 내가 채운 가정: 다이어그램 노드 설명, 화살표 이름, 테이블 필드 설명은 이미 짧은 구절이라 개조식 변경에서 뺐다.
+
+## 2026.10.29
+
+### 멘토에게 저장소 링크를 보여주기 전 정리
+- 결정:
+  - 멘토는 저장소를 clone 하거나 실행하지 않고 **GitHub 링크만 본다**(관리자 결정 2026.10.29). 그래서 GitHub 페이지에서 바로 보이는 것(README, LICENSE)만 손봤다. 실행 리허설은 하지 않았다.
+  - README 맨 위 소개 다음에 "지금 상태", "기술 스택", "폴더 구조"를 넣었다. 실행 안내보다 앞이다. 선택지는 (가) 실행 안내를 그대로 맨 위에 두고 상태를 아래에 붙이기, (나) 상태·구조를 위로 올리기였다. (나)를 골랐다. 저장소를 처음 여는 사람이 제일 먼저 찾는 것은 "이게 뭔데 어디까지 됐나"이고, 조원도 실행보다 범위를 먼저 보는 게 낫다고 봤다.
+  - "지금 상태"에 **일부러 만들지 않은 것** 목록을 적었다. 교수의 평가 결과 열람 화면이 없는 것을 빠뜨린 기능이 아니라 2단계로 미룬 결정으로 읽게 하려는 것이다.
+  - 라이선스는 **MIT**로 정했다. 선택지는 (가) 라이선스 없음, (나) MIT, (다) CC BY-NC였다. public 저장소에 라이선스가 없으면 법적으로는 아무 권리도 주지 않은 상태가 되어 조원이 코드를 복사해 쓰는 근거조차 없다. 11.16부터 조원 코드가 이 저장소에 들어오므로 그 전에 박아 두는 게 맞다고 봤다. 저작권자는 실제 이름 대신 `Pyrite9 and footprint-demo contributors`로 적었다(public 저장소).
+  - 데스크톱의 `main`이 `origin/main`보다 3 commit(worklog만) 뒤처져 있었다. `git pull --ff-only`로 맞췄다.
+- 만든 파일: `LICENSE`
+- 고친 파일: `README.md`
+- 확인(공개 저장소 점검):
+  - 추적 파일에 실제 사람의 이메일 0건. 시작 데이터는 전부 `@example.com`이다.
+  - 비밀값은 개발용 기본값뿐(`change-me`, `change-me-please`, `footprint-demo-dev-secret-key-change-me-0000`). Google OAuth Client ID는 비밀값이 아니고 client secret은 쓰지 않는다. `PROFESSOR_EMAILS` 기본값은 비어 있다.
+  - README에 적은 버전을 파일에서 다시 확인했다: `build.gradle`(Java 21, Boot 3.5.16, jjwt 0.13.0, awssdk s3 2.55.14, google-api-client 2.9.1), `gradle-wrapper.properties`(8.14.3), `package.json`(React 19, Vite 8, React Router 7.18.4, json-server 0.17.4), `infra/docker-compose.yml`(postgres:17).
+  - 빌드는 다시 돌리지 않았다. 코드를 고치지 않았고 바꾼 것은 `README.md`와 `LICENSE`뿐이다.
+- 읽을 때 볼 곳:
+  - README "문서" 목록에 `docs/laptop-setup.md`와 `CLAUDE.md`를 더했다. 전에는 저장소에 있는데 목록에 없어서 문서끼리 어긋나 있었다.
+  - README "지금 상태"의 표는 `docs/demo-scope.md` 3절(1단계 기능 8개)과 8절(만들지 않는 것)에서 가져온 것이다. 범위가 바뀌면 두 곳을 같이 고친다.
+- 내가 채운 가정:
+  - GitHub 저장소의 About(설명·토픽)은 `gh` 권한이 필요해서 손대지 않았다. 관리자가 직접 넣는다.
+  - 화면 스크린샷은 README에 넣지 않았다. 멘토가 실행하지 않는다면 효과가 크지만, 캡처는 관리자 판단이 필요해서 묻는 것으로 남겼다.

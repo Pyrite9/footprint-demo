@@ -3,6 +3,65 @@
 조별과제 과정기록 & 평가지원 서비스 "발자국"의 12.11 시연본입니다.
 흐름: 과제 생성 → 초대 링크로 합류 → 역할 배정 → 산출물 업로드·다운로드 → 동료평가 제출.
 
+서비스 원칙은 **판단은 사람, 시스템은 근거만**입니다. 그래서 이 서비스는 점수, 평균, 순위, 진척률을 계산하지 않고 기록을 있는 그대로 보여 줍니다. 평가 화면에 "업로드 횟수는 기여도가 아닙니다", "점수는 시스템이 계산하지 않습니다"를 고정해 둔 것도 같은 이유입니다.
+
+## 지금 상태 (2026.10.29)
+
+시연 흐름 전체가 동작합니다. 새로 clone 한 폴더에서 `docker compose up -d --build` 한 번으로 처음부터 끝까지 실행하는 것까지 확인했습니다.
+
+1단계로 만든 기능 8개입니다.
+
+| 기능 | 상태 |
+|---|---|
+| M-1 회원 등록 | 처음 구글 로그인할 때 회원을 저장하는 것으로 대신함 |
+| M-2 로그인·로그아웃 | 학교 구글 계정(g.yju.ac.kr) 로그인, 이메일·비밀번호 로그인은 개발·백업용 |
+| A-1 과제 생성 (조장 지정) | 됨 |
+| A-2 과제 목록·상세 조회 | 됨 |
+| T-1 조원 초대 (초대 링크 발급, 링크로 합류) | 됨 |
+| T-2 역할 배정 | 지정까지. 변경은 2단계 |
+| R-1 산출물 업로드·열람 | 업로드·목록·다운로드. 삭제는 2단계 |
+| E-2 동료평가 입력 | 입력·제출. 임시 저장은 2단계 |
+
+**일부러 만들지 않은 것**(12.12 이후로 미룬 것): 교수의 평가 결과 열람 화면, 기여 항목, 완료확인, 근거 패널, 진척 시각화, 과제 단계 전환, 역할 변경, 산출물 삭제, 평가 임시 저장, 조장 교체, 메일 발송, LLM 기능. 범위와 이유는 `docs/demo-scope.md`에 있습니다.
+
+시연본이라 서버가 켜질 때마다 데이터베이스를 새로 만들고 시작 데이터를 넣습니다(`ddl-auto: create`). 실행해 보는 사람이 준비 작업 없이 바로 흐름을 볼 수 있게 한 선택입니다.
+
+## 기술 스택
+
+| 쪽 | 쓴 것 |
+|---|---|
+| 백엔드 | Java 21, Spring Boot 3.5.16, Spring Data JPA, Spring Security(JWT, jjwt 0.13.0), Gradle 8.14.3 |
+| 데이터베이스 | PostgreSQL 17 |
+| 파일 저장 | MinIO(S3 호환). 코드는 AWS SDK v2의 S3 API로만 접근합니다 |
+| 로그인 | Google ID token 검증(google-api-client), 도메인 제한 |
+| 프론트엔드 | Node.js 24, React 19, Vite 8, React Router 7, JavaScript(TypeScript 아님) |
+| 가짜 API | json-server 0.17.4 (백엔드 없이 화면만 돌릴 때) |
+| 한 번에 실행 | Docker Compose (백엔드, nginx, PostgreSQL, MinIO) |
+
+팀원 6명 전원이 Spring Boot·React 초심자라서, 영리한 코드보다 따라 읽을 수 있는 코드를 기준으로 삼았습니다. 그래서 MapStruct, QueryDSL, 상태 관리 라이브러리, 공통 부모 클래스, 공통 응답 감싸기 클래스, AOP 권한 검사를 쓰지 않습니다. 권한 검사는 `TeamAccessChecker`를 Service에서 직접 불러 눈에 보이게 했습니다.
+
+## 폴더 구조
+
+```
+backend/    Spring Boot. 패키지 com.footprint.backend (Java 파일 58개)
+  controller/  요청을 받고 Entity를 응답 DTO로 바꿉니다 (XxxResponse.from)
+  service/     업무 규칙과 권한 검사. Entity를 돌려줍니다
+  repository/  JPA
+  entity/      회원, 과제, 조, 조 참여, 산출물, 평가 (6개)
+  dto/         record. 요청 하나에 DTO 하나
+  exception/   GlobalExceptionHandler 한 곳에서 처리, 응답은 ApiErrorResponse { code, message }
+  security/    JWT 발급·검증 필터, 구글 ID token 검증
+  config/      SecurityFilterChain, CORS, S3, 시작 데이터(DataInitializer)
+frontend/   React (파일 36개)
+  src/pages/       데이터를 불러오고 state를 갖습니다
+  src/components/  props로 받아 그립니다
+  src/api/         fetch는 여기에만. 공통 함수 client.js를 거칩니다
+  src/constants/   동료평가 6개 항목 문장, 회원 유형
+  mock/            가짜 API 경로와 middleware (응답 모양을 실제 API와 똑같이 맞춤)
+infra/      docker-compose.yml (PostgreSQL, MinIO), .env.example
+docs/       범위, API 명세, 시연 대본, 작업 기록
+```
+
 ## 한 번에 실행 (Docker만 있으면 됩니다)
 
 Java, Node.js 없이 Docker Desktop만으로 백엔드, 화면, PostgreSQL, MinIO, 시작 데이터를 한 번에 켭니다.
@@ -31,6 +90,8 @@ docker compose down
 - 개발 중에 켠 백엔드(8080)와 화면 개발 서버(5173)도 끕니다. 같은 포트를 씁니다.
 - `infra/.env`가 없어도 됩니다. 없으면 `infra/.env.example`과 같은 기본값을 씁니다.
 
+저장소에 들어 있는 비밀값은 모두 개발용 기본값(`change-me` 등)입니다. 접속 가능한 주소에 올릴 때는 `JWT_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`를 환경 변수로 반드시 바꿉니다.
+
 ## 개발할 때
 
 DB와 MinIO만 Docker로 켜고, 백엔드와 화면은 내 컴퓨터에서 실행합니다.
@@ -43,8 +104,14 @@ DB와 MinIO만 Docker로 켜고, 백엔드와 화면은 내 컴퓨터에서 실�
 
 ## 문서
 
-- `docs/demo-scope.md`: 시연 범위와 업무 규칙
-- `docs/api-draft.md`: API 명세
+- `docs/demo-scope.md`: 시연 범위와 업무 규칙. 무엇을 만들고 무엇을 미뤘는지의 기준입니다
+- `docs/api-draft.md`: API 명세. 코드보다 이 문서를 먼저 씁니다
 - `docs/postman/`: API를 시연 흐름 순서로 모은 Postman 모음과 쓰는 방법
 - `docs/demo-script.md`: 12.11 시연 대본(준비, 계정, 장면별로 누를 것과 말할 것)
-- `docs/worklog.md`: 작업 기록과 결정
+- `docs/worklog.md`: 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정을 남깁니다
+- `docs/laptop-setup.md`: 다른 컴퓨터(Arch Linux 노트북)에 이 저장소를 올려 작업하는 설정 지시서
+- `CLAUDE.md`: 이 저장소의 코드 생성 규칙. 스택, 계층, 명명, 금지 목록을 AI 도구와 사람이 같이 지키는 기준으로 적어 둔 것입니다
+
+## 라이선스
+
+MIT. `LICENSE` 참고.
