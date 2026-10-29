@@ -68,6 +68,7 @@
 
 11.16부터 조원 코드가 이 저장소의 같은 파일에 들어온다.
 
+- 코드를 처음 읽는 조원에게는 `docs/architecture.md`를 먼저 보게 한다. 구조 그림 네 장이 있다
 - 코드 규칙은 `CLAUDE.md`에 있다. 계층, 명명, 금지 목록이 그 파일 하나에 모여 있다
 - API를 더하거나 바꿀 때는 `docs/api-draft.md`를 먼저 고치고, 가짜 API(`frontend/db.json`, `frontend/mock/middleware.cjs`)를 같은 작업 안에서 맞춘다
 - 결정과 이유는 `docs/worklog.md`에 남긴다

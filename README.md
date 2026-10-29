@@ -73,7 +73,7 @@ frontend/   React (파일 36개)
   src/constants/   동료평가 6개 항목 문장, 회원 유형
   mock/            가짜 API 경로와 middleware. 응답 모양을 실제 API와 똑같이 맞춤
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
-docs/       API 명세, 작업 기록
+docs/       구조 그림, API 명세, 작업 기록
 ```
 
 ## 한 번에 실행 (Docker만 있으면 됨)
@@ -122,6 +122,7 @@ DB와 MinIO만 Docker로 켜고, 백엔드와 화면은 내 컴퓨터에서 실�
 ## 문서
 
 - `TODO.md` — 앞으로 만들 것. 미룬 단위 업무, 2단계 기능, 아직 정하지 않은 것, 알려진 한계
+- `docs/architecture.md` — 구조 그림 네 장. 전체 구조, JWT 흐름, 프론트엔드 구조, 백엔드 구조와 데이터 구조. **코드를 처음 읽는다면 여기부터**
 - `docs/api-draft.md` — API 명세. 코드보다 이 문서를 먼저 씀
 - `docs/postman/` — API를 데모 흐름 순서로 모은 Postman 모음과 쓰는 방법
 - `docs/worklog.md` — 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정
