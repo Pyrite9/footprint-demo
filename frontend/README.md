@@ -2,7 +2,7 @@
 
 Node.js 24, React 19, Vite 8. `../footprint-study/example/frontend`를 복사해서 시작함.
 
-개발하지 않고 시연만 할 때는 저장소 맨 위 `README.md`의 "한 번에 실행"을 쓸 것. 그때 화면은 개발 서버가 아니라 nginx 컨테이너(`Dockerfile`, `nginx.conf`)가 내려줌.
+개발하지 않고 데모만 할 때는 저장소 맨 위 `README.md`의 "한 번에 실행"을 쓸 것. 그때 화면은 개발 서버가 아니라 nginx 컨테이너(`Dockerfile`, `nginx.conf`)가 내려줌.
 
 ## 처음 한 번
 

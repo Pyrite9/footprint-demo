@@ -21,7 +21,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-// 서버가 시작할 때 시연용 시작 데이터를 넣습니다. 계정과 조 구성 표는 backend/README.md에 있습니다.
+// 서버가 시작할 때 데모용 시작 데이터를 넣습니다. 계정과 조 구성 표는 backend/README.md에 있습니다.
 // ddl-auto: create라서 실행할 때마다 테이블이 비워진 뒤 다시 들어갑니다.
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -70,7 +70,7 @@ public class DataInitializer implements CommandLineRunner {
         Member student10 = saveMember("student10@example.com", "임지아", MemberType.STUDENT);
 
         Assignment assignment = assignmentRepository.save(
-                new Assignment("발자국 시연 과제", LocalDate.of(2026, 11, 2), LocalDate.of(2026, 12, 11), professor));
+                new Assignment("발자국 데모 과제", LocalDate.of(2026, 11, 2), LocalDate.of(2026, 12, 11), professor));
 
         // 목록의 첫 번째 학생이 조장입니다. 2조는 "같은 역할을 여러 조원이 맡을 수 있다"는 규칙을 보이려고 백엔드가 2명입니다.
         List<TeamMember> team1 = saveTeam(assignment, "1조", "demo-team-1",
@@ -81,8 +81,8 @@ public class DataInitializer implements CommandLineRunner {
                 List.of("기획", "백엔드", "백엔드", "프론트엔드", "발표"));
 
         // 다운로드를 바로 시험할 수 있게 1조에 산출물 2건을 넣습니다. 파일 본문도 MinIO에 올립니다.
-        // MinIO는 서버를 다시 켜도 비워지지 않아서, 켤 때마다 같은 내용의 파일이 새 key로 하나씩 더 쌓입니다(시연 범위에서는 그대로 둡니다).
-        saveDeliverable(team1.get(0), "기획서.txt", "발자국 시연 기획서\n1. 과제 생성\n2. 조원 합류와 역할 배정\n");
+        // MinIO는 서버를 다시 켜도 비워지지 않아서, 켤 때마다 같은 내용의 파일이 새 key로 하나씩 더 쌓입니다(데모 범위에서는 그대로 둡니다).
+        saveDeliverable(team1.get(0), "기획서.txt", "발자국 데모 기획서\n1. 과제 생성\n2. 조원 합류와 역할 배정\n");
         saveDeliverable(team1.get(1), "API 명세.txt", "POST /auth/login\nGET /members/me\n");
     }
 

@@ -13,7 +13,7 @@
     {"id": 11, "email": "student10@example.com", "password": "pass1234", "name": "임지아", "memberType": "STUDENT"}
   ],
   "assignments": [
-    {"id": 1, "title": "발자국 시연 과제", "startDate": "2026-11-02", "endDate": "2026-12-11", "professorId": 1}
+    {"id": 1, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11", "professorId": 1}
   ],
   "teams": [
     {"id": 1, "assignmentId": 1, "name": "1조", "inviteCode": "demo-team-1"},

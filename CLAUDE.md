@@ -31,11 +31,11 @@
 ## 기준 문서 (충돌하면 위가 이김)
 
 1. 이 대화에서 관리자가 방금 한 결정
-2. `docs/demo-scope.md` — 시연 범위, 업무 규칙, 시작 데이터, 동료평가 문장 (아래에서 불러옴)
-3. 학습 저장소의 결정 기록 `../footprint-study/docs/decisions.md` (아래에서 불러옴)
-4. 학습 저장소의 API 명세 `../footprint-study/docs/api.md`와 골격 `../footprint-study/skeleton/` — **있으면** 그대로 따른다. 파일 이름, 주소, 응답 모양까지 같게.
+2. 아래 "업무 규칙"과 "금지" — 이 파일 안에 있다
+3. `docs/api-draft.md` — API 주소와 응답 모양
+4. 학습 저장소의 결정 기록 `../footprint-study/docs/decisions.md` (아래에서 불러옴)
+5. 학습 저장소의 API 명세 `../footprint-study/docs/api.md`와 골격 `../footprint-study/skeleton/` — **있으면** 그대로 따른다. 파일 이름, 주소, 응답 모양까지 같게.
 
-@docs/demo-scope.md
 @../footprint-study/docs/decisions.md
 
 API 명세가 아직 없으면 코드보다 **`docs/api-draft.md`를 먼저 쓴다.** 관리자 확인을 기다리지 않고 바로 만든다(2026.10.25 관리자 결정, 아래 "묻지 않고 추천안으로 진행하고 기록할 것").
@@ -51,10 +51,25 @@ API 명세가 아직 없으면 코드보다 **`docs/api-draft.md`를 먼저 쓴�
 backend/    Spring Boot. 패키지 com.footprint.backend, rootProject.name = 'footprint-backend'
 frontend/   React. src/pages, src/components, src/api, src/constants
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
-docs/       demo-scope.md, api-draft.md, worklog.md
+docs/       api-draft.md, worklog.md
 ```
 
 백엔드 패키지는 계층형: `controller`, `service`, `repository`, `entity`, `dto`, `exception`, `config` (+ 인증은 `security`).
+
+## 업무 규칙
+
+이 데모가 지키는 규칙이다. 코드가 이것과 어긋나면 코드가 틀린 것이다.
+
+- 서비스 원칙은 **판단은 사람, 시스템은 근거만.** 점수, 평균, 합계, 순위, 가중치, 진척률을 계산하지 않는다. 기록을 있는 그대로 보여 준다.
+- 기록 시각(업로드, 역할 지정, 평가 제출)은 서버가 저장한다. 클라이언트가 보낸 시각은 받지 않는다.
+- **접근 범위**: 조의 기록을 다루는 요청마다 "그 조의 조원인가, 또는 그 과제를 만든 교수인가"를 서버가 확인한다. 다른 조의 기록은 주소를 직접 입력해도 403이다. 검사는 `service/TeamAccessChecker`의 메서드 호출로 보이게 한다.
+- 회원 유형은 교수, 학생 둘. 교수만 과제를 만든다. 과제·조·조장은 한 번에 저장하고, 등록한 과제는 고치거나 지울 수 없다(수정·삭제 API 없음).
+- 초대 링크는 조장만 발급한다. 다시 발급하면 이전 코드는 무효다. 한 학생은 같은 과제에서 한 조에만 참여한다.
+- 역할명은 조장이 정한다. 조원마다 역할 하나이고, 같은 역할을 여러 조원이 맡을 수 있다.
+- 산출물은 역할이 배정된 조원만 올린다. 고친 파일도 덮어쓰지 않고 새로 올린다. **업로드할 때의 역할명을 산출물에 복사해서 저장한다**(나중에 역할이 바뀌어도 순번이 끊기지 않게). 파일 본문은 MinIO, 데이터베이스에는 위치·이름·크기만.
+- 동료평가는 같은 조에서 자신을 뺀 **전원**에 대해 6개 항목(1~5점)을 모두 입력해야 제출된다. 제출한 평가는 고칠 수 없고, 같은 평가자가 같은 대상을 두 번 평가하면 409 `DUPLICATE`(데이터베이스 unique 제약도 둔다). 조원끼리는 서로의 평가를 볼 수 없다.
+- 동료평가 항목 문장(신태섭 2018 행동기준평정척도)과 화면 고정 문구 2개는 `frontend/src/constants/peerEvaluation.js`에 있다. **그 문장은 고치지 않는다.**
+- 산출물 업로드 크기 제한은 20MB. 파일이 빠졌거나 너무 크면 400 `INVALID_INPUT`.
 
 ## 코드 규칙 — 백엔드
 
@@ -93,13 +108,13 @@ docs/       demo-scope.md, api-draft.md, worklog.md
 - AOP·커스텀 어노테이션으로 숨기는 권한 검사. 권한 검사는 Service에서 메서드 호출로 보이게 한다.
 - 점수 자동 계산, 평균, 합계, 순위, 가중치, 진척률. 화면에도 API에도 두지 않는다.
 - LLM 기능, 평가 초안 생성
-- `docs/demo-scope.md`의 "만들지 않는 것"에 있는 기능
+- `TODO.md`의 "만들지 않기로 한 것"과 "2단계 기능"에 있는 기능. 흐름에 꼭 필요해 보여도 만들지 말고 먼저 묻는다.
 
 ## 묻지 않고 추천안으로 진행하고 기록할 것 (2026.10.25 관리자 결정)
 
 중간에 묻지 않는다. 아래는 추천안으로 정하고 진행하되, 정한 내용을 `docs/worklog.md`의 그 단위 항목 "결정" 줄에 선택지·이유와 함께 남긴다. API는 `docs/api-draft.md`에 먼저 적고 바로 만든다.
 - 새 의존성 추가(Gradle, npm 모두). 라이브러리 이름, 이유, 대안을 worklog에 적는다.
-- `docs/demo-scope.md`의 "미정" 항목에 걸리는 코드. 선택지와 비용, 고른 것을 worklog에 적는다.
+- `TODO.md` "아직 정하지 않은 것"에 걸리는 코드. 선택지와 비용, 고른 것을 worklog에 적는다.
 - Entity 필드·연결 변경, API 주소·응답 모양 변경
 
 ## 반드시 먼저 말할 것

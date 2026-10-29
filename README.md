@@ -8,7 +8,7 @@
 
 ## 지금 상태 (2026.10.29)
 
-- 시연 흐름 전체가 동작함
+- 데모 흐름 전체가 동작함
 - 새로 clone 한 폴더에서 `docker compose up -d --build` 한 번으로 처음부터 끝까지 실행하는 것까지 확인
 
 1단계로 만든 기능 8개.
@@ -29,7 +29,7 @@
 - 교수의 평가 결과 열람 화면, 기여 항목, 완료확인, 근거 패널, 진척 시각화
 - 과제 단계 전환, 역할 변경, 산출물 삭제, 평가 임시 저장, 조장 교체
 - 메일 발송, LLM 기능
-- 범위와 이유는 `docs/demo-scope.md`
+- 앞으로 만들 것과 미룬 이유는 `TODO.md`
 
 **데모라 매번 초기화함**
 
@@ -73,7 +73,7 @@ frontend/   React (파일 36개)
   src/constants/   동료평가 6개 항목 문장, 회원 유형
   mock/            가짜 API 경로와 middleware. 응답 모양을 실제 API와 똑같이 맞춤
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
-docs/       범위, API 명세, 시연 대본, 작업 기록
+docs/       API 명세, 작업 기록
 ```
 
 ## 한 번에 실행 (Docker만 있으면 됨)
@@ -121,10 +121,9 @@ DB와 MinIO만 Docker로 켜고, 백엔드와 화면은 내 컴퓨터에서 실�
 
 ## 문서
 
-- `docs/demo-scope.md` — 시연 범위와 업무 규칙. 무엇을 만들고 무엇을 미뤘는지의 기준
+- `TODO.md` — 앞으로 만들 것. 미룬 단위 업무, 2단계 기능, 아직 정하지 않은 것, 알려진 한계
 - `docs/api-draft.md` — API 명세. 코드보다 이 문서를 먼저 씀
-- `docs/postman/` — API를 시연 흐름 순서로 모은 Postman 모음과 쓰는 방법
-- `docs/demo-script.md` — 12.11 시연 대본. 준비, 계정, 장면별로 누를 것과 말할 것
+- `docs/postman/` — API를 데모 흐름 순서로 모은 Postman 모음과 쓰는 방법
 - `docs/worklog.md` — 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정
 - `docs/laptop-setup.md` — 다른 컴퓨터(Arch Linux 노트북)에 이 저장소를 올려 작업하는 설정 지시서
 - `CLAUDE.md` — 이 저장소의 코드 생성 규칙. 스택, 계층, 명명, 금지 목록을 AI 도구와 사람이 같이 지키는 기준

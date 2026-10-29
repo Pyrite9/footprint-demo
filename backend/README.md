@@ -4,7 +4,7 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 
 ## 실행
 
-- 개발하지 않고 시연만 할 때는 저장소 맨 위 `README.md`의 "한 번에 실행"(`docker compose up -d --build`)을 쓸 것
+- 개발하지 않고 데모만 할 때는 저장소 맨 위 `README.md`의 "한 번에 실행"(`docker compose up -d --build`)을 쓸 것
 - 아래는 개발할 때의 실행 방법
 
 1. 데이터베이스와 MinIO 켜기. `infra` 폴더에서 실행.
@@ -62,7 +62,7 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
    ```
 
    - `-o download.txt`는 받은 내용을 그 이름으로 저장함. curl은 한글 파일 이름(RFC 5987 형식)을 풀지 못해서 이름을 직접 정함
-   - 한글 이름이 깨지지 않는 것은 브라우저로 확인할 것(`docs/demo-script.md` 장면 6)
+   - 한글 이름이 깨지지 않는 것은 브라우저에서 직접 내려받아 확인할 것
    - macOS는 `curl.exe` 대신 `curl`
 
 4. 파일 저장소 확인. MinIO 콘솔 http://localhost:9001 에 `infra/.env`의 `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`로 로그인. 서버가 시작할 때 만든 `footprint` 버킷이 보이면 성공.
@@ -71,15 +71,15 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 
 - `.\gradlew.bat build`(macOS는 `./gradlew build`)는 테스트도 함께 실행함
 - 테스트가 실제 PostgreSQL과 MinIO에 접속하므로 **빌드 전에 `infra`의 `docker compose up -d`가 켜져 있어야 함.** 꺼져 있으면 테스트가 실패함
-- 테스트는 시연용 버킷이 아니라 `footprint-test` 버킷을 씀. 빌드할 때마다 이 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓임
-- **빌드(테스트)도 서버를 켤 때처럼 데이터베이스를 지우고 시작 데이터를 다시 넣음.** 화면에서 만든 과제·산출물·평가가 사라지므로 시연·리허설 중에는 빌드하지 않을 것
+- 테스트는 데모용 버킷이 아니라 `footprint-test` 버킷을 씀. 빌드할 때마다 이 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓임
+- **빌드(테스트)도 서버를 켤 때처럼 데이터베이스를 지우고 시작 데이터를 다시 넣음.** 화면에서 만든 과제·산출물·평가가 사라지므로 데모·리허설 중에는 빌드하지 않을 것
 - 실행 로그의 `Using generated security password: ...`는 Spring Security가 기본으로 만드는 계정. 이 프로젝트는 쓰지 않으므로 무시할 것
 
 ## 시작 계정
 
 - 서버가 시작할 때 `config/DataInitializer`가 넣음
 - 비밀번호는 모두 `pass1234`. 데이터베이스에는 BCrypt로 바꾼 값이 저장됨
-- 12.11 시연의 기본 로그인은 구글(학교 계정)이고 시작 계정은 개발·백업용. 화면에서는 로그인 화면 아래 "시작 계정으로 로그인 (개발·백업용)"을 펼쳐서 씀
+- 12.11 데모의 기본 로그인은 구글(학교 계정)이고 시작 계정은 개발·백업용. 화면에서는 로그인 화면 아래 "시작 계정으로 로그인 (개발·백업용)"을 펼쳐서 씀
 
 | 이메일 | 이름 | 회원 유형 |
 |---|---|---|
@@ -107,14 +107,14 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
   - 내 컴퓨터에서 bootRun — 같은 PowerShell 창에서 먼저 `$env:PROFESSOR_EMAILS="교수이메일@g.yju.ac.kr"` 후 `.\gradlew.bat bootRun`. macOS는 `PROFESSOR_EMAILS=... ./gradlew bootRun`
   - docker compose — `infra/.env`에 `PROFESSOR_EMAILS=...` 한 줄을 넣을 것(`infra/.env.example` 참고)
 - 회원 유형은 처음 로그인할 때 한 번만 정해짐. 학생으로 먼저 로그인한 뒤 목록에 넣어도 바뀌지 않음. 서버를 다시 켜면(데이터베이스가 새로 만들어지면) 다시 정해짐
-- 로그인할 수 있는 구글 계정: Google Cloud의 동의 화면이 "테스트 중"이면 그곳의 "테스트 사용자"에 넣은 계정만 됨. 시연·개발에 쓸 학교 계정을 먼저 넣어 둘 것
+- 로그인할 수 있는 구글 계정: Google Cloud의 동의 화면이 "테스트 중"이면 그곳의 "테스트 사용자"에 넣은 계정만 됨. 데모·개발에 쓸 학교 계정을 먼저 넣어 둘 것
 - 서버는 구글 공개키를 받으려고 인터넷에 접속함. 인터넷이 없으면 구글 로그인은 500이 나고 시작 계정 로그인은 됨
 
 ## 시작 과제와 조
 
 | 과제 | 기간 | 만든 교수 |
 |---|---|---|
-| 발자국 시연 과제 | 2026-11-02 ~ 2026-12-11 | 이교수 |
+| 발자국 데모 과제 | 2026-11-02 ~ 2026-12-11 | 이교수 |
 
 | 조 | 이름 (이메일) | 조장 | 역할명 |
 |---|---|---|---|

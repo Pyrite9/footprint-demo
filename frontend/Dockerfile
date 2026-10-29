@@ -1,5 +1,5 @@
 # 화면 이미지를 만듭니다. 저장소 맨 위의 docker-compose.yml이 이 파일을 씁니다.
-# 1단계(build)는 Node.js로 화면 파일(dist)을 만들고, 2단계는 nginx가 그 파일을 내려줍니다. 시연에는 개발 서버(npm run dev)가 필요 없습니다.
+# 1단계(build)는 Node.js로 화면 파일(dist)을 만들고, 2단계는 nginx가 그 파일을 내려줍니다. 데모에는 개발 서버(npm run dev)가 필요 없습니다.
 
 # 1단계: 화면 파일을 만듭니다.
 FROM node:24-alpine AS build

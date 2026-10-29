@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "발자국 데모 API",
-    "description": "발자국 데모의 API를 시연 흐름 순서로 모았습니다. 폴더 0부터 차례로 실행합니다(Run collection으로 한 번에 실행할 수 있습니다).\n주소와 응답 모양은 docs/api-draft.md에 있습니다. 쓰는 방법은 docs/postman/README.md를 봅니다.",
+    "description": "발자국 데모의 API를 데모 흐름 순서로 모았습니다. 폴더 0부터 차례로 실행합니다(Run collection으로 한 번에 실행할 수 있습니다).\n주소와 응답 모양은 docs/api-draft.md에 있습니다. 쓰는 방법은 docs/postman/README.md를 봅니다.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

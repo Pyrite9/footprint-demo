@@ -35,7 +35,7 @@
 token
 - 서명 HS256. 유효 시간 24시간(`jwt.expiration-minutes`). refresh token은 없다.
 - payload: `sub` = 회원 id(문자열), `memberType` = `PROFESSOR` 또는 `STUDENT`.
-- 12.11 시연의 기본 로그인은 아래 `POST /auth/google`이다. 이메일·비밀번호 로그인은 시작 계정용(개발·백업)으로 남긴다(2026.10.26 관리자 결정, demo-scope 9절 미정 1).
+- 12.11 데모의 기본 로그인은 아래 `POST /auth/google`이다. 이메일·비밀번호 로그인은 시작 계정용(개발·백업)으로 남긴다(2026.10.26 관리자 결정).
 
 ### POST /auth/google — 구글 로그인 (M-1-1, M-2-1)
 
@@ -85,7 +85,7 @@ token
 | 404 | `NOT_FOUND` | token의 회원 id가 DB에 없을 때(시작 데이터 순서를 바꾼 뒤 예전 token을 쓴 경우) |
 
 서버 쪽 규칙
-- Controller는 로그인한 회원을 `@AuthenticationPrincipal Long memberId`로 받는다(demo-scope 9절 미정 3, 2026.10.25 결정). 회원 유형이 필요하면 Service가 DB에서 읽는다.
+- Controller는 로그인한 회원을 `@AuthenticationPrincipal Long memberId`로 받는다(2026.10.25 결정). 회원 유형이 필요하면 Service가 DB에서 읽는다.
 
 ---
 
@@ -98,7 +98,7 @@ token
 요청
 ```json
 {
-  "title": "발자국 시연 과제",
+  "title": "발자국 데모 과제",
   "startDate": "2026-11-02",
   "endDate": "2026-12-11",
   "leaderEmails": ["student01@example.com", "student06@example.com"]
@@ -107,7 +107,7 @@ token
 
 200
 ```json
-{ "id": 2, "title": "발자국 시연 과제", "startDate": "2026-11-02", "endDate": "2026-12-11" }
+{ "id": 2, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11" }
 ```
 
 | 상태 | code | 언제 |
@@ -132,7 +132,7 @@ token
 200
 ```json
 [
-  { "id": 1, "title": "발자국 시연 과제", "startDate": "2026-11-02", "endDate": "2026-12-11" }
+  { "id": 1, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11" }
 ]
 ```
 
@@ -149,7 +149,7 @@ token
 200
 ```json
 {
-  "id": 1, "title": "발자국 시연 과제", "startDate": "2026-11-02", "endDate": "2026-12-11",
+  "id": 1, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11",
   "professorName": "이교수",
   "teams": [
     { "id": 1, "name": "1조", "leaderName": "김민준" },
@@ -166,7 +166,7 @@ token
 | 404 | `NOT_FOUND` | 없는 과제일 때 |
 
 서버 쪽 규칙
-- 접근 검사는 `TeamAccessChecker` 한 곳에서 한다(demo-scope 4절 "권한 검사는 Service 안에서 보이는 메서드 호출로").
+- 접근 검사는 `TeamAccessChecker` 한 곳에서 한다(CLAUDE.md "업무 규칙"의 접근 범위).
 - 조 목록은 조 id 순서다.
 
 ---
@@ -179,7 +179,7 @@ token
 
 200
 ```json
-{ "id": 1, "name": "1조", "assignmentId": 1, "assignmentTitle": "발자국 시연 과제" }
+{ "id": 1, "name": "1조", "assignmentId": 1, "assignmentTitle": "발자국 데모 과제" }
 ```
 
 | 상태 | code | 언제 |
@@ -250,9 +250,9 @@ token
 | 409 | `DUPLICATE` | 같은 과제의 다른 조에 이미 있을 때 |
 
 서버 쪽 규칙
-- 이미 그 조의 조원이면 오류 없이 200으로 그 조를 돌려준다(demo-scope 9절 미정 5, 2026.10.25 추천안으로 결정). 링크를 두 번 눌러도 결과가 같다.
+- 이미 그 조의 조원이면 오류 없이 200으로 그 조를 돌려준다(2026.10.25 추천안으로 결정). 링크를 두 번 눌러도 결과가 같다.
 - 한 학생은 같은 과제에서 한 조에만 있다. DB 제약이 아니라 Service가 확인한다.
-- 같은 학생이 같은 순간에 합류 요청을 두 번 보내면 500이 날 수 있다. 화면은 합류 중 버튼을 막아서 시연에서는 생기지 않는다.
+- 같은 학생이 같은 순간에 합류 요청을 두 번 보내면 500이 날 수 있다. 화면은 합류 중 버튼을 막아서 데모에서는 생기지 않는다.
 
 ### POST /teams/{teamId}/members/{teamMemberId}/role — 역할 지정 (T-2-1) · 2026.10.25
 
@@ -314,7 +314,7 @@ token
 ]
 ```
 
-- 순번(같은 역할 안에서 1, 2, 3…)은 응답에 넣지 않는다. 화면이 이 목록에서 같은 `roleName`끼리 올린 순서로 센다(demo-scope 4절 "화면은 … 순번을 붙이고").
+- 순번(같은 역할 안에서 1, 2, 3…)은 응답에 넣지 않는다. 화면이 이 목록에서 같은 `roleName`끼리 올린 순서로 센다(CLAUDE.md "업무 규칙"의 산출물 순번).
 - 조회 수, 다운로드 수는 없다.
 
 ### GET /deliverables/{deliverableId}/download — 산출물 다운로드 (R-1-2) · 2026.10.25
@@ -334,14 +334,14 @@ token
 
 서버 쪽 규칙
 - 파일 본문은 MinIO에, 데이터베이스에는 저장 위치(key), 파일 이름, 크기만 둔다(+ 올린 조원, 역할명, 시각).
-- 업로드는 "MinIO 저장 → 데이터베이스 저장" 순서다. 데이터베이스 저장이 실패하면 MinIO에 주인 없는 파일이 남는다(시연 범위에서는 지우지 않는다).
+- 업로드는 "MinIO 저장 → 데이터베이스 저장" 순서다. 데이터베이스 저장이 실패하면 MinIO에 주인 없는 파일이 남는다(데모 범위에서는 지우지 않는다).
 - 크기 제한은 `spring.servlet.multipart.max-file-size`, `max-request-size` 20MB.
 
 ---
 
 ## 동료평가
 
-평가 항목 6개(신태섭 2018, demo-scope 7절)는 요청·저장에서 아래 이름을 쓴다. 점수는 1~5 정수다.
+평가 항목 6개(신태섭 2018, 문장은 `frontend/src/constants/peerEvaluation.js`)는 요청·저장에서 아래 이름을 쓴다. 점수는 1~5 정수다.
 
 | 이름 | 항목 |
 |---|---|

@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-// 로그인을 확인하고 token을 발급합니다. 12.11 시연은 구글 로그인이 기본이고, 이메일·비밀번호 로그인은 시작 계정용(개발·백업)입니다.
+// 로그인을 확인하고 token을 발급합니다. 12.11 데모는 구글 로그인이 기본이고, 이메일·비밀번호 로그인은 시작 계정용(개발·백업)입니다.
 @Service
 public class AuthService {
 

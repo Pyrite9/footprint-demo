@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 // StorageService가 MinIO에 파일을 올리고 같은 내용으로 꺼내는지 확인합니다. PostgreSQL과 MinIO가 켜져 있어야 합니다.
-// 시험 파일이 시연용 버킷에 쌓이지 않도록 시험 전용 버킷(footprint-test)을 씁니다.
+// 시험 파일이 데모용 버킷에 쌓이지 않도록 시험 전용 버킷(footprint-test)을 씁니다.
 @SpringBootTest(properties = "storage.bucket=footprint-test")
 class StorageServiceTests {
 
