@@ -1,4 +1,4 @@
-# backend — 발자국 시연본 서버
+# backend — 발자국 데모 서버
 
 Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해서 시작함.
 

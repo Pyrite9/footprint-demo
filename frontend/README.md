@@ -1,4 +1,4 @@
-# frontend — 발자국 시연본 화면
+# frontend — 발자국 데모 화면
 
 Node.js 24, React 19, Vite 8. `../footprint-study/example/frontend`를 복사해서 시작함.
 

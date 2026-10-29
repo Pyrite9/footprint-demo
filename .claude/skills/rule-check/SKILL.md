@@ -1,6 +1,6 @@
 ---
 name: rule-check
-description: 시연본 코드가 CLAUDE.md 규칙과 시연 범위를 지키는지 검사한다. 관리자가 /rule-check 로 부르거나 단위 업무 하나를 끝낸 직후 쓴다.
+description: 데모 코드가 CLAUDE.md 규칙과 시연 범위를 지키는지 검사한다. 관리자가 /rule-check 로 부르거나 단위 업무 하나를 끝낸 직후 쓴다.
 argument-hint: "[폴더 — 비우면 backend, frontend 전체]"
 ---
 

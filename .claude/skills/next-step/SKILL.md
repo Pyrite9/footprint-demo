@@ -1,6 +1,6 @@
 ---
 name: next-step
-description: 시연본의 다음 작업 단위(단위 업무 하나)를 골라 계획을 세운다. 관리자가 /next-step 으로 부를 때만 쓴다.
+description: 데모의 다음 작업 단위(단위 업무 하나)를 골라 계획을 세운다. 관리자가 /next-step 으로 부를 때만 쓴다.
 disable-model-invocation: true
 argument-hint: "[단위 업무 ID, 예: T-1-2 — 비우면 다음 순서]"
 ---
