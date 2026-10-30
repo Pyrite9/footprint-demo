@@ -209,17 +209,17 @@ erDiagram
     TEAM_MEMBER ||--o{ EVALUATION : "대상 target_id"
 
     MEMBER {
-        Long id PK "회원 번호 · 자동 증가"
+        Long id PK "회원 번호"
         String email UK "로그인 아이디 · 같은 이메일 두 번 저장 불가"
         String password "BCrypt로 바꾼 값 · 구글 회원은 null"
         String name "화면에 보이는 이름"
-        MemberType memberType "PROFESSOR 교수 · STUDENT 학생 · 권한 검사 기준"
+        MemberType memberType "PROFESSOR 교수 · STUDENT 학생 · 교수만 과제 생성, 학생만 조 합류"
     }
     ASSIGNMENT {
         Long id PK "과제 번호"
         String title "과제 제목"
         LocalDate startDate "과제 시작일"
-        LocalDate endDate "과제 마감일"
+        LocalDate endDate "과제 종료일 · 시작일보다 앞이면 400"
         Long professor_id FK "과제를 만든 교수 · 교수 열람 권한 기준"
     }
     TEAM {
@@ -261,7 +261,7 @@ erDiagram
     }
 ```
 
-- 각 열의 오른쪽 칸은 비고. 그 값이 무엇에 쓰이는지 적음. `EVALUATION` 점수 열의 항목 이름은 `frontend/src/constants/peerEvaluation.js`의 `name`과 같음
+- 각 열의 오른쪽 칸은 비고. 그 값이 무엇에 쓰이는지 적음. `id`는 모두 데이터베이스가 자동으로 붙이는 번호(`IDENTITY`)임. `EVALUATION` 점수 열의 항목 이름은 `frontend/src/constants/peerEvaluation.js`의 `name`과 같음
 - 열 이름 표기: FK는 데이터베이스 열 이름(`professor_id`), 나머지는 Java 필드 이름(`startDate`)으로 적음. 실제 데이터베이스 열은 snake_case임(`startDate` → `start_date`)
 - `TEAM_MEMBER`에 `(assignment_id, member_id)` unique, `EVALUATION`에 `(evaluator_id, target_id)` unique
 - `TEAM_MEMBER.assignment_id`는 `TEAM.assignment_id`와 같은 값. unique 제약은 한 테이블의 열만 쓸 수 있어서, "한 학생은 한 과제에서 한 조"를 DB가 지키도록 복사해 둠. 생성자가 team에서 채우므로 둘이 달라질 수 없음

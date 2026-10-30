@@ -1040,5 +1040,6 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 확인: Mermaid 11.4.1로 그려 봄. 문법 오류 없이 그려지고 비고 칸이 보임. 문서만 바꿔서 빌드는 돌리지 않음
 - 읽을 때 볼 곳: Entity 필드를 바꾸면 ERD 비고도 같은 작업에서 고칠 것. 비고는 Entity 주석을 줄인 것이라 둘이 어긋나기 쉬움
 - 내가 채운 가정:
-  - `id`의 비고 "자동 증가"는 `@GeneratedValue(strategy = IDENTITY)`를 보고 적음
-  - `comment`의 "최대 2000자"는 `@Column(length = 2000)`을 보고 적음
+  - `id`가 자동 번호라는 설명은 `@GeneratedValue(strategy = IDENTITY)`를 보고 ERD 아래 설명에 한 번만 적음
+  - `comment`의 "최대 2000자"는 `@Column(length = 2000)`과 `EvaluationSubmitRequest`의 `@Size(max = 2000)`을 보고 적음
+  - `endDate`는 화면(`AssignmentCreatePage.jsx`)과 `api-draft.md`가 쓰는 "종료일"로 맞춤
