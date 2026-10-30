@@ -985,3 +985,19 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 프론트엔드 코드는 고치지 않아서 `npm run build`·`lint`는 돌리지 않았다. rule-check 자가 검사 걸린 것 없음.
 - 읽을 때 볼 곳: `TeamMember` 생성자의 `this.assignment = team.getAssignment();` 한 줄이 이 단위의 핵심이다. 호출하는 쪽(`AssignmentService`, `DataInitializer`, `TeamService`)은 바뀌지 않았다. `ddl-auto: create`라 스키마는 다시 켤 때 새로 만들어진다.
 - 내가 채운 가정: 동시 요청의 409 문구 "이미 이 과제의 조에 있습니다"는 내가 정했다.
+
+### 단위 3: 정수가 아닌 점수 거부 (관리자 지시 "코드 문제 단위업무로 수정")
+- 결정: `application.yml`에서 Jackson의 자동 변환 두 가지를 껐다. `spring.jackson.deserialization.accept-float-as-int: false`, `spring.jackson.mapper.allow-coercion-of-scalars: false`.
+  - 문제: 실제 백엔드는 점수 `4.5`를 받아 4로 잘라 저장했고(200), `"5"`, `5.0`, `1e0`도 숫자 5·1로 받아들였다. 가짜 API는 `Number.isInteger`로 검사해서 `4.5`, `"5"`를 400으로 막았다. 같은 요청에 결과가 달랐다.
+  - 선택지: (A) 설정 두 줄로 서버 전체에 적용 (B) 점수 필드를 `JsonNode`로 받아 직접 검사 (C) 점수 필드마다 커스텀 deserializer. (B)·(C)는 DTO가 복잡해지고 다른 숫자 필드(`targetTeamMemberId`)는 그대로 남는다. (A)는 숨은 동작이 설정 파일 한 곳에 보이고, 의존성도 늘지 않는다. (A)로 했다.
+  - 영향 범위: 모든 요청 body. 날짜(`"2026-11-02"`)는 원래 문자열로 받는 타입이라 영향이 없다. path·query 값은 Jackson을 거치지 않아서 영향이 없다.
+- 고친 파일: `backend/src/main/resources/application.yml`, `docs/api-draft.md`("공통"에 타입 규칙 한 줄, 평가 제출 400 줄), `docs/worklog.md`
+- 가짜 API: 고치지 않았다. 이미 `Number.isInteger`와 `typeof === 'number'`로 검사하고 있었다. 남은 차이 두 가지는 api-draft에 적었다.
+  - `5.0`, `1e0`: JavaScript가 JSON을 읽으면 `5`, `1`과 같은 값이 되어 가짜 API는 받는다. 실제는 400이다. 화면은 정수만 보낸다.
+  - 400 메시지: 타입이 틀리면 실제는 "요청 body의 형식이 올바르지 않습니다", 가짜 API는 "입력값이 올바르지 않습니다"다. `code`는 둘 다 `INVALID_INPUT`이다. 이 차이는 이 단위 전부터 있었다(`"abc"`).
+- 확인:
+  - `gradlew build`(테스트 포함) 통과. 컨테이너를 다시 빌드한 뒤 점수에 `4.5`, `"5"`, `true`, `5.0`, `1e0`, `"abc"` → 모두 400 "요청 body의 형식이 올바르지 않습니다". `0`, `6` → 400 "입력값이 올바르지 않습니다". `5` → 200. `targetTeamMemberId: "7"` → 400.
+  - 다른 흐름: 과제 생성(날짜 문자열), 초대 코드 발급, 합류가 그대로 200·409.
+  - 프론트엔드 코드는 고치지 않아서 `npm run build`·`lint`는 돌리지 않았다. rule-check 자가 검사 걸린 것 없음.
+- 읽을 때 볼 곳: 이 설정은 코드에 보이지 않는 동작을 바꾼다. "Integer 필드인데 왜 `"5"`가 400이지?"라고 물으면 `application.yml`의 `jackson` 부분이 답이다. 이 400을 만드는 곳은 `GlobalExceptionHandler`의 `HttpMessageNotReadableException` 처리다.
+- 내가 채운 가정: 없음.

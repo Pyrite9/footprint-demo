@@ -9,6 +9,15 @@ spring:
       # 산출물 파일 하나의 상한과 요청 전체의 상한입니다. 넘으면 400 INVALID_INPUT입니다(GlobalExceptionHandler).
       max-file-size: 20MB
       max-request-size: 20MB
+  jackson:
+    # 요청 JSON의 값을 Java 타입으로 바꿀 때 "비슷하면 바꿔 주기"를 끕니다. 바꾸지 못하면 400 INVALID_INPUT입니다.
+    # 끄지 않으면 점수 4.5가 4로 잘려 저장되고, 문자열 "5"가 숫자 5로 받아들여집니다(가짜 API는 둘 다 400).
+    deserialization:
+      # 소수(4.5, 5.0)를 정수 필드에 넣지 않습니다.
+      accept-float-as-int: false
+    mapper:
+      # 문자열 "5"를 숫자 필드에 넣지 않습니다.
+      allow-coercion-of-scalars: false
   jpa:
     # Controller에서 XxxResponse.from(entity)로 바꿀 때 연결된 Entity(예: 조원의 회원 이름)를 그때 읽어 옵니다(LAZY).
     # 그러려면 응답을 만드는 동안 DB 연결이 열려 있어야 해서 open-in-view를 켭니다. 기본값도 true지만, 적지 않으면 시작할 때 WARN이 나옵니다.
