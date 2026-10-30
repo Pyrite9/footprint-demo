@@ -16,6 +16,7 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
    ```
 
    - macOS는 둘째 줄이 `cp .env.example .env`. `.env`는 처음 한 번만 만들면 됨
+   - 둘째 줄은 건너뛰어도 됨. `.env`가 없으면 `.env.example`과 같은 기본값으로 켜짐. 교수 이메일(`PROFESSOR_EMAILS`)을 넣을 때만 필요함
    - 학습 저장소의 `infra`와 포트(5432, 9000, 9001)가 같음. 학습용이 켜져 있으면 그 폴더에서 `docker compose down`을 먼저 실행할 것
 
 2. 서버 켜기. IntelliJ에서 `backend` 폴더를 열고 `BackendApplication`의 `main`을 실행. 터미널에서는 1번에 이어 `backend` 폴더로 옮겨 실행.
@@ -30,24 +31,26 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 
 3. 확인. 로그인 API를 부르면 `{"accessToken": "..."}`가 옴. 주소와 응답 모양은 `docs/api-draft.md`.
 
+   - 주소는 `localhost`가 아니라 `127.0.0.1`로 씀. Windows에서는 `localhost`가 IPv6(`::1`)로 연결되다가 멈추는 일이 있었음(맨 위 `docker-compose.yml`의 backend 주석)
+
    ```powershell
-   Invoke-RestMethod -Method Post -Uri http://localhost:8080/auth/login -ContentType "application/json" -Body '{"email":"student01@example.com","password":"pass1234"}'
+   Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/auth/login -ContentType "application/json" -Body '{"email":"student01@example.com","password":"pass1234"}'
    ```
 
-   macOS는 `curl -X POST localhost:8080/auth/login -H "Content-Type: application/json" -d '{"email":"student01@example.com","password":"pass1234"}'`.
+   macOS는 `curl -X POST 127.0.0.1:8080/auth/login -H "Content-Type: application/json" -d '{"email":"student01@example.com","password":"pass1234"}'`.
 
    받은 token으로 내 정보를 부르면 이름과 회원 유형이 옴. token 없이 부르면 401.
 
    ```powershell
-   $token = (Invoke-RestMethod -Method Post -Uri http://localhost:8080/auth/login -ContentType "application/json" -Body '{"email":"student01@example.com","password":"pass1234"}').accessToken
-   Invoke-RestMethod -Uri http://localhost:8080/members/me -Headers @{ Authorization = "Bearer $token" }
+   $token = (Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/auth/login -ContentType "application/json" -Body '{"email":"student01@example.com","password":"pass1234"}').accessToken
+   Invoke-RestMethod -Uri http://127.0.0.1:8080/members/me -Headers @{ Authorization = "Bearer $token" }
    ```
 
    교수 token으로 과제를 만들면 `{"id": 2, "title": ...}`가 옴. 학생 token이면 403. 같은 창에서 이어서 실행할 것.
 
    ```powershell
-   $token = (Invoke-RestMethod -Method Post -Uri http://localhost:8080/auth/login -ContentType "application/json" -Body '{"email":"professor@example.com","password":"pass1234"}').accessToken
-   Invoke-RestMethod -Method Post -Uri http://localhost:8080/assignments -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body '{"title":"Test assignment","startDate":"2026-11-02","endDate":"2026-12-11","leaderEmails":["student02@example.com","student07@example.com"]}'
+   $token = (Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/auth/login -ContentType "application/json" -Body '{"email":"professor@example.com","password":"pass1234"}').accessToken
+   Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/assignments -Headers @{ Authorization = "Bearer $token" } -ContentType "application/json" -Body '{"title":"Test assignment","startDate":"2026-11-02","endDate":"2026-12-11","leaderEmails":["student02@example.com","student07@example.com"]}'
    ```
 
    예시 제목을 영어로 둔 이유: Windows PowerShell 5.1은 문자열 body를 UTF-8로 보내지 않아서 한글 제목이 깨지거나 400이 될 수 있음. 한글 제목은 화면이나 Postman으로 확인할 것.
@@ -55,17 +58,17 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
    산출물 업로드와 다운로드는 Windows에 들어 있는 `curl.exe`로 확인. 시작 데이터의 1조 이서연(student02, 역할 백엔드)으로 올림.
 
    ```powershell
-   $token = (Invoke-RestMethod -Method Post -Uri http://localhost:8080/auth/login -ContentType "application/json" -Body '{"email":"student02@example.com","password":"pass1234"}').accessToken
-   curl.exe -X POST http://localhost:8080/teams/1/deliverables -H "Authorization: Bearer $token" -F "file=@README.md"
-   curl.exe http://localhost:8080/teams/1/deliverables -H "Authorization: Bearer $token"
-   curl.exe -o download.txt http://localhost:8080/deliverables/1/download -H "Authorization: Bearer $token"
+   $token = (Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/auth/login -ContentType "application/json" -Body '{"email":"student02@example.com","password":"pass1234"}').accessToken
+   curl.exe -X POST http://127.0.0.1:8080/teams/1/deliverables -H "Authorization: Bearer $token" -F "file=@README.md"
+   curl.exe http://127.0.0.1:8080/teams/1/deliverables -H "Authorization: Bearer $token"
+   curl.exe -o download.txt http://127.0.0.1:8080/deliverables/1/download -H "Authorization: Bearer $token"
    ```
 
    - `-o download.txt`는 받은 내용을 그 이름으로 저장함. curl은 한글 파일 이름(RFC 5987 형식)을 풀지 못해서 이름을 직접 정함
    - 한글 이름이 깨지지 않는 것은 브라우저에서 직접 내려받아 확인할 것
    - macOS는 `curl.exe` 대신 `curl`
 
-4. 파일 저장소 확인. MinIO 콘솔 http://localhost:9001 에 `infra/.env`의 `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`로 로그인. 서버가 시작할 때 만든 `footprint` 버킷이 보이면 성공.
+4. 파일 저장소 확인. MinIO 콘솔 http://localhost:9001 에 `infra/.env`(없으면 `infra/.env.example`의 기본값)의 `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`로 로그인. 서버가 시작할 때 만든 `footprint` 버킷이 보이면 성공.
 
 ## 빌드와 테스트
 

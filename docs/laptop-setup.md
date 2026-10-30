@@ -1,7 +1,7 @@
 # 노트북 이식 가이드 (footprint-demo → Arch Linux)
 
 이 문서는 **노트북(Arch Linux)의 Claude Code에게 그대로 넘기는 작업 지시서**다.
-작성: 2026-10-28, 데스크톱(Windows 11, `E:\YJU\footprint-demo`) 기준.
+작성: 2026-10-28, 데스크톱(Windows 11, `E:\YJU\footprint-demo`) 기준. 날짜가 붙은 "확인" 문장은 그날의 상태다. 4절의 `100644` 갈래는 이제 해당 없다(저장소의 `gradlew`가 `100755`).
 
 ---
 
@@ -9,7 +9,7 @@
 
 1. 이 파일은 저장소의 `docs/laptop-setup.md`다. 노트북 Claude에게는 `https://github.com/Pyrite9/footprint-demo/blob/main/docs/laptop-setup.md`를 주거나, clone 한 뒤 이 파일을 읽으라고 한다.
 2. `E:\YJU\footprint-demo\infra\.env`를 노트북으로 옮긴다(USB, 본인에게 보내기 등).
-   - gitignore된 파일이고 `PROFESSOR_EMAILS`(실제 이메일)와 비밀번호가 들어 있다. 저장소·채팅에 붙여 넣지 않는다.
+   - gitignore된 파일이고 비밀번호와 `PROFESSOR_EMAILS`(실제 이메일)를 담는 파일이다. 저장소·채팅에 붙여 넣지 않는다. `PROFESSOR_EMAILS` 줄이 빠져 있을 수 있다(6절에서 확인).
    - 없어도 실행은 된다. 다만 구글 로그인 시 교수로 판별되는 계정이 없어서 전원 학생이 된다.
    - 데스크톱 파일은 줄바꿈이 LF라 그대로 써도 된다.
 3. 데스크톱의 `footprint-demo`는 `origin/main`과 같다(2026-10-28 확인, 안 올린 commit 없음). 노트북에서 작업하기 전에 데스크톱에서 새로 commit 한 게 있으면 push 해 둔다.
@@ -200,6 +200,7 @@ metadata:
 관리자가 옮겨 온 `.env`를 `footprint-demo/infra/.env`에 둔다.
 
 - 키 이름만 확인한다(값 출력 금지): `sed 's/=.*/=<hidden>/' infra/.env`. 있어야 할 키: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_API_PORT`, `MINIO_CONSOLE_PORT`, `PROFESSOR_EMAILS`.
+- `.env.example`과 키 목록을 비교한다: `diff <(sed 's/=.*//' infra/.env.example) <(sed 's/=.*//' infra/.env)`. 빠진 키가 있으면(2026.10.30 확인 때 데스크톱 `.env`에 `PROFESSOR_EMAILS`가 없었다) 관리자에게 알리고, 관리자가 값을 직접 넣는다.
 - `file infra/.env`가 `CRLF`를 보고하면 `sed -i 's/\r$//' infra/.env`로 LF로 바꾼다.
 - `chmod 600 infra/.env`로 본인만 읽게 한다.
 - `git status`에 `infra/.env`가 **나오지 않는지** 확인한다(gitignore 대상). 나오면 멈추고 알린다. public 저장소다.

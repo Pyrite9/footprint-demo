@@ -1,6 +1,7 @@
 # Postman 모음
 
-발자국 데모의 API 16개를 요청 29개로 데모 흐름 순서에 맞춰 모았습니다. 요청마다 상태 코드와 응답을 확인하는 test가 붙어 있습니다.
+발자국 데모의 API 17개 중 16개를 요청 29개로 데모 흐름 순서에 맞춰 모았습니다. 요청마다 상태 코드와 응답을 확인하는 test가 붙어 있습니다.
+구글 로그인(`POST /auth/google`)은 넣지 않았습니다. 구글이 발급한 ID token을 Postman에서 받을 수 없기 때문입니다. 모음은 시작 계정의 이메일·비밀번호 로그인을 씁니다.
 
 | 파일 | 내용 |
 |---|---|
@@ -38,6 +39,7 @@
 
 `frontend`에서 `npm run mock`을 켠 뒤, 모음의 Variables 탭에서 `baseUrl`을 `http://localhost:3001`로 바꿔 실행합니다. 같은 test가 모두 통과해야 합니다(가짜 API의 응답 모양이 실제와 같다는 확인입니다).
 가짜 API는 `frontend/db.json`을 바꿉니다. 처음 상태로 되돌리려면 `git restore frontend/db.json`을 실행합니다.
+업로드 요청이 올린 시험 파일은 `frontend/mock/files/`에 남습니다. git이 무시하는 파일이지만, 정리하려면 `seed-1.txt`, `seed-2.txt`를 뺀 파일을 지웁니다.
 
 ## 명령줄에서 실행하기 (선택)
 

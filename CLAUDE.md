@@ -51,7 +51,7 @@ API 명세가 아직 없으면 코드보다 **`docs/api-draft.md`를 먼저 쓴�
 backend/    Spring Boot. 패키지 com.footprint.backend, rootProject.name = 'footprint-backend'
 frontend/   React. src/pages, src/components, src/api, src/constants
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
-docs/       architecture.md, api-draft.md, worklog.md
+docs/       architecture.md, api-draft.md, worklog.md, laptop-setup.md, postman/
 ```
 
 백엔드 패키지는 계층형: `controller`, `service`, `repository`, `entity`, `dto`, `exception`, `config` (+ 인증은 `security`).
@@ -78,11 +78,11 @@ docs/       architecture.md, api-draft.md, worklog.md
 - 값을 바꾸는 Service 메서드에 `@Transactional`.
 - DTO는 `record`. 요청 하나에 DTO 하나(`XxxCreateRequest`). 응답은 Entity가 아니라 응답 DTO.
 - Entity → DTO 변환은 Controller에서 `XxxResponse.from(entity)`. Service는 Entity를 돌려준다.
-- 목록 응답은 연결된 데이터를 펼친 모양. 예: 조원 목록 `{ "id", "name", "roleName" }`.
+- 목록 응답은 연결된 데이터를 펼친 모양. 예: 조원 목록 `{ "id", "memberId", "name", "roleName", "leader" }`.
 - API 경로는 복수형(`/assignments`, `/teams/{teamId}/members`).
 - 오류 응답은 `ApiErrorResponse { code, message }` 하나. 처리는 `GlobalExceptionHandler` 한 곳. handler 이름은 `handle` + 예외 이름에서 `Exception` 뺀 것.
 - `code` 목록: `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409, `SERVER_ERROR` 500(2026.10.26 관리자 결정). 새 code가 필요하면 먼저 묻는다.
-- 전용 예외: `NotFoundException`, `DuplicateException`, `ForbiddenException`. `IllegalArgumentException`을 404로 바꾸지 않는다.
+- 전용 예외: `NotFoundException`(404), `DuplicateException`(409), `ForbiddenException`(403), `InvalidInputException`(400, 업무 규칙 위반), `UnauthorizedException`(401, 로그인 실패). `IllegalArgumentException`을 404로 바꾸지 않는다.
 - 시작 데이터는 `config/DataInitializer`(`CommandLineRunner`). 개발 중 `ddl-auto: create`.
 - 설정값은 `application.yml`에 `${ENV:개발용기본값}` 형태. 조원이 환경 변수 없이 실행돼야 한다. 예: `${JWT_SECRET:...}`.
 - 날짜는 `LocalDate`(JSON `yyyy-MM-dd`), 기록 시각은 서버가 `LocalDateTime`으로 저장. 클라이언트가 보낸 시각은 받지 않는다.
@@ -94,7 +94,7 @@ docs/       architecture.md, api-draft.md, worklog.md
 - 비동기는 예시 프로젝트처럼 `.then` 방식. 데이터를 불러오는 화면은 `loading`, `error` state를 둔다.
 - 다른 값으로 계산되는 값은 state로 두지 않는다. 배열 state는 새 배열로 교체.
 - API 주소는 `VITE_API_URL` 하나. `.env`는 저장소에 올리고 개인 설정은 `.env.local`.
-- 가짜 API(`db.json`, `mock/routes.json`, `mock/middleware.cjs`)의 응답 모양은 실제 API와 똑같이 맞춘다. API를 바꾸면 가짜 API도 같은 작업 안에서 고친다.
+- 가짜 API(`db.json`, `mock/middleware.cjs`)의 응답 모양은 실제 API와 똑같이 맞춘다. API를 바꾸면 가짜 API도 같은 작업 안에서 고친다.
 - `mock/middleware.cjs`는 CommonJS(`require`, `module.exports`)로 쓴다. json-server 0.17.4가 `require`로 읽는데 `package.json`이 `"type": "module"`이라 `.js`로 두면 읽히지 않는다.
 
 ## 금지
@@ -133,7 +133,7 @@ docs/       architecture.md, api-draft.md, worklog.md
 ## 작업 방식
 
 - 한 번에 **단위 업무 하나**(예: T-1-2 링크로 합류)를 백엔드 → 가짜 API → 화면 순서로 끝까지. 여러 기능을 한 번에 생성하지 않는다.
-- 시작 전에 무엇을 만들지, 만들 파일 목록, 걸리는 미정 항목을 3~6줄로 말하고 묻지 않고 시작한다.
+- 시작 전에 무엇을 만들지, 만들 파일 목록, 걸리는 `TODO.md` "아직 정하지 않은 것" 항목을 3~6줄로 말하고 묻지 않고 시작한다.
 - 끝나면 확인한다: `backend`에서 빌드(`gradlew.bat build` 또는 `./gradlew build`), `frontend`에서 `npm run build`, `npm run lint`. 실패한 채로 끝내지 않는다.
 - 끝나면 스스로 규칙 검사(rule-check 기준)를 하고 걸린 것은 고친다.
 - 끝나면 `docs/worklog.md`에 오늘 날짜로 적는다: 결정, 만든·고친 파일, 관리자가 읽을 때 볼 곳(초심자가 막힐 곳), 내가 채운 가정.

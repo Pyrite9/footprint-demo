@@ -3,13 +3,16 @@
 Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 적는다. /read-check 결과도 여기에 적는다.
 
 <!--
-## 2026.10.26
+## 2026.10.25
 
 ### <단위 업무 ID> <이름>
+- 결정: (선택지·이유. 관리자 결정이면 날짜)
 - 만든 파일:
 - 고친 파일:
+- 확인: (빌드·lint·실제로 눌러 본 것)
 - 읽을 때 볼 곳:
 - 내가 채운 가정:
+해당 없는 칸은 지우지 말고 "없음"으로 적는다.
 
 ### 읽기 점검
 - 점검한 파일:
@@ -437,7 +440,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 ### 한 번에 실행 (2단계 — docker compose로 백엔드·화면·PostgreSQL·MinIO·시작 데이터)
 - 결정:
   - 저장소 맨 위에 `docker-compose.yml`을 새로 두고, PostgreSQL·MinIO는 `include: infra/docker-compose.yml`로 가져온다. 선택지는 (A) include, (B) 맨 위 파일에 네 서비스를 모두 다시 쓰기, (C) infra 파일에 백엔드·화면을 넣고 profile로 나누기였다. 같은 설정을 두 곳에 쓰지 않고, 개발할 때의 `infra`만 켜는 방법도 그대로 남는 A로 했다. 이름이 둘 다 `footprint-demo`라 같은 컨테이너·volume을 쓴다.
-  - 화면은 개발 서버가 아니라 nginx 이미지로 내려준다(demo-scope에서 "밀리면 개발 서버로 데모"이라 한 항목). Node 이미지로 `npm run build` → `nginx:1.28-alpine`이 `dist`를 내려주는 두 단계 Dockerfile. `/teams/1`처럼 직접 연 주소가 404가 되지 않게 `try_files ... /index.html`.
+  - 화면은 개발 서버가 아니라 nginx 이미지로 내려준다(demo-scope에서 "밀리면 개발 서버로 시연"이라 한 항목). Node 이미지로 `npm run build` → `nginx:1.28-alpine`이 `dist`를 내려주는 두 단계 Dockerfile. `/teams/1`처럼 직접 연 주소가 404가 되지 않게 `try_files ... /index.html`.
   - 백엔드는 JDK 이미지에서 `bootJar -x test`로 jar를 만들고 JRE 이미지에서 실행하는 두 단계 Dockerfile. 테스트는 실제 DB·MinIO가 있어야 해서 이미지 빌드에서는 뺐다.
   - 새로 clone 한 폴더에서 `.env` 없이 켜지도록 `infra/docker-compose.yml`의 값을 `${이름:-기본값}`(기본값은 `.env.example`과 같음)으로 바꿨다. 백엔드는 `infra/.env`가 있으면 읽는다(`env_file`, `required: false`).
   - `application.yml`의 DB 주소에 `${POSTGRES_HOST:localhost}`를 넣었다. 컨테이너 안에서는 `postgres`, MinIO는 `STORAGE_ENDPOINT=http://minio:9000`.
@@ -684,7 +687,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 결과: 관리자의 학교 계정으로 로그인 성공. `hd`=`g.yju.ac.kr`, `email_verified`=true, `iss`=`https://accounts.google.com`, `aud`가 Client ID와 일치. 학교 정책에 막히지 않는다.
 - 아직 모르는 것:
   - 교수 계정의 이메일 도메인(`g.yju.ac.kr`이 아니면 `hd` 검사로 교수가 막힌다).
-  - "테스트 중" 상태는 테스트 사용자로 넣은 계정만 로그인된다. 데모 계정 4개 이상과 조원 계정을 넣거나 "프로덕션"으로 게시해야 한다. 기본 범위(openid, email, profile)만 쓰면 심사가 필요 없는지는 확인하지 않았다.
+  - "테스트 중" 상태는 테스트 사용자로 넣은 계정만 로그인된다. 발표에 쓸 구글 계정 4개 이상과 조원 계정을 넣거나 "프로덕션"으로 게시해야 한다. 기본 범위(openid, email, profile)만 쓰면 심사가 필요 없는지는 확인하지 않았다.
   - 구글 token에는 교수·학생 구분이 없다. 회원 유형을 정하는 방법이 따로 필요하다.
 - 고친 파일: `docs/worklog.md`
 - 내가 채운 가정: spike 페이지에 `hd` 제한을 걸지 않았다(어느 도메인 계정이 들어오는지 보려고). Client ID는 비밀값이 아니지만 구현 단위에서 설정값으로 넣기 전까지 저장소에 적지 않는다.
@@ -766,7 +769,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 ### 구조 보드 정리 (Whiteboard, 노트북)
 - 결정:
   - 데모 전체 구조를 그림으로 보는 보드 "발자국 구조 뼈대"를 노트북 Whiteboard 앱에 둔다. 섹션: 무엇·왜, 실행 구성, 데모 흐름과 화면 지도, 인증 흐름, 데이터 구조, 요청 하나의 길(산출물 업로드 예).
-  - 관리자 요청(2026.10.28): 본문 문장을 개조식으로 바꿨다. 날짜 언급(12.11 데모, 11.16 끼워 넣기)을 빼고 "구조 뼈대"로 적었다. 제목도 "발자국 데모 전체 구조"에서 "발자국 구조 뼈대"로 바꿨다.
+  - 관리자 요청(2026.10.28): 본문 문장을 개조식으로 바꿨다. 날짜 언급(12.11 데모, 11.16 끼워 넣기)을 빼고 "구조 뼈대"로 적었다. 제목도 "발자국 시연본 전체 구조"에서 "발자국 구조 뼈대"로 바꿨다.
 - 고친 파일: `docs/worklog.md`. 보드는 Whiteboard 앱에 저장되고 저장소에는 들어가지 않는다.
 - 읽을 때 볼 곳:
   - 보드의 코드 링크는 노트북 ext4 clone의 commit을 가리킨다. 코드가 바뀌면 새 보드를 만들지 않고 보드 대상 commit을 옮긴 뒤 본문을 고친다.
@@ -831,13 +834,13 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 
 ### 발견: demo-script 5절의 구글 로그인 답변이 낡음
 - 아직 고치지 않았다. 관리자에게 보고만 한다.
-- `docs/demo-script.md` 5절 마지막 답변이 "지금은 시작 계정으로 데모합니다. 학교 구글 계정 로그인은 정해지는 대로 반영합니다"다. 구글 로그인은 2026.10.26에 확정돼 이미 구현됐고, 같은 문서 2절에는 구글 데모 준비 절차가 적혀 있다. 그 답변 줄만 확정 전 상태로 남아 있다.
+- `docs/demo-script.md` 5절 마지막 답변이 "지금은 시작 계정으로 시연합니다. 학교 구글 계정 로그인은 정해지는 대로 반영합니다"다. 구글 로그인은 2026.10.26에 확정돼 이미 구현됐고, 같은 문서 2절에는 구글 데모 준비 절차가 적혀 있다. 그 답변 줄만 확정 전 상태로 남아 있다.
 - 문체 작업과 별개인 내용 수정이라 손대지 않았다. 12.11에 어느 쪽으로 데모할지(구글/시작 계정)가 답변 문장을 정하므로 관리자 결정이 필요하다.
 
 ### 용어 "데모"로 통일, CLAUDE.md에 외부 독자용 머리말 (관리자 지시)
 - 결정:
   - 관리자 지시(2026.10.29)로 "시연본"을 모두 **"데모"** 로 바꿨다. 추적 파일 11개 16군데다. 이 worklog의 과거 기록도 같이 바꿨다. 용어 이름이므로 기록만 옛 이름으로 남기면 나중에 찾을 때 두 이름을 다 알아야 한다.
-  - "데모"(데모 흐름, 데모 범위, 데모 대본, 12.11 데모)은 그대로 뒀다. 지시는 "시연본 → 데모"였고, "데모"은 12.11에 발표하는 행위를 가리키는 다른 말이다. 이것도 바꿀지는 관리자가 정한다.
+  - "시연"(시연 흐름, 시연 범위, 시연 대본, 12.11 시연)은 그대로 뒀다. 지시는 "시연본 → 데모"였고, "시연"은 12.11에 발표하는 행위를 가리키는 다른 말이다. 이것도 바꿀지는 관리자가 정한다.
   - 치환 뒤 조사가 어긋난 4군데를 고쳤다("데모을" → "데모를", "데모이라" → "데모라", "데모은" → "데모는"). "시연본"은 받침이 있고 "데모"는 없어서 생긴 것이다.
   - CLAUDE.md에 **"이 파일은 무엇인가"** 절을 맨 앞에 넣었다. 규칙 본문은 한 줄도 바꾸지 않았다. 지금의 작동을 그대로 두라는 지시여서, 규칙을 옮기거나 지우지 않고 설명만 더했다.
     - 넣은 설명: 이 파일이 AI 코딩 도구용 설정이라 명령형 반말인 것, "관리자"가 저장소 소유자를 가리키는 역할 이름인 것, `../footprint-study`가 비공개 학습 저장소이고 없어도 빌드·실행이 되는 것, 규칙에 붙은 날짜의 뜻, "묻지 않고 진행"이 사람의 검토를 건너뛴다는 뜻이 아닌 것.
@@ -845,7 +848,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - "금지" 절 머리에 한 줄을 더했다. 기술의 좋고 나쁨을 가린 목록이 아니라 초심자가 읽을 코드에서 추상 계층을 줄이려는 선택이라는 것. 외부에서 "왜 QueryDSL을 금지하나"로 읽힐 자리였다.
 - 고친 파일: `CLAUDE.md`, `README.md`, `backend/README.md`, `frontend/README.md`, `docs/api-draft.md`, `docs/postman/README.md`, `docs/postman/footprint-demo.postman_collection.json`, `docs/postman/sample-upload.txt`, `docs/worklog.md`, `.claude/skills/rule-check/SKILL.md`, `.claude/skills/next-step/SKILL.md`
 - 확인:
-  - `git grep "시연본"`이 0건.
+  - `git grep "시연본"`이 0건(이 worklog의 용어 변경 기록과 옛 이름 인용은 빼고).
   - 조사 검사(`데모(을|은|이라|으로|과|이다|이고|이며)`)가 0건.
   - Postman 모음 JSON을 `node -e "require(...)"`로 읽어 파싱되는 것과 `info.name`이 "발자국 데모 API"인 것을 확인했다.
   - 빌드는 돌리지 않았다. `git diff --name-only`로 `.java`, `.js`, `.jsx`, `.yml`, `.gradle` 파일 변경이 0건인 것을 확인했다. 바뀐 것은 문서와 Postman 모음뿐이다.
@@ -857,7 +860,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 ### "시연" 표현 제거, 범위·대본 문서 삭제, TODO.md 신설 (관리자 지시)
 - 결정:
   - 관리자 지시(2026.10.29)로 **"시연"이라는 말을 모두 "데모"로** 바꿨다. 추적 파일 18개다. 코드에도 있었다(`DataInitializer`, `AuthService`, 테스트 2개의 주석, 시작 과제 제목 "발자국 시연 과제", 시작 산출물 본문, `frontend/db.json`, `frontend/Dockerfile`, `mock/files/seed-1.txt`).
-  - 조사가 어긋난 7군데를 고쳤다("데모은" → "데모는", "데모을" → "데모를"). "데모장 인터넷"은 "발표장 인터넷"으로 바꿨다.
+  - 조사가 어긋난 7군데를 고쳤다("데모은" → "데모는", "데모을" → "데모를"). "시연장 인터넷"은 "발표장 인터넷"으로 바꿨다.
   - 이 worklog의 **용어 변경 이력 항목에서는 옛 이름을 되살렸다.** "시연본을 데모로 바꿨다"가 "데모본을 데모로 바꿨다"가 되면 기록이 뜻을 잃는다.
   - 관리자 지시로 `docs/demo-scope.md`(122줄)와 `docs/demo-script.md`(164줄)를 **삭제했다.** "코드와 코드 설명만 남긴다"는 지시다. git 이력에는 남아 있어 되돌릴 수 있다.
   - 삭제로 잃는 내용을 두 곳으로 옮겼다. 그냥 지우면 CLAUDE.md의 규칙이 가리킬 대상을 잃어 작동이 달라진다.
@@ -869,7 +872,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 지운 파일: `docs/demo-scope.md`, `docs/demo-script.md`
 - 고친 파일: `CLAUDE.md`, `README.md`, `backend/README.md`, `frontend/README.md`, `frontend/Dockerfile`, `frontend/db.json`, `frontend/mock/files/seed-1.txt`, `docs/api-draft.md`, `docs/postman/README.md`, `docs/postman/footprint-demo.postman_collection.json`, `docs/worklog.md`, `.claude/skills/rule-check/SKILL.md`, `.claude/skills/next-step/SKILL.md`, `backend/src/main/java/.../config/DataInitializer.java`, `.../service/AuthService.java`, `.../test/.../BackendApplicationTests.java`, `.../test/.../StorageServiceTests.java`
 - 확인:
-  - `git grep "시연"`이 0건. 조사 검사도 0건.
+  - `git grep "시연"`이 0건(이 worklog의 용어 변경 기록과 옛 이름 인용은 빼고). 조사 검사도 0건.
   - 깨진 참조 검사: worklog를 뺀 모든 파일에서 `demo-scope`·`demo-script` 참조가 0건. `api-draft.md`의 "demo-scope N절" 인용 6군데는 괄호 안을 결정 날짜나 `CLAUDE.md "업무 규칙"`으로 바꿨다.
   - 빌드: `backend`에서 `./gradlew build` BUILD SUCCESSFUL(테스트 포함, docker의 PostgreSQL·MinIO 켠 상태). `frontend`에서 `npm run build`, `npm run lint` 통과.
 - 읽을 때 볼 곳:
@@ -877,7 +880,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 시작 과제 제목이 "발자국 데모 과제"로 바뀌었다. `DataInitializer`와 `frontend/db.json`, `docs/api-draft.md` 예시가 같은 값이어야 한다.
 - 내가 채운 가정:
   - "코드와 코드 설명만 남긴다"에서 `docs/api-draft.md`(API 명세)와 `docs/worklog.md`(결정 기록), `docs/postman/`은 코드 설명으로 보아 남겼다. `docs/laptop-setup.md`도 남겼다.
-  - 12.11 발표 대본이 사라졌다. 발표 준비가 필요하면 다시 만들어야 한다. git 이력(`git show HEAD~1:docs/demo-script.md`)에서 꺼낼 수 있다.
+  - 12.11 발표 대본이 사라졌다. 발표 준비가 필요하면 다시 만들어야 한다. git 이력(`git show 9188187:docs/demo-script.md`)에서 꺼낼 수 있다.
 
 ### 구조 그림 docs/architecture.md 신설 (관리자 지시)
 - 결정:
@@ -897,3 +900,46 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 내가 채운 가정:
   - 그림 3에서 `constants/peerEvaluation.js`를 처음에 넣었다가 뺐다. 예시로 둔 조 화면은 그 파일을 쓰지 않아 선이 거짓이 된다. 대신 글머리 줄로 설명했다.
   - 그림 1에 가짜 API(json-server 3001)를 점선으로 넣었다. 실제 데모 흐름은 아니지만 조원이 Java 없이 화면만 만들 때 쓰는 갈래라서 구조에 포함했다.
+
+## 2026.10.30
+
+### 문서 검수와 오류 정리 (관리자 지시)
+- 결정:
+  - 관리자 지시(2026.10.30)로 에이전트 5개가 나눠서 검수했다. 나눈 축은 API 명세 ↔ 백엔드·가짜 API, 구조 그림 ↔ 코드, worklog 전체, 실행·설정 문서와 문서 사이 교차 확인, 초심자 조원 시점이다. 에이전트가 낸 핵심 주장은 코드에서 다시 확인한 뒤 고쳤다.
+  - 관리자 선택(2026.10.30): 이번에는 **문서 오류만** 고친다. 코드 동작 문제와 개선 제안(새 절 추가, 문서 분리)은 하지 않았다.
+  - `architecture.md`의 JWT 그림은 화살표 몇 개를 고쳐서는 맞출 수 없어서 "2-1 로그인하고 token 받기", "2-2 그 다음 요청마다" 두 장으로 나눴다. 그림은 이제 여섯 장이다. 장수를 적은 곳(`architecture.md`, `README.md`, `TODO.md`)은 숫자를 빼고 "구조 그림"으로만 적었다. 그림을 더할 때마다 세 곳이 어긋나지 않게 하려는 것이다.
+  - 시퀀스 그림의 메시지에서 큰따옴표를 뺐다. 시퀀스 그림은 따옴표를 글자 그대로 그린다(이전 그림도 그랬다).
+  - 이 worklog의 과거 기록은 바꾸지 않는 것이 원칙이다. 다만 2026.10.29 일괄 치환("시연" → "데모")이 망가뜨린 줄은 옛 문구로 되돌렸다(443, 690, 772, 837, 843, 863행). 치환 전 문구는 `git show 357de8d~1:docs/worklog.md`, `git show 9188187~1:docs/worklog.md`로 확인했다. 771행의 Whiteboard 보드 섹션 이름은 보드를 볼 수 없어서 그대로 뒀다.
+- 고친 파일:
+  - `docs/architecture.md`
+    - 그림 1: 데모 포트(5173 → 컨테이너 nginx 80), "서버가 구글에 token을 보냄" → "구글 공개키 받기", 깨진 문장, `bootRun` 백엔드가 모든 주소에 열리는 것
+    - 그림 2: `GoogleLoginButton`·`AuthController`·`GoogleTokenVerifier`·`TeamPage`·`client.js`를 넣고, 로그인 실패 갈래를 추가
+    - 그림 3: `TeamMemberList → RoleAssignForm`, `api/auth.js`, `RequireLogin → token.js`
+    - 그림 4: 쓰지 않는 `DuplicateException`을 빼고 `TeamRepository`, `TeamMemberRepository`를 넣음. 예외 화살표, dto 화살표 방향
+    - ERD: 관계 이름, nullable 표기, 열 이름 표기 설명, "두 번 합류는 409" → 같은 조 재합류는 200
+  - `docs/api-draft.md`: 제목 날짜 표시의 뜻, "미정 6" 참조 삭제, 가짜 API token, 구글 로그인의 500·이름 대체·대소문자, 없는 회원 token에 가짜 API는 401, 업로드 400 조건, 다운로드 header 실제 모양, 평가 400 조건
+  - `backend/.../controller/DeliverableController.java`: Content-Disposition 주석(주석만, 동작 같음)
+  - `CLAUDE.md`: 사실 오류만 고쳤다. `docs/` 목록, 조원 목록 예시, 전용 예외 5개, 없는 파일 `mock/routes.json` 삭제, "미정 항목" → `TODO.md` "아직 정하지 않은 것"
+  - `README.md`: 파일 수 삭제, 폴더 트리에 `docker-compose.yml`·`TODO.md`, MinIO 계정 출처, 개발 → 한 번에 실행으로 바꾸는 순서, 문서 목록 설명
+  - `TODO.md`: `isLeader` → `leader`, 테스트 3개, 그림 장수
+  - `backend/README.md`: 백엔드 주소 10곳을 `127.0.0.1:8080`으로 바꾸고 이유를 적음. `.env` 복사는 선택이라는 것, MinIO 계정 출처
+  - `frontend/README.md`: 없어진 "환영합니다" 문구 → 상단 바 "김민준 (학생)", 본문 "과제 목록"
+  - `docs/postman/README.md`와 모음: API 17개 중 16개(구글 로그인을 뺀 이유), 시험 파일 정리, 폴더 3·5 설명
+  - `docs/laptop-setup.md`: 날짜가 지난 지시서라는 머리말, `.env` 키 목록 비교 명령
+  - `docs/worklog.md`: 치환 사고 6곳, 851·875행 확인 문장, 883행의 실패하는 명령(`HEAD~1` → `9188187`), 맨 위 템플릿
+- 확인:
+  - Mermaid 6장: `mermaid@11.4.1`로 `parse`와 실제 그리기 모두 성공. 브라우저에서 시퀀스 그림의 참여자·메시지 글자를 DOM으로 읽어 따옴표가 없는 것을 확인했다. 확인용 HTML은 `frontend/public`에 잠깐 두었다가 지웠다.
+  - 다운로드 header의 실제 모양: 검수 에이전트가 spring-web 6.2.19 원본 `ContentDisposition.toString()`을 읽고, 같은 jar로 출력을 찍어 확인했다.
+  - `backend`에서 `./gradlew compileJava` 성공. 바꾼 Java는 주석 한 줄이라 `gradlew build`(테스트, docker 필요)는 돌리지 않았다.
+  - `frontend`에서 `npm run build`, `npm run lint` 통과. Postman 모음 JSON 파싱 성공. `git diff --check` 문제 없음.
+  - 낡은 표현 grep(`네 장`, `routes.json`, `미정 6`, `환영합니다`, `HEAD~1:docs`, backend README의 `localhost:8080`): worklog 과거 기록 말고는 0건.
+- 읽을 때 볼 곳:
+  - `architecture.md` 2-1 그림 아래 둘째 줄: 로그인 실패가 `/login`으로 튕기지 않는 이유(`removeToken()`을 먼저 부름). `client.js`의 401 처리는 "token을 보냈을 때"만 동작한다.
+  - `architecture.md` ERD 아래 "합류" 줄: 같은 과제 한 조만 허용하는 규칙은 unique 제약이 아니라 Service 검사다.
+- 고치지 않은 것(관리자 결정 또는 코드 작업 필요):
+  - 코드 동작: 조원이 혼자인 조는 동료평가를 제출할 수 없다(`@NotEmpty`와 빈 대상 집합). 다른 두 조의 초대 코드로 동시에 합류하면 두 조에 모두 들어갈 수 있다. 실제 백엔드는 점수 4.5를 4로 받는다(가짜 API는 400).
+  - 관리자 환경: 데스크톱 `infra/.env`에 `PROFESSOR_EMAILS` 키가 없다. 데스크톱 `JAVA_HOME`이 없는 경로를 가리킨다(이번에는 명령 하나에만 실제 경로를 넣었다).
+  - 규칙 충돌: `.claude/skills/next-step`, `rule-check`는 "기다린다·먼저 보고한다"인데 CLAUDE.md는 "묻지 않고 진행"이다. CLAUDE.md의 `XxxCreateRequest` 이름 규칙과 실제 DTO 이름(`LoginRequest`, `TeamJoinRequest` 등)도 다르다. 규칙 파일이라 손대지 않았다.
+- 내가 채운 가정:
+  - CLAUDE.md는 규칙 파일이지만 "코드와 다른 사실"(없는 파일, 예외 목록, 응답 예시, 폴더 목록)은 오류 정리 범위로 보고 고쳤다. 규칙의 뜻을 바꾸는 것(위 skill 충돌, DTO 이름 규칙)은 범위 밖으로 봤다.
+  - `DeliverableController`의 주석 고침은 코드가 아니라 문서 오류로 보았다.

@@ -628,7 +628,7 @@
     },
     {
       "name": "3. 산출물 (R-1)",
-      "description": "역할이 있는 조원이 파일을 올리고, 조원과 교수가 목록을 보고 내려받습니다.",
+      "description": "역할이 있는 조원이 파일을 올리고, 교수가 목록을 보고 내려받습니다.",
       "item": [
         {
           "name": "산출물 업로드 (조원)",
@@ -896,7 +896,7 @@
     },
     {
       "name": "5. 오류 예시",
-      "description": "오류는 모두 { code, message } 모양입니다. code는 NOT_FOUND, INVALID_INPUT, UNAUTHORIZED, FORBIDDEN, DUPLICATE 다섯 가지입니다.",
+      "description": "오류는 모두 { code, message } 모양입니다. code는 NOT_FOUND, INVALID_INPUT, UNAUTHORIZED, FORBIDDEN, DUPLICATE, SERVER_ERROR 여섯 가지입니다(SERVER_ERROR는 여기서 재현하지 않습니다).",
       "item": [
         {
           "name": "token 없이 부르면 401",

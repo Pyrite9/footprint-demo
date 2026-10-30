@@ -55,7 +55,7 @@ public class DeliverableController {
         // 파일 종류는 확장자로 짐작합니다(예: .pdf → application/pdf). 모르면 "그냥 파일"(octet-stream)입니다.
         MediaType contentType = MediaTypeFactory.getMediaType(deliverable.getFileName())
                 .orElse(MediaType.APPLICATION_OCTET_STREAM);
-        // attachment: 브라우저가 열지 않고 내려받습니다. UTF-8을 넘기면 filename*=UTF-8''... (RFC 5987) 모양이 되어 한글 이름이 깨지지 않습니다.
+        // attachment: 브라우저가 열지 않고 내려받습니다. UTF-8을 넘기면 filename="=?UTF-8?Q?...?="와 filename*=UTF-8''...(RFC 5987)를 함께 붙여 한글 이름이 깨지지 않습니다.
         ContentDisposition disposition = ContentDisposition.attachment()
                 .filename(deliverable.getFileName(), StandardCharsets.UTF_8)
                 .build();

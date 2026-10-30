@@ -57,7 +57,7 @@
 ## 폴더 구조
 
 ```
-backend/    Spring Boot. 패키지 com.footprint.backend (Java 파일 58개)
+backend/    Spring Boot. 패키지 com.footprint.backend
   controller/  요청을 받고 Entity를 응답 DTO로 바꿈 (XxxResponse.from)
   service/     업무 규칙과 권한 검사. Entity를 돌려줌
   repository/  JPA
@@ -66,14 +66,16 @@ backend/    Spring Boot. 패키지 com.footprint.backend (Java 파일 58개)
   exception/   GlobalExceptionHandler 한 곳에서 처리. 응답은 ApiErrorResponse { code, message }
   security/    JWT 발급·검증 필터, 구글 ID token 검증
   config/      SecurityFilterChain, CORS, S3, 시작 데이터(DataInitializer)
-frontend/   React (파일 36개)
+frontend/   React
   src/pages/       데이터를 불러오고 state를 가짐
   src/components/  props로 받아 그림
   src/api/         fetch는 여기에만. 공통 함수 client.js를 거침
   src/constants/   동료평가 6개 항목 문장, 회원 유형
-  mock/            가짜 API 경로와 middleware. 응답 모양을 실제 API와 똑같이 맞춤
+  mock/            가짜 API(middleware.cjs). 응답 모양을 실제 API와 똑같이 맞춤
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
-docs/       구조 그림, API 명세, 작업 기록
+docs/       구조 그림, API 명세, Postman 모음, 작업 기록, 노트북 설정 지시서
+docker-compose.yml  한 번에 실행(백엔드, nginx, infra의 PostgreSQL·MinIO)
+TODO.md     앞으로 할 것
 ```
 
 ## 한 번에 실행 (Docker만 있으면 됨)
@@ -87,7 +89,7 @@ docker compose up -d --build
 - 처음에는 이미지를 만드느라 몇 분 걸림. 다음부터는 `docker compose up -d`만 쓰면 됨(코드를 바꿨으면 `--build`를 붙일 것)
 - 화면: http://localhost:5173 — 주소는 `127.0.0.1`이 아니라 `localhost`로 열 것. 백엔드가 이 주소만 허용함
 - 백엔드: http://127.0.0.1:8080
-- MinIO 콘솔: http://localhost:9001 — 계정은 `infra/.env.example`
+- MinIO 콘솔: http://localhost:9001 — 계정은 `infra/.env`(없으면 `infra/.env.example`의 기본값)
 - 시작 계정과 시작 데이터: `backend/README.md`의 "시작 계정"부터. 비밀번호는 모두 `pass1234`
 - 올린 산출물과 제출한 평가는 `docker compose restart backend`로 지워짐
 
@@ -117,12 +119,12 @@ DB와 MinIO만 Docker로 켜고, 백엔드와 화면은 내 컴퓨터에서 실�
 - 백엔드: `backend/README.md`
 - 화면: `frontend/README.md`
 
-두 방법은 같은 이름(`footprint-demo`)이라 같은 DB·MinIO 컨테이너를 씀. 한 번에 실행한 뒤 개발로 돌아갈 때는 맨 위 폴더에서 `docker compose down`을 하고 `infra`에서 다시 켤 것.
+두 방법은 같은 이름(`footprint-demo`)이라 같은 DB·MinIO 컨테이너를 씀. 한 번에 실행한 뒤 개발로 돌아갈 때는 맨 위 폴더에서 `docker compose down`을 하고 `infra`에서 다시 켤 것. 반대로 개발 중에 한 번에 실행으로 바꿀 때는 `infra`에서 `docker compose down`을 하고 맨 위 폴더에서 켤 것.
 
 ## 문서
 
-- `TODO.md` — 앞으로 만들 것. 미룬 단위 업무, 2단계 기능, 아직 정하지 않은 것, 알려진 한계
-- `docs/architecture.md` — 구조 그림 네 장. 전체 구조, JWT 흐름, 프론트엔드 구조, 백엔드 구조와 데이터 구조. **코드를 처음 읽는다면 여기부터**
+- `TODO.md` — 앞으로 만들 것. 미룬 단위 업무, 2단계 기능, 아직 정하지 않은 것, 배포할 때 반드시 할 것, 알려진 한계, 조원과 함께 일할 때
+- `docs/architecture.md` — 구조 그림. 전체 구조, JWT 흐름(로그인, 그 다음 요청), 프론트엔드 구조, 백엔드 구조, 데이터 구조. **코드를 처음 읽는다면 여기부터**
 - `docs/api-draft.md` — API 명세. 코드보다 이 문서를 먼저 씀
 - `docs/postman/` — API를 데모 흐름 순서로 모은 Postman 모음과 쓰는 방법
 - `docs/worklog.md` — 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정

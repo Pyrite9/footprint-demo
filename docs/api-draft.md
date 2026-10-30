@@ -1,12 +1,12 @@
 # API 초안
 
-`../footprint-study/docs/api.md`가 생기기 전까지 쓰는 데모의 API 초안이다. Controller를 만들기 전에 여기에 먼저 적고, 확인을 기다리지 않고 바로 만든다(2026.10.25 관리자 결정). 정한 이유는 `docs/worklog.md`의 그 단위 항목 "결정" 줄에 남긴다. 제목의 "확인 2026.10.25"는 이 결정 전에 관리자 확인을 받은 API라는 표시다.
+`../footprint-study/docs/api.md`가 생기기 전까지 쓰는 데모의 API 초안이다. Controller를 만들기 전에 여기에 먼저 적고, 확인을 기다리지 않고 바로 만든다(2026.10.25 관리자 결정). 정한 이유는 `docs/worklog.md`의 그 단위 항목 "결정" 줄에 남긴다. 제목 끝의 날짜는 그 API를 정한 날이다. "확인 2026.10.25"는 이 결정 전에 관리자 확인을 받은 API, 날짜만 있으면 확인 없이 추천안으로 만든 API라는 표시다.
 
 공통
 - 오류 응답은 모두 `{ "code": "...", "message": "..." }`. `code`는 `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409, `SERVER_ERROR` 500.
 - `/auth/**` 말고는 모두 header에 `Authorization: Bearer <accessToken>`이 필요하다. 없거나 틀리면 401 `UNAUTHORIZED`.
-- 없는 주소, 또는 주소는 있지만 그 method가 없는 요청(예: `DELETE /assignments/1`)은 404 `NOT_FOUND` "없는 주소입니다"(2026.10.25, 미정 6 중 404 부분). token이 없으면 그보다 먼저 401이다.
-- 서버 내부 오류는 500 `SERVER_ERROR` "서버에서 오류가 났습니다"(2026.10.26 관리자 결정, 미정 6 중 500 부분). 원인(예외 내용)은 응답에 담지 않고 서버 로그에만 남긴다.
+- 없는 주소, 또는 주소는 있지만 그 method가 없는 요청(예: `DELETE /assignments/1`)은 404 `NOT_FOUND` "없는 주소입니다"(2026.10.25 결정). token이 없으면 그보다 먼저 401이다.
+- 서버 내부 오류는 500 `SERVER_ERROR` "서버에서 오류가 났습니다"(2026.10.26 관리자 결정). 원인(예외 내용)은 응답에 담지 않고 서버 로그에만 남긴다.
 - 위 code에 들어가지 않는 요청 오류(예: 지원하지 않는 Content-Type)는 400 `INVALID_INPUT` "요청의 형식이 올바르지 않습니다".
 
 ---
@@ -35,9 +35,11 @@
 token
 - 서명 HS256. 유효 시간 24시간(`jwt.expiration-minutes`). refresh token은 없다.
 - payload: `sub` = 회원 id(문자열), `memberType` = `PROFESSOR` 또는 `STUDENT`.
+- 화면은 token을 풀어 읽지 않는다. 회원 정보는 `GET /members/me`로 받는다.
+- 가짜 API의 token은 JWT가 아니라 문자열 `mock-token-<회원 id>`이고 만료가 없다.
 - 12.11 데모의 기본 로그인은 아래 `POST /auth/google`이다. 이메일·비밀번호 로그인은 시작 계정용(개발·백업)으로 남긴다(2026.10.26 관리자 결정).
 
-### POST /auth/google — 구글 로그인 (M-1-1, M-2-1)
+### POST /auth/google — 구글 로그인 (M-1-1, M-2-1) · 2026.10.26
 
 화면의 구글 버튼이 받은 ID token(`credential`)을 보내고 우리 서버의 token을 받는다. token 없이 부를 수 있다.
 처음 로그인한 구글 계정은 회원으로 저장된다(M-1-1 회원 등록). 응답은 `POST /auth/login`과 같다.
@@ -55,14 +57,15 @@ token
 | 상태 | code | 언제 |
 |---|---|---|
 | 400 | `INVALID_INPUT` | `credential`이 비었을 때 |
-| 401 | `UNAUTHORIZED` | 구글의 서명이 틀렸거나, 만료됐거나, 다른 앱(Client ID)용이거나, 구글이 이메일을 확인하지 않은 계정일 때. 구분하지 않고 같은 메시지를 준다 |
+| 401 | `UNAUTHORIZED` | token 모양이 깨졌거나, 구글의 서명이 틀렸거나, 만료됐거나, 다른 앱(Client ID)용이거나, 구글이 이메일을 확인하지 않은 계정일 때. 구분하지 않고 같은 메시지를 준다 |
 | 403 | `FORBIDDEN` | 허용한 학교 도메인(`hd`, 기본 `g.yju.ac.kr`)의 계정이 아닐 때 |
+| 500 | `SERVER_ERROR` | 서버가 구글 공개키를 받아 오지 못했을 때(서버의 인터넷 끊김) |
 
 서버 쪽 규칙
 - ID token 검증은 Google 라이브러리(`GoogleIdTokenVerifier`)가 한다: 서명(구글 공개키), 만료, 발급자(`accounts.google.com`), 받는 앱(`aud` = `google.client-id`).
 - 그다음 서버가 `email_verified`가 true인지, `hd`가 `google.allowed-domains`에 있는지 본다.
-- 같은 이메일의 회원이 있으면 그 회원으로 로그인한다. 없으면 새로 만든다. 이름은 구글 이름, 비밀번호는 없음(null).
-- 회원 유형: 이메일이 `google.professor-emails`(쉼표로 구분한 목록)에 있으면 `PROFESSOR`, 아니면 `STUDENT`. 처음 만들 때만 정하고, 나중에 목록을 바꿔도 이미 있는 회원의 유형은 바뀌지 않는다.
+- 같은 이메일의 회원이 있으면 그 회원으로 로그인한다. 없으면 새로 만든다. 이름은 구글 이름(공개하지 않은 계정이면 이메일), 비밀번호는 없음(null).
+- 회원 유형: 이메일이 `google.professor-emails`(쉼표로 구분한 목록)에 있으면 `PROFESSOR`, 아니면 `STUDENT`. 대소문자는 가리지 않는다. 처음 만들 때만 정하고, 나중에 목록을 바꿔도 이미 있는 회원의 유형은 바뀌지 않는다.
 - 비밀번호가 없는 회원(구글로 만든 회원)은 `POST /auth/login`으로 로그인할 수 없다(401).
 - 가짜 API는 구글 서명을 확인하지 못한다. payload만 풀어 같은 규칙(`email_verified`, `hd`, 교수 목록)을 적용한다.
 
@@ -82,7 +85,7 @@ token
 | 상태 | code | 언제 |
 |---|---|---|
 | 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때. 셋을 구분하지 않고 같은 메시지를 준다 |
-| 404 | `NOT_FOUND` | token의 회원 id가 DB에 없을 때(시작 데이터 순서를 바꾼 뒤 예전 token을 쓴 경우) |
+| 404 | `NOT_FOUND` | token의 회원 id가 DB에 없을 때(시작 데이터 순서를 바꾼 뒤 예전 token을 쓴 경우). 가짜 API는 이때 401이다 |
 
 서버 쪽 규칙
 - Controller는 로그인한 회원을 `@AuthenticationPrincipal Long memberId`로 받는다(2026.10.25 결정). 회원 유형이 필요하면 Service가 DB에서 읽는다.
@@ -297,7 +300,7 @@ token
 
 | 상태 | code | 언제 |
 |---|---|---|
-| 400 | `INVALID_INPUT` | `file`이 없거나 빈 파일일 때, 20MB를 넘을 때, 주소의 번호가 숫자가 아닐 때 |
+| 400 | `INVALID_INPUT` | `file`이 없거나 빈 파일일 때, 요청 전체가 20MB를 넘을 때(파일이 20MB에 가까우면 거절될 수 있다), `multipart/form-data` 요청이 아닐 때, 주소의 번호가 숫자가 아닐 때 |
 | 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
 | 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함), 역할이 배정되지 않은 조원일 때 |
 | 404 | `NOT_FOUND` | 없는 조일 때 |
@@ -323,7 +326,9 @@ token
 
 200: 파일 본문. header
 - `Content-Type`: 파일 이름의 확장자로 정한다. 모르면 `application/octet-stream`.
-- `Content-Disposition: attachment; filename*=UTF-8''<퍼센트 인코딩한 파일 이름>`(RFC 5987). 한글 이름이 깨지지 않는다.
+- `Content-Disposition: attachment; filename="=?UTF-8?Q?...?="; filename*=UTF-8''<퍼센트 인코딩한 파일 이름>`. Spring의 `ContentDisposition`이 만든다. 예: `API 명세.txt` → `attachment; filename="=?UTF-8?Q?API_=EB=AA=85=EC=84=B8.txt?="; filename*=UTF-8''API%20%EB%AA%85%EC%84%B8.txt`. 영문 이름이어도 두 값을 모두 붙인다.
+- 화면은 이 header를 읽지 않는다. fetch로 받은 파일을 목록의 `fileName`으로 저장한다(다른 주소의 응답이라 서버가 header를 노출하지 않으면 읽을 수도 없다).
+- 가짜 API는 `filename="API ??.txt"; filename*=...`처럼 한글이 `?`로 바뀐 대체값을 붙이고, 영문 이름에는 `filename*`를 붙이지 않는다.
 
 | 상태 | code | 언제 |
 |---|---|---|
@@ -393,7 +398,7 @@ token
 
 | 상태 | code | 언제 |
 |---|---|---|
-| 400 | `INVALID_INPUT` | `evaluations`가 비었거나, 점수가 빠졌거나 1~5가 아니거나, `comment`가 2000자를 넘을 때 |
+| 400 | `INVALID_INPUT` | `evaluations`가 비었거나, 원소가 null이거나, `targetTeamMemberId`나 점수가 빠졌거나, 점수가 1~5가 아니거나, `comment`가 2000자를 넘을 때 |
 | 400 | `INVALID_INPUT` | 대상이 "자신을 뺀 조원 전원 한 번씩"이 아닐 때(빠짐, 중복, 자기 자신, 다른 조 조원) |
 | 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
 | 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함) |

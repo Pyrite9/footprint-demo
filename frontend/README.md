@@ -44,7 +44,7 @@ Invoke-RestMethod -Uri http://localhost:3001/members/me -Headers @{ Authorizatio
 
 ## 화면 확인
 
-http://localhost:5173 을 열면 로그인 화면이 나옴. 시작 계정(예: `student01@example.com` / `pass1234`)으로 로그인하면 "김민준 (학생)님, 환영합니다."가 보임.
+http://localhost:5173 을 열면 로그인 화면이 나옴. 아래 "시작 계정으로 로그인 (개발·백업용)"을 펼쳐 시작 계정(예: `student01@example.com` / `pass1234`)으로 로그인하면 상단 바에 "김민준 (학생)", 본문에 "과제 목록"이 보임.
 
 - 로그인 token은 sessionStorage에 저장함. 탭마다 따로라서, 한 탭은 교수, 다른 탭은 학생으로 동시에 로그인할 수 있음. 탭을 닫으면 다시 로그인해야 함
 - token이 만료되거나 틀리면 로그인 화면으로 돌아감
