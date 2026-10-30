@@ -943,3 +943,16 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 내가 채운 가정:
   - CLAUDE.md는 규칙 파일이지만 "코드와 다른 사실"(없는 파일, 예외 목록, 응답 예시, 폴더 목록)은 오류 정리 범위로 보고 고쳤다. 규칙의 뜻을 바꾸는 것(위 skill 충돌, DTO 이름 규칙)은 범위 밖으로 봤다.
   - `DeliverableController`의 주석 고침은 코드가 아니라 문서 오류로 보았다.
+
+### 규칙 충돌 2건 정리 (관리자 지시)
+- 결정(관리자 지시 2026.10.30 "규칙 충돌 정리", 고른 방향은 내 추천안):
+  - skill과 CLAUDE.md: `next-step`은 관리자의 "진행"을 기다리고 미정 항목에서 멈췄고, `rule-check`는 "고치지 말고 먼저 보고"였다. CLAUDE.md "묻지 않고 추천안으로 진행"(2026.10.25 관리자 결정)과 "작업 방식"의 "걸린 것은 고친다"와 어긋났다. 지금까지는 데스크톱 메모리가 이 충돌을 덮고 있어서, 저장소만 clone 한 곳(노트북, 조원)에서는 동작이 달라질 수 있었다.
+    - 선택지: (A) skill을 CLAUDE.md에 맞춘다 (B) CLAUDE.md를 skill에 맞춰 다시 묻는 방식으로 돌린다. 2026.10.25 결정이 더 최근이고 기준 문서 순위도 CLAUDE.md가 위라서 (A)로 했다.
+    - `next-step`: 계획을 보여 준 뒤 바로 시작한다. 미정 항목은 선택지와 비용을 적고 추천안으로 진행하며 worklog "결정" 줄에 남긴다. 파일 8개를 넘으면 둘로 나눠 앞의 것부터 한다.
+    - `rule-check`: 부른 사람에 따라 나눴다. 단위 업무 직후의 자가 검사는 보고하고 바로 고친다. 관리자가 `/rule-check`로 직접 부르면 보고만 하고 "고쳐"를 기다린다. 관리자가 직접 부른 것은 "검사해 달라"는 뜻이라 고치는 것까지 하면 요청보다 많이 하는 것으로 봤다.
+    - `read-check`는 관리자와 묻고 답하는 것이 목적이라 그대로 뒀다.
+  - DTO 이름 규칙: CLAUDE.md는 `XxxCreateRequest` 하나만 적었지만 실제 요청 DTO는 `TeamJoinRequest`, `RoleAssignRequest`, `EvaluationSubmitRequest`, `LoginRequest`다. 선택지는 (A) 규칙을 실제 이름에 맞춰 "`<대상><동작>Request`"로 넓힌다 (B) DTO 이름을 모두 `XxxCreateRequest` 모양으로 바꾼다. (B)는 "만들기"가 아닌 요청(합류, 지정, 제출, 로그인)에 Create를 붙이게 되어 이름이 거짓이 된다. (A)로 했다.
+- 고친 파일: `.claude/skills/next-step/SKILL.md`, `.claude/skills/rule-check/SKILL.md`, `CLAUDE.md`(DTO 이름 규칙 한 줄), `docs/worklog.md`
+- 확인: 문서·skill만 고쳐서 빌드는 돌리지 않았다. `git grep "진행\"을 기다린다"`가 0건.
+- 읽을 때 볼 곳: 데스크톱 메모리 `autonomous-workflow.md`의 "How to apply"가 하던 일을 이제 skill 본문이 한다. 메모리는 지우지 않았다(같은 내용이라 해가 없다).
+- 내가 채운 가정: `next-step` 3번의 "`../footprint-study/docs/api.md`가 있으면 먼저 읽는다"와 CLAUDE.md 기준 문서 순위(api-draft가 api.md보다 위)도 어긋나지만, 학습 저장소에 `api.md`가 아직 없어서 이번에는 손대지 않았다.

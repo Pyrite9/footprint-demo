@@ -76,7 +76,7 @@ docs/       architecture.md, api-draft.md, worklog.md, laptop-setup.md, postman/
 - 의존성 주입은 생성자 주입만. 생성자를 직접 쓴다(`@RequiredArgsConstructor` 안 씀). 필드는 `final`.
 - Lombok은 Entity의 `@Getter`, `@NoArgsConstructor(access = AccessLevel.PROTECTED)`까지만.
 - 값을 바꾸는 Service 메서드에 `@Transactional`.
-- DTO는 `record`. 요청 하나에 DTO 하나(`XxxCreateRequest`). 응답은 Entity가 아니라 응답 DTO.
+- DTO는 `record`. 요청 하나에 DTO 하나. 요청 DTO 이름은 `<대상><동작>Request`(예: `AssignmentCreateRequest`, `TeamJoinRequest`, `RoleAssignRequest`, `EvaluationSubmitRequest`). 로그인처럼 대상이 없으면 동작만 쓴다(`LoginRequest`). 응답은 Entity가 아니라 응답 DTO.
 - Entity → DTO 변환은 Controller에서 `XxxResponse.from(entity)`. Service는 Entity를 돌려준다.
 - 목록 응답은 연결된 데이터를 펼친 모양. 예: 조원 목록 `{ "id", "memberId", "name", "roleName", "leader" }`.
 - API 경로는 복수형(`/assignments`, `/teams/{teamId}/members`).

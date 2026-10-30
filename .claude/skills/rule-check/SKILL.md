@@ -4,7 +4,10 @@ description: 데모 코드가 CLAUDE.md 규칙과 데모 범위를 지키는지 
 argument-hint: "[폴더 — 비우면 backend, frontend 전체]"
 ---
 
-`$ARGUMENTS`(없으면 `backend/src`, `frontend/src`)를 검사한다. 고치지 말고 먼저 보고한다.
+`$ARGUMENTS`(없으면 `backend/src`, `frontend/src`)를 검사한다.
+
+- 단위 업무를 끝낸 직후에 스스로 검사할 때: 보고한 뒤 "수정 필요"를 바로 고치고 다시 빌드한다(CLAUDE.md "작업 방식"). 고친 것은 그 단위의 worklog 항목에 적는다.
+- 관리자가 `/rule-check`로 직접 부를 때: 고치지 말고 보고만 한다. 관리자가 "고쳐"라고 하면 그때 고친다.
 
 ## 금지 패턴 (grep으로 찾는다)
 
@@ -26,4 +29,3 @@ argument-hint: "[폴더 — 비우면 backend, frontend 전체]"
 ## 보고 형식
 
 등급별로 나눈다: **수정 필요 / 확인 필요 / 선택 사항**. 항목마다 `파일:줄`, 무엇이 문제인지 한 줄, 수정안 한 줄. 문제가 없으면 "없음"이라고만 쓴다.
-관리자가 "고쳐"라고 하면 그때 고친다.
