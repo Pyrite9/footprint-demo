@@ -956,3 +956,17 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 확인: 문서·skill만 고쳐서 빌드는 돌리지 않았다. `git grep "진행\"을 기다린다"`가 0건.
 - 읽을 때 볼 곳: 데스크톱 메모리 `autonomous-workflow.md`의 "How to apply"가 하던 일을 이제 skill 본문이 한다. 메모리는 지우지 않았다(같은 내용이라 해가 없다).
 - 내가 채운 가정: `next-step` 3번의 "`../footprint-study/docs/api.md`가 있으면 먼저 읽는다"와 CLAUDE.md 기준 문서 순위(api-draft가 api.md보다 위)도 어긋나지만, 학습 저장소에 `api.md`가 아직 없어서 이번에는 손대지 않았다.
+
+### 단위 1: 혼자인 조의 동료평가 안내 (관리자 지시 "코드 문제 단위업무로 수정")
+- 결정: 조에 자신만 있으면 `POST /teams/{teamId}/evaluations`가 400 `INVALID_INPUT` "평가할 조원이 없습니다. 조에 자신만 있습니다"를 돌려준다. 상태는 `submitted:false` 그대로 둔다.
+  - 문제: 이전에는 빈 목록이면 "입력값이 올바르지 않습니다", 자기 id를 보내면 "자신을 뺀 조원 전원을 한 번씩 평가해야 합니다"가 나왔다. 둘 다 이유를 알려 주지 않았고 api-draft에도 이 경우가 없었다.
+  - 선택지: (A) 400과 이유 문구 (B) 빈 제출을 "제출 완료"로 기록 (C) 그대로 둔다. (B)는 아무것도 저장하지 않은 제출을 만들고 Evaluation 행 없이 상태를 표시할 방법이 따로 필요해서 Entity가 바뀐다. (A)로 했다.
+  - 화면은 이미 `EvaluationPage.jsx`에서 대상이 0명이면 폼 대신 "평가할 조원이 없습니다."를 보여 주고 있었다. 화면 코드는 고치지 않았다. 처음 검수 때 "혼자인 조는 영영 제출할 수 없다"고 한 것은 과장이었다.
+- 고친 파일: `backend/.../service/EvaluationService.java`(대상이 0명이면 400), `frontend/mock/middleware.cjs`(같은 검사와 같은 문구), `docs/api-draft.md`(400 줄과 서버 규칙 한 줄), `.claude/launch.json`(가짜 API를 preview로 띄우는 `mock` 설정 추가)
+- 확인:
+  - 실제 백엔드(Docker 전체 스택): 혼자인 조에서 자기 id → 400 새 문구, 빈 목록 → 400 "입력값이 올바르지 않습니다"(`@NotEmpty`가 먼저 막음), 상태 `submitted:false`. 보통 조에서 한 명 빠뜨림 → 기존 문구 그대로.
+  - 가짜 API: 같은 요청에 같은 결과.
+  - 화면: 혼자인 조의 평가 화면에 "평가할 조원이 없습니다."가 보인다.
+  - `gradlew build`(테스트 포함), `npm run build`, `npm run lint` 통과. rule-check 자가 검사 걸린 것 없음.
+- 읽을 때 볼 곳: 빈 목록은 Service까지 오지 않는다. `EvaluationSubmitRequest`의 `@NotEmpty`가 Controller 앞에서 막아서 일반 400 문구가 나간다. 새 문구는 자기 id처럼 "무언가를 보냈는데 대상이 0명"일 때만 나간다.
+- 내가 채운 가정: 문구 "평가할 조원이 없습니다. 조에 자신만 있습니다"는 내가 정했다.

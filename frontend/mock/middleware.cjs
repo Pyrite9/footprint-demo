@@ -548,6 +548,10 @@ function handleSubmitEvaluations(req, res, loginMember, teamId) {
 
   // 평가 대상 = 이 조의 조원 중 나를 뺀 사람입니다.
   const targetIds = db.get('teamMembers').filter({ teamId }).map('id').value().filter((id) => id !== evaluator.id)
+  // 조에 나 혼자면 평가할 사람이 없습니다. 실제 백엔드와 같은 문구로 알려 줍니다.
+  if (targetIds.length === 0) {
+    return sendError(res, 400, 'INVALID_INPUT', '평가할 조원이 없습니다. 조에 자신만 있습니다')
+  }
   const submittedIds = new Set()
   for (const item of evaluations) {
     if (submittedIds.has(item.targetTeamMemberId)) {

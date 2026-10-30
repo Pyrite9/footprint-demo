@@ -64,6 +64,11 @@ public class EvaluationService {
                 targetsById.put(teamMember.getId(), teamMember);
             }
         }
+        // 조에 나 혼자면 평가할 사람이 없어서 제출할 것도 없습니다. 아래 "전원 한 번씩" 문구 대신 이유를 그대로 알려 줍니다.
+        // 화면은 이때 입력 폼 대신 "평가할 조원이 없습니다."를 보여 주므로 이 요청을 보내지 않습니다.
+        if (targetsById.isEmpty()) {
+            throw new InvalidInputException("평가할 조원이 없습니다. 조에 자신만 있습니다");
+        }
 
         // 보낸 대상이 "나를 뺀 조원 전원, 한 번씩"인지 확인합니다. Set.add는 이미 있는 값이면 false를 돌려줍니다.
         Set<Long> submittedIds = new HashSet<>();
