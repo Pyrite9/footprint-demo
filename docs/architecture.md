@@ -209,58 +209,59 @@ erDiagram
     TEAM_MEMBER ||--o{ EVALUATION : "대상 target_id"
 
     MEMBER {
-        Long id PK
-        String email UK
-        String password "구글 회원은 null"
-        String name
-        MemberType memberType "PROFESSOR STUDENT"
+        Long id PK "회원 번호 · 자동 증가"
+        String email UK "로그인 아이디 · 같은 이메일 두 번 저장 불가"
+        String password "BCrypt로 바꾼 값 · 구글 회원은 null"
+        String name "화면에 보이는 이름"
+        MemberType memberType "PROFESSOR 교수 · STUDENT 학생 · 권한 검사 기준"
     }
     ASSIGNMENT {
-        Long id PK
-        String title
-        LocalDate startDate
-        LocalDate endDate
-        Long professor_id FK
+        Long id PK "과제 번호"
+        String title "과제 제목"
+        LocalDate startDate "과제 시작일"
+        LocalDate endDate "과제 마감일"
+        Long professor_id FK "과제를 만든 교수 · 교수 열람 권한 기준"
     }
     TEAM {
-        Long id PK
-        Long assignment_id FK
-        String name
-        String inviteCode UK "발급 전 null · 재발급하면 바뀜"
+        Long id PK "조 번호"
+        Long assignment_id FK "이 조가 속한 과제"
+        String name "화면에 보이는 조 이름 · 예: 1조"
+        String inviteCode UK "초대 링크에 들어가는 코드 · 발급 전 null · 재발급하면 이전 코드 무효"
     }
     TEAM_MEMBER {
-        Long id PK
-        Long team_id FK
-        Long assignment_id FK "team의 과제를 복사"
-        Long member_id FK
-        boolean leader
-        String roleName "배정 전에는 null"
-        LocalDateTime roleAssignedAt "배정 전에는 null"
+        Long id PK "조 참여 번호 · 산출물과 평가가 가리키는 번호"
+        Long team_id FK "참여한 조"
+        Long assignment_id FK "team의 과제를 복사 · 한 과제 한 조 unique 제약용"
+        Long member_id FK "참여한 회원"
+        boolean leader "조장이면 true · 조장도 조원으로 함께 등록"
+        String roleName "조장이 정한 역할명 · 배정 전에는 null"
+        LocalDateTime roleAssignedAt "역할 지정 시각 · 서버가 기록 · 배정 전에는 null"
     }
     DELIVERABLE {
-        Long id PK
-        Long team_member_id FK
-        String roleName "업로드 당시 역할명을 복사"
-        String fileName
-        long fileSize
-        String storageKey "MinIO 안의 위치"
-        LocalDateTime uploadedAt
+        Long id PK "산출물 번호"
+        Long team_member_id FK "올린 조원의 조 참여"
+        String roleName "업로드 당시 역할명을 복사 · 역할이 바뀌어도 순번 유지"
+        String fileName "올린 파일의 원래 이름 · 다운로드할 때 이 이름으로 내려줌"
+        long fileSize "파일 크기(byte)"
+        String storageKey "MinIO 안의 위치 · 파일 본문을 꺼낼 때 씀"
+        LocalDateTime uploadedAt "올린 시각 · 서버가 기록"
     }
     EVALUATION {
-        Long id PK
-        Long evaluator_id FK
-        Long target_id FK
-        int goalSharing
-        int roleFulfillment
-        int encouragement
-        int onlineCommunication
-        int offlineCommunication
-        int progressCheck
-        String comment "선택"
-        LocalDateTime submittedAt
+        Long id PK "평가 번호"
+        Long evaluator_id FK "평가한 조원의 조 참여"
+        Long target_id FK "평가받은 조원의 조 참여"
+        int goalSharing "목표 공유·협업 · 1~5점"
+        int roleFulfillment "역할 수행 · 1~5점"
+        int encouragement "격려·도움 · 1~5점"
+        int onlineCommunication "온라인 소통 · 1~5점"
+        int offlineCommunication "대면 소통 · 1~5점"
+        int progressCheck "진행 점검·보충 · 1~5점"
+        String comment "조원별 서술 의견 · 선택 · 최대 2000자"
+        LocalDateTime submittedAt "제출 시각 · 서버가 기록 · 한 번에 낸 평가는 같은 시각"
     }
 ```
 
+- 각 열의 오른쪽 칸은 비고. 그 값이 무엇에 쓰이는지 적음. `EVALUATION` 점수 열의 항목 이름은 `frontend/src/constants/peerEvaluation.js`의 `name`과 같음
 - 열 이름 표기: FK는 데이터베이스 열 이름(`professor_id`), 나머지는 Java 필드 이름(`startDate`)으로 적음. 실제 데이터베이스 열은 snake_case임(`startDate` → `start_date`)
 - `TEAM_MEMBER`에 `(assignment_id, member_id)` unique, `EVALUATION`에 `(evaluator_id, target_id)` unique
 - `TEAM_MEMBER.assignment_id`는 `TEAM.assignment_id`와 같은 값. unique 제약은 한 테이블의 열만 쓸 수 있어서, "한 학생은 한 과제에서 한 조"를 DB가 지키도록 복사해 둠. 생성자가 team에서 채우므로 둘이 달라질 수 없음
