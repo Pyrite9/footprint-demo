@@ -202,6 +202,7 @@ erDiagram
     MEMBER ||--o{ ASSIGNMENT : "만듦 · professor_id"
     MEMBER ||--o{ TEAM_MEMBER : "참여"
     ASSIGNMENT ||--o{ TEAM : "assignment_id"
+    ASSIGNMENT ||--o{ TEAM_MEMBER : "assignment_id"
     TEAM ||--o{ TEAM_MEMBER : "team_id"
     TEAM_MEMBER ||--o{ DELIVERABLE : "올림"
     TEAM_MEMBER ||--o{ EVALUATION : "평가자 evaluator_id"
@@ -230,6 +231,7 @@ erDiagram
     TEAM_MEMBER {
         Long id PK
         Long team_id FK
+        Long assignment_id FK "team의 과제를 복사"
         Long member_id FK
         boolean leader
         String roleName "배정 전에는 null"
@@ -260,8 +262,9 @@ erDiagram
 ```
 
 - 열 이름 표기: FK는 데이터베이스 열 이름(`professor_id`), 나머지는 Java 필드 이름(`startDate`)으로 적음. 실제 데이터베이스 열은 snake_case임(`startDate` → `start_date`)
-- `TEAM_MEMBER`에 `(team_id, member_id)` unique, `EVALUATION`에 `(evaluator_id, target_id)` unique
-- 합류: 같은 조에 다시 합류하면 오류 없이 200. 같은 과제의 다른 조에 이미 있으면 409 `DUPLICATE`. 이 검사는 unique 제약이 아니라 Service가 함. `TEAM_MEMBER`의 unique는 같은 조에 같은 행이 두 번 생기는 것만 막음
+- `TEAM_MEMBER`에 `(assignment_id, member_id)` unique, `EVALUATION`에 `(evaluator_id, target_id)` unique
+- `TEAM_MEMBER.assignment_id`는 `TEAM.assignment_id`와 같은 값. unique 제약은 한 테이블의 열만 쓸 수 있어서, "한 학생은 한 과제에서 한 조"를 DB가 지키도록 복사해 둠. 생성자가 team에서 채우므로 둘이 달라질 수 없음
+- 합류: 같은 조에 다시 합류하면 오류 없이 200. 같은 과제의 다른 조에 이미 있으면 Service 검사로 409 `DUPLICATE`. `TEAM_MEMBER`의 unique는 두 요청이 거의 동시에 올 때를 막는 마지막 장치
 - 평가: 이미 제출했으면 Service 검사로 409 `DUPLICATE`. `EVALUATION`의 unique는 두 요청이 거의 동시에 올 때를 막는 마지막 장치
 - 조장을 따로 두지 않고 조 참여의 `leader`로 표시함. 선택 이유와 열린 부분은 `../TODO.md` "아직 정하지 않은 것"
 - `DELIVERABLE.roleName`은 `TEAM_MEMBER.roleName`을 가리키지 않고 **값을 복사해 둔 것.** 나중에 역할이 바뀌어도 산출물 순번이 끊기지 않게 함

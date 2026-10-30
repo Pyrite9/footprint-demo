@@ -9,6 +9,7 @@ import com.footprint.backend.exception.ForbiddenException;
 import com.footprint.backend.exception.NotFoundException;
 import com.footprint.backend.repository.TeamMemberRepository;
 import com.footprint.backend.repository.TeamRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -83,7 +84,14 @@ public class TeamService {
             throw new DuplicateException("이미 이 과제의 다른 조에 있습니다");
         }
 
-        teamMemberRepository.save(new TeamMember(team, member, false));
+        // 위 검사를 두 요청(같은 학생, 같은 과제의 두 조)이 거의 동시에 통과하면, 두 번째 요청은 DB의 unique 제약에 걸립니다.
+        // saveAndFlush는 INSERT를 지금 바로 보내서 그 오류를 여기서 잡아 409로 바꿀 수 있게 합니다.
+        // 이때는 같은 조에 두 번 누른 것인지 다른 조인지 다시 조회할 수 없어서(트랜잭션이 이미 실패함) 문구를 넓게 씁니다.
+        try {
+            teamMemberRepository.saveAndFlush(new TeamMember(team, member, false));
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateException("이미 이 과제의 조에 있습니다");
+        }
         return team;
     }
 

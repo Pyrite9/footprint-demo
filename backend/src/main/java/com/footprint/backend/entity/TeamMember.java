@@ -13,8 +13,9 @@ import java.time.temporal.ChronoUnit;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-// 같은 회원이 같은 조에 두 번 등록되지 않도록 (team_id, member_id) 조합에 unique 제약을 둡니다.
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"team_id", "member_id"}))
+// 한 학생은 같은 과제에서 한 조에만 있습니다. 이 규칙을 DB도 지키도록 (assignment_id, member_id) 조합에 unique 제약을 둡니다.
+// 같은 조에 두 번 등록되는 것도 이 제약이 함께 막습니다(조는 과제 하나에 속하므로).
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"assignment_id", "member_id"}))
 public class TeamMember {
 
     @Id
@@ -24,6 +25,12 @@ public class TeamMember {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id", nullable = false)
     private Team team;
+
+    // 조가 속한 과제입니다. team.assignment와 같은 값이지만, 위 unique 제약에 쓰려고 이 테이블에도 둡니다.
+    // 생성자에서 team으로부터 채우므로 따로 넣을 일이 없고, 둘이 달라질 수 없습니다.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignment_id", nullable = false)
+    private Assignment assignment;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
@@ -41,6 +48,7 @@ public class TeamMember {
 
     public TeamMember(Team team, Member member, boolean leader) {
         this.team = team;
+        this.assignment = team.getAssignment();
         this.member = member;
         this.leader = leader;
     }

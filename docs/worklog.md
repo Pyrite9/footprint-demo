@@ -970,3 +970,18 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - `gradlew build`(테스트 포함), `npm run build`, `npm run lint` 통과. rule-check 자가 검사 걸린 것 없음.
 - 읽을 때 볼 곳: 빈 목록은 Service까지 오지 않는다. `EvaluationSubmitRequest`의 `@NotEmpty`가 Controller 앞에서 막아서 일반 400 문구가 나간다. 새 문구는 자기 id처럼 "무언가를 보냈는데 대상이 0명"일 때만 나간다.
 - 내가 채운 가정: 문구 "평가할 조원이 없습니다. 조에 자신만 있습니다"는 내가 정했다.
+
+### 단위 2: 같은 과제 두 조에 동시 합류 막기 (관리자 지시 "코드 문제 단위업무로 수정")
+- 결정: `team_member`에 `assignment_id`를 두고 unique 제약을 `(team_id, member_id)`에서 `(assignment_id, member_id)`로 바꿨다. 합류 저장은 `saveAndFlush` + `DataIntegrityViolationException` → 409 `DUPLICATE`. 동료평가 제출과 같은 모양이다.
+  - 문제: "한 학생은 한 과제에서 한 조"를 Service만 확인했다. 같은 학생이 1조와 2조 링크로 거의 동시에 합류하면 두 요청이 모두 검사를 통과해 두 조에 들어갈 수 있었다. 이전 unique `(team_id, member_id)`는 같은 조에 두 번 들어가는 것만 막았고, 그때는 500이 났다(TODO "알려진 한계"에 적혀 있던 것).
+  - 선택지: (A) `team_member`에 과제를 복사해 두고 unique (B) 합류할 때 회원 행을 잠금(`@Lock(PESSIMISTIC_WRITE)`)해서 요청을 줄 세움 (C) 그대로 두고 한계로 적어 둠. (B)는 초심자에게 잠금과 트랜잭션 격리를 설명해야 하고, 잠금을 빼먹은 다른 저장 경로(과제 생성의 조장 저장)는 막지 못한다. (A)는 열 하나가 중복되지만 생성자가 `team.getAssignment()`로 채워서 어긋날 수 없고, 평가와 같은 "Service 검사 + DB unique" 패턴이라 읽기 쉽다. (A)로 했다.
+  - 동시 요청의 두 번째가 같은 조였는지 다른 조였는지는 다시 조회할 수 없다(Postgres는 제약 위반 뒤 그 트랜잭션의 쿼리를 받지 않는다). 그래서 문구를 "이미 이 과제의 조에 있습니다"로 넓혔고, 같은 조로 동시에 두 번 보낸 경우도 200이 아니라 409다.
+- 고친 파일: `backend/.../entity/TeamMember.java`(assignment 연관과 unique 제약), `backend/.../service/TeamService.java`(join 저장), `docs/api-draft.md`(합류 409 줄과 서버 규칙), `docs/architecture.md`(ERD와 설명), `TODO.md`("동시 합류 요청" 한계 삭제), `docs/worklog.md`
+- 가짜 API: 고치지 않았다. 응답에 `assignment_id`가 나가지 않고, json-server는 요청을 하나씩 처리해서 동시성 문제가 없다.
+- 확인:
+  - `gradlew build`(테스트 포함) 통과. 백엔드 컨테이너를 다시 빌드한 뒤 Postgres `\d team_member`에 `UNIQUE (assignment_id, member_id)`가 있다.
+  - node로 학생 8명이 두 조에 동시에 합류(라운드 5번, 요청 80개): 200 40개, Service 검사의 409 10개, unique 제약의 409 30개. 500 없음. 라운드마다 두 조의 조원 합이 정확히 8명.
+  - curl 순차 요청: 같은 조 재합류 200, 다른 조 409 "이미 이 과제의 다른 조에 있습니다". 이전과 같다.
+  - 프론트엔드 코드는 고치지 않아서 `npm run build`·`lint`는 돌리지 않았다. rule-check 자가 검사 걸린 것 없음.
+- 읽을 때 볼 곳: `TeamMember` 생성자의 `this.assignment = team.getAssignment();` 한 줄이 이 단위의 핵심이다. 호출하는 쪽(`AssignmentService`, `DataInitializer`, `TeamService`)은 바뀌지 않았다. `ddl-auto: create`라 스키마는 다시 켤 때 새로 만들어진다.
+- 내가 채운 가정: 동시 요청의 409 문구 "이미 이 과제의 조에 있습니다"는 내가 정했다.
