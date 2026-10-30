@@ -905,11 +905,11 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 
 ### 문서 검수와 오류 정리 (관리자 지시)
 - 결정:
-  - 관리자 지시(2026.10.30)로 에이전트 5개가 나눠서 검수했다. 나눈 축은 API 명세 ↔ 백엔드·가짜 API, 구조 그림 ↔ 코드, worklog 전체, 실행·설정 문서와 문서 사이 교차 확인, 초심자 조원 시점이다. 에이전트가 낸 핵심 주장은 코드에서 다시 확인한 뒤 고쳤다.
-  - 관리자 선택(2026.10.30): 이번에는 **문서 오류만** 고친다. 코드 동작 문제와 개선 제안(새 절 추가, 문서 분리)은 하지 않았다.
-  - `architecture.md`의 JWT 그림은 화살표 몇 개를 고쳐서는 맞출 수 없어서 "2-1 로그인하고 token 받기", "2-2 그 다음 요청마다" 두 장으로 나눴다. 그림은 이제 여섯 장이다. 장수를 적은 곳(`architecture.md`, `README.md`, `TODO.md`)은 숫자를 빼고 "구조 그림"으로만 적었다. 그림을 더할 때마다 세 곳이 어긋나지 않게 하려는 것이다.
-  - 시퀀스 그림의 메시지에서 큰따옴표를 뺐다. 시퀀스 그림은 따옴표를 글자 그대로 그린다(이전 그림도 그랬다).
-  - 이 worklog의 과거 기록은 바꾸지 않는 것이 원칙이다. 다만 2026.10.29 일괄 치환("시연" → "데모")이 망가뜨린 줄은 옛 문구로 되돌렸다(443, 690, 772, 837, 843, 863행). 치환 전 문구는 `git show 357de8d~1:docs/worklog.md`, `git show 9188187~1:docs/worklog.md`로 확인했다. 771행의 Whiteboard 보드 섹션 이름은 보드를 볼 수 없어서 그대로 뒀다.
+  - 관리자 지시(2026.10.30)로 에이전트 5개가 나눠서 검수함. 나눈 축은 API 명세 ↔ 백엔드·가짜 API, 구조 그림 ↔ 코드, worklog 전체, 실행·설정 문서와 문서 사이 교차 확인, 초심자 조원 시점임. 에이전트가 낸 핵심 주장은 코드에서 다시 확인한 뒤 고침
+  - 관리자 선택(2026.10.30): 이번에는 **문서 오류만** 고침. 코드 동작 문제와 개선 제안(새 절 추가, 문서 분리)은 하지 않음
+  - `architecture.md`의 JWT 그림은 화살표 몇 개를 고쳐서는 맞출 수 없어서 "2-1 로그인하고 token 받기", "2-2 그 다음 요청마다" 두 장으로 나눔. 그림은 이제 여섯 장임. 장수를 적은 곳(`architecture.md`, `README.md`, `TODO.md`)은 숫자를 빼고 "구조 그림"으로만 적음. 그림을 더할 때마다 세 곳이 어긋나지 않게 하려는 것임
+  - 시퀀스 그림의 메시지에서 큰따옴표를 뺌. 시퀀스 그림은 따옴표를 글자 그대로 그려 냄(이전 그림도 그랬음)
+  - 이 worklog의 과거 기록은 바꾸지 않는 것이 원칙임. 다만 2026.10.29 일괄 치환("시연" → "데모")이 망가뜨린 줄은 옛 문구로 되돌림(443, 690, 772, 837, 843, 863행). 치환 전 문구는 `git show 357de8d~1:docs/worklog.md`, `git show 9188187~1:docs/worklog.md`로 확인함. 771행의 Whiteboard 보드 섹션 이름은 보드를 볼 수 없어서 그대로 둠
 - 고친 파일:
   - `docs/architecture.md`
     - 그림 1: 데모 포트(5173 → 컨테이너 nginx 80), "서버가 구글에 token을 보냄" → "구글 공개키 받기", 깨진 문장, `bootRun` 백엔드가 모든 주소에 열리는 것
@@ -919,7 +919,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
     - ERD: 관계 이름, nullable 표기, 열 이름 표기 설명, "두 번 합류는 409" → 같은 조 재합류는 200
   - `docs/api-draft.md`: 제목 날짜 표시의 뜻, "미정 6" 참조 삭제, 가짜 API token, 구글 로그인의 500·이름 대체·대소문자, 없는 회원 token에 가짜 API는 401, 업로드 400 조건, 다운로드 header 실제 모양, 평가 400 조건
   - `backend/.../controller/DeliverableController.java`: Content-Disposition 주석(주석만, 동작 같음)
-  - `CLAUDE.md`: 사실 오류만 고쳤다. `docs/` 목록, 조원 목록 예시, 전용 예외 5개, 없는 파일 `mock/routes.json` 삭제, "미정 항목" → `TODO.md` "아직 정하지 않은 것"
+  - `CLAUDE.md`: 사실 오류만 고침. `docs/` 목록, 조원 목록 예시, 전용 예외 5개, 없는 파일 `mock/routes.json` 삭제, "미정 항목" → `TODO.md` "아직 정하지 않은 것"
   - `README.md`: 파일 수 삭제, 폴더 트리에 `docker-compose.yml`·`TODO.md`, MinIO 계정 출처, 개발 → 한 번에 실행으로 바꾸는 순서, 문서 목록 설명
   - `TODO.md`: `isLeader` → `leader`, 테스트 3개, 그림 장수
   - `backend/README.md`: 백엔드 주소 10곳을 `127.0.0.1:8080`으로 바꾸고 이유를 적음. `.env` 복사는 선택이라는 것, MinIO 계정 출처
@@ -928,76 +928,94 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - `docs/laptop-setup.md`: 날짜가 지난 지시서라는 머리말, `.env` 키 목록 비교 명령
   - `docs/worklog.md`: 치환 사고 6곳, 851·875행 확인 문장, 883행의 실패하는 명령(`HEAD~1` → `9188187`), 맨 위 템플릿
 - 확인:
-  - Mermaid 6장: `mermaid@11.4.1`로 `parse`와 실제 그리기 모두 성공. 브라우저에서 시퀀스 그림의 참여자·메시지 글자를 DOM으로 읽어 따옴표가 없는 것을 확인했다. 확인용 HTML은 `frontend/public`에 잠깐 두었다가 지웠다.
-  - 다운로드 header의 실제 모양: 검수 에이전트가 spring-web 6.2.19 원본 `ContentDisposition.toString()`을 읽고, 같은 jar로 출력을 찍어 확인했다.
-  - `backend`에서 `./gradlew compileJava` 성공. 바꾼 Java는 주석 한 줄이라 `gradlew build`(테스트, docker 필요)는 돌리지 않았다.
-  - `frontend`에서 `npm run build`, `npm run lint` 통과. Postman 모음 JSON 파싱 성공. `git diff --check` 문제 없음.
-  - 낡은 표현 grep(`네 장`, `routes.json`, `미정 6`, `환영합니다`, `HEAD~1:docs`, backend README의 `localhost:8080`): worklog 과거 기록 말고는 0건.
+  - Mermaid 6장: `mermaid@11.4.1`로 `parse`와 실제 그리기 모두 성공. 브라우저에서 시퀀스 그림의 참여자·메시지 글자를 DOM으로 읽어 따옴표가 없는 것을 확인함. 확인용 HTML은 `frontend/public`에 잠깐 두었다가 지움
+  - 다운로드 header의 실제 모양: 검수 에이전트가 spring-web 6.2.19 원본 `ContentDisposition.toString()`을 읽고, 같은 jar로 출력을 찍어 확인함
+  - `backend`에서 `./gradlew compileJava` 성공. 바꾼 Java는 주석 한 줄이라 `gradlew build`(테스트, docker 필요)는 돌리지 않음
+  - `frontend`에서 `npm run build`, `npm run lint` 통과. Postman 모음 JSON 파싱 성공. `git diff --check` 문제 없음
+  - 낡은 표현 grep(`네 장`, `routes.json`, `미정 6`, `환영합니다`, `HEAD~1:docs`, backend README의 `localhost:8080`): worklog 과거 기록 말고는 0건
 - 읽을 때 볼 곳:
-  - `architecture.md` 2-1 그림 아래 둘째 줄: 로그인 실패가 `/login`으로 튕기지 않는 이유(`removeToken()`을 먼저 부름). `client.js`의 401 처리는 "token을 보냈을 때"만 동작한다.
-  - `architecture.md` ERD 아래 "합류" 줄: 같은 과제 한 조만 허용하는 규칙은 unique 제약이 아니라 Service 검사다.
+  - `architecture.md` 2-1 그림 아래 둘째 줄: 로그인 실패가 `/login`으로 튕기지 않는 이유(`removeToken()`을 먼저 부름). `client.js`의 401 처리는 "token을 보냈을 때"만 동작함
+  - `architecture.md` ERD 아래 "합류" 줄: 같은 과제 한 조만 허용하는 규칙은 unique 제약이 아니라 Service 검사임
 - 고치지 않은 것(관리자 결정 또는 코드 작업 필요):
-  - 코드 동작: 조원이 혼자인 조는 동료평가를 제출할 수 없다(`@NotEmpty`와 빈 대상 집합). 다른 두 조의 초대 코드로 동시에 합류하면 두 조에 모두 들어갈 수 있다. 실제 백엔드는 점수 4.5를 4로 받는다(가짜 API는 400).
-  - 관리자 환경: 데스크톱 `infra/.env`에 `PROFESSOR_EMAILS` 키가 없다. 데스크톱 `JAVA_HOME`이 없는 경로를 가리킨다(이번에는 명령 하나에만 실제 경로를 넣었다).
-  - 규칙 충돌: `.claude/skills/next-step`, `rule-check`는 "기다린다·먼저 보고한다"인데 CLAUDE.md는 "묻지 않고 진행"이다. CLAUDE.md의 `XxxCreateRequest` 이름 규칙과 실제 DTO 이름(`LoginRequest`, `TeamJoinRequest` 등)도 다르다. 규칙 파일이라 손대지 않았다.
+  - 코드 동작: 조원이 혼자인 조는 동료평가를 제출할 수 없음(`@NotEmpty`와 빈 대상 집합). 다른 두 조의 초대 코드로 동시에 합류하면 두 조에 모두 들어갈 수 있음. 실제 백엔드는 점수 4.5를 4로 받음(가짜 API는 400)
+  - 관리자 환경: 데스크톱 `infra/.env`에 `PROFESSOR_EMAILS` 키가 없음. 데스크톱 `JAVA_HOME`이 없는 경로를 가리킴(이번에는 명령 하나에만 실제 경로를 넣음)
+  - 규칙 충돌: `.claude/skills/next-step`, `rule-check`는 "기다린다·먼저 보고한다"인데 CLAUDE.md는 "묻지 않고 진행"임. CLAUDE.md의 `XxxCreateRequest` 이름 규칙과 실제 DTO 이름(`LoginRequest`, `TeamJoinRequest` 등)도 다름. 규칙 파일이라 손대지 않음
 - 내가 채운 가정:
-  - CLAUDE.md는 규칙 파일이지만 "코드와 다른 사실"(없는 파일, 예외 목록, 응답 예시, 폴더 목록)은 오류 정리 범위로 보고 고쳤다. 규칙의 뜻을 바꾸는 것(위 skill 충돌, DTO 이름 규칙)은 범위 밖으로 봤다.
-  - `DeliverableController`의 주석 고침은 코드가 아니라 문서 오류로 보았다.
+  - CLAUDE.md는 규칙 파일이지만 "코드와 다른 사실"(없는 파일, 예외 목록, 응답 예시, 폴더 목록)은 오류 정리 범위로 보고 고침. 규칙의 뜻을 바꾸는 것(위 skill 충돌, DTO 이름 규칙)은 범위 밖으로 봄
+  - `DeliverableController`의 주석 고침은 코드가 아니라 문서 오류로 봄
 
 ### 규칙 충돌 2건 정리 (관리자 지시)
 - 결정(관리자 지시 2026.10.30 "규칙 충돌 정리", 고른 방향은 내 추천안):
-  - skill과 CLAUDE.md: `next-step`은 관리자의 "진행"을 기다리고 미정 항목에서 멈췄고, `rule-check`는 "고치지 말고 먼저 보고"였다. CLAUDE.md "묻지 않고 추천안으로 진행"(2026.10.25 관리자 결정)과 "작업 방식"의 "걸린 것은 고친다"와 어긋났다. 지금까지는 데스크톱 메모리가 이 충돌을 덮고 있어서, 저장소만 clone 한 곳(노트북, 조원)에서는 동작이 달라질 수 있었다.
-    - 선택지: (A) skill을 CLAUDE.md에 맞춘다 (B) CLAUDE.md를 skill에 맞춰 다시 묻는 방식으로 돌린다. 2026.10.25 결정이 더 최근이고 기준 문서 순위도 CLAUDE.md가 위라서 (A)로 했다.
-    - `next-step`: 계획을 보여 준 뒤 바로 시작한다. 미정 항목은 선택지와 비용을 적고 추천안으로 진행하며 worklog "결정" 줄에 남긴다. 파일 8개를 넘으면 둘로 나눠 앞의 것부터 한다.
-    - `rule-check`: 부른 사람에 따라 나눴다. 단위 업무 직후의 자가 검사는 보고하고 바로 고친다. 관리자가 `/rule-check`로 직접 부르면 보고만 하고 "고쳐"를 기다린다. 관리자가 직접 부른 것은 "검사해 달라"는 뜻이라 고치는 것까지 하면 요청보다 많이 하는 것으로 봤다.
-    - `read-check`는 관리자와 묻고 답하는 것이 목적이라 그대로 뒀다.
-  - DTO 이름 규칙: CLAUDE.md는 `XxxCreateRequest` 하나만 적었지만 실제 요청 DTO는 `TeamJoinRequest`, `RoleAssignRequest`, `EvaluationSubmitRequest`, `LoginRequest`다. 선택지는 (A) 규칙을 실제 이름에 맞춰 "`<대상><동작>Request`"로 넓힌다 (B) DTO 이름을 모두 `XxxCreateRequest` 모양으로 바꾼다. (B)는 "만들기"가 아닌 요청(합류, 지정, 제출, 로그인)에 Create를 붙이게 되어 이름이 거짓이 된다. (A)로 했다.
+  - skill과 CLAUDE.md: `next-step`은 관리자의 "진행"을 기다리고 미정 항목에서 멈췄고, `rule-check`는 "고치지 말고 먼저 보고"였음. CLAUDE.md "묻지 않고 추천안으로 진행"(2026.10.25 관리자 결정)과 "작업 방식"의 "걸린 것은 고친다"와 어긋났음. 지금까지는 데스크톱 메모리가 이 충돌을 덮고 있어서, 저장소만 clone 한 곳(노트북, 조원)에서는 동작이 달라질 수 있었음
+    - 선택지: (A) skill을 CLAUDE.md에 맞춤 (B) CLAUDE.md를 skill에 맞춰 다시 묻는 방식으로 돌림. 2026.10.25 결정이 더 최근이고 기준 문서 순위도 CLAUDE.md가 위라서 (A)로 함
+    - `next-step`: 계획을 보여 준 뒤 바로 시작함. 미정 항목은 선택지와 비용을 적고 추천안으로 진행하며 worklog "결정" 줄에 남김. 파일 8개를 넘으면 둘로 나눠 앞의 것부터 함
+    - `rule-check`: 부른 사람에 따라 나눔. 단위 업무 직후의 자가 검사는 보고하고 바로 고침. 관리자가 `/rule-check`로 직접 부르면 보고만 하고 "고쳐"를 기다림. 관리자가 직접 부른 것은 "검사해 달라"는 뜻이라 고치는 것까지 하면 요청보다 많이 하는 것으로 봄
+    - `read-check`는 관리자와 묻고 답하는 것이 목적이라 그대로 둠
+  - DTO 이름 규칙: CLAUDE.md는 `XxxCreateRequest` 하나만 적었지만 실제 요청 DTO는 `TeamJoinRequest`, `RoleAssignRequest`, `EvaluationSubmitRequest`, `LoginRequest`임. 선택지는 (A) 규칙을 실제 이름에 맞춰 "`<대상><동작>Request`"로 넓힘 (B) DTO 이름을 모두 `XxxCreateRequest` 모양으로 바꿈. (B)는 "만들기"가 아닌 요청(합류, 지정, 제출, 로그인)에 Create를 붙이게 되어 이름이 거짓이 됨. (A)로 함
 - 고친 파일: `.claude/skills/next-step/SKILL.md`, `.claude/skills/rule-check/SKILL.md`, `CLAUDE.md`(DTO 이름 규칙 한 줄), `docs/worklog.md`
-- 확인: 문서·skill만 고쳐서 빌드는 돌리지 않았다. `git grep "진행\"을 기다린다"`가 0건.
-- 읽을 때 볼 곳: 데스크톱 메모리 `autonomous-workflow.md`의 "How to apply"가 하던 일을 이제 skill 본문이 한다. 메모리는 지우지 않았다(같은 내용이라 해가 없다).
-- 내가 채운 가정: `next-step` 3번의 "`../footprint-study/docs/api.md`가 있으면 먼저 읽는다"와 CLAUDE.md 기준 문서 순위(api-draft가 api.md보다 위)도 어긋나지만, 학습 저장소에 `api.md`가 아직 없어서 이번에는 손대지 않았다.
+- 확인: 문서·skill만 고쳐서 빌드는 돌리지 않음. `git grep "진행\"을 기다린다"`가 0건
+- 읽을 때 볼 곳: 데스크톱 메모리 `autonomous-workflow.md`의 "How to apply"가 하던 일을 이제 skill 본문이 함. 메모리는 지우지 않음(같은 내용이라 해가 없음)
+- 내가 채운 가정: `next-step` 3번의 "`../footprint-study/docs/api.md`가 있으면 먼저 읽는다"와 CLAUDE.md 기준 문서 순위(api-draft가 api.md보다 위)도 어긋나지만, 학습 저장소에 `api.md`가 아직 없어서 이번에는 손대지 않음
 
 ### 단위 1: 혼자인 조의 동료평가 안내 (관리자 지시 "코드 문제 단위업무로 수정")
-- 결정: 조에 자신만 있으면 `POST /teams/{teamId}/evaluations`가 400 `INVALID_INPUT` "평가할 조원이 없습니다. 조에 자신만 있습니다"를 돌려준다. 상태는 `submitted:false` 그대로 둔다.
-  - 문제: 이전에는 빈 목록이면 "입력값이 올바르지 않습니다", 자기 id를 보내면 "자신을 뺀 조원 전원을 한 번씩 평가해야 합니다"가 나왔다. 둘 다 이유를 알려 주지 않았고 api-draft에도 이 경우가 없었다.
-  - 선택지: (A) 400과 이유 문구 (B) 빈 제출을 "제출 완료"로 기록 (C) 그대로 둔다. (B)는 아무것도 저장하지 않은 제출을 만들고 Evaluation 행 없이 상태를 표시할 방법이 따로 필요해서 Entity가 바뀐다. (A)로 했다.
-  - 화면은 이미 `EvaluationPage.jsx`에서 대상이 0명이면 폼 대신 "평가할 조원이 없습니다."를 보여 주고 있었다. 화면 코드는 고치지 않았다. 처음 검수 때 "혼자인 조는 영영 제출할 수 없다"고 한 것은 과장이었다.
+- 결정: 조에 자신만 있으면 `POST /teams/{teamId}/evaluations`가 400 `INVALID_INPUT` "평가할 조원이 없습니다. 조에 자신만 있습니다"를 돌려줌. 상태는 `submitted:false` 그대로 둠
+  - 문제: 이전에는 빈 목록이면 "입력값이 올바르지 않습니다", 자기 id를 보내면 "자신을 뺀 조원 전원을 한 번씩 평가해야 합니다"가 나왔음. 둘 다 이유를 알려 주지 않았고 api-draft에도 이 경우가 없었음
+  - 선택지: (A) 400과 이유 문구 (B) 빈 제출을 "제출 완료"로 기록 (C) 그대로 둠. (B)는 아무것도 저장하지 않은 제출을 만들고 Evaluation 행 없이 상태를 표시할 방법이 따로 필요해서 Entity가 바뀜. (A)로 함
+  - 화면은 이미 `EvaluationPage.jsx`에서 대상이 0명이면 폼 대신 "평가할 조원이 없습니다."를 보여 주고 있었음. 화면 코드는 고치지 않음. 처음 검수 때 "혼자인 조는 영영 제출할 수 없다"고 한 것은 과장이었음
 - 고친 파일: `backend/.../service/EvaluationService.java`(대상이 0명이면 400), `frontend/mock/middleware.cjs`(같은 검사와 같은 문구), `docs/api-draft.md`(400 줄과 서버 규칙 한 줄), `.claude/launch.json`(가짜 API를 preview로 띄우는 `mock` 설정 추가)
 - 확인:
-  - 실제 백엔드(Docker 전체 스택): 혼자인 조에서 자기 id → 400 새 문구, 빈 목록 → 400 "입력값이 올바르지 않습니다"(`@NotEmpty`가 먼저 막음), 상태 `submitted:false`. 보통 조에서 한 명 빠뜨림 → 기존 문구 그대로.
-  - 가짜 API: 같은 요청에 같은 결과.
-  - 화면: 혼자인 조의 평가 화면에 "평가할 조원이 없습니다."가 보인다.
-  - `gradlew build`(테스트 포함), `npm run build`, `npm run lint` 통과. rule-check 자가 검사 걸린 것 없음.
-- 읽을 때 볼 곳: 빈 목록은 Service까지 오지 않는다. `EvaluationSubmitRequest`의 `@NotEmpty`가 Controller 앞에서 막아서 일반 400 문구가 나간다. 새 문구는 자기 id처럼 "무언가를 보냈는데 대상이 0명"일 때만 나간다.
-- 내가 채운 가정: 문구 "평가할 조원이 없습니다. 조에 자신만 있습니다"는 내가 정했다.
+  - 실제 백엔드(Docker 전체 스택): 혼자인 조에서 자기 id → 400 새 문구, 빈 목록 → 400 "입력값이 올바르지 않습니다"(`@NotEmpty`가 먼저 막음), 상태 `submitted:false`. 보통 조에서 한 명 빠뜨림 → 기존 문구 그대로
+  - 가짜 API: 같은 요청에 같은 결과
+  - 화면: 혼자인 조의 평가 화면에 "평가할 조원이 없습니다."가 보임
+  - `gradlew build`(테스트 포함), `npm run build`, `npm run lint` 통과. rule-check 자가 검사 걸린 것 없음
+- 읽을 때 볼 곳: 빈 목록은 Service까지 오지 않음. `EvaluationSubmitRequest`의 `@NotEmpty`가 Controller 앞에서 막아서 일반 400 문구가 나감. 새 문구는 자기 id처럼 "무언가를 보냈는데 대상이 0명"일 때만 나감
+- 내가 채운 가정: 문구 "평가할 조원이 없습니다. 조에 자신만 있습니다"는 내가 정함
 
 ### 단위 2: 같은 과제 두 조에 동시 합류 막기 (관리자 지시 "코드 문제 단위업무로 수정")
-- 결정: `team_member`에 `assignment_id`를 두고 unique 제약을 `(team_id, member_id)`에서 `(assignment_id, member_id)`로 바꿨다. 합류 저장은 `saveAndFlush` + `DataIntegrityViolationException` → 409 `DUPLICATE`. 동료평가 제출과 같은 모양이다.
-  - 문제: "한 학생은 한 과제에서 한 조"를 Service만 확인했다. 같은 학생이 1조와 2조 링크로 거의 동시에 합류하면 두 요청이 모두 검사를 통과해 두 조에 들어갈 수 있었다. 이전 unique `(team_id, member_id)`는 같은 조에 두 번 들어가는 것만 막았고, 그때는 500이 났다(TODO "알려진 한계"에 적혀 있던 것).
-  - 선택지: (A) `team_member`에 과제를 복사해 두고 unique (B) 합류할 때 회원 행을 잠금(`@Lock(PESSIMISTIC_WRITE)`)해서 요청을 줄 세움 (C) 그대로 두고 한계로 적어 둠. (B)는 초심자에게 잠금과 트랜잭션 격리를 설명해야 하고, 잠금을 빼먹은 다른 저장 경로(과제 생성의 조장 저장)는 막지 못한다. (A)는 열 하나가 중복되지만 생성자가 `team.getAssignment()`로 채워서 어긋날 수 없고, 평가와 같은 "Service 검사 + DB unique" 패턴이라 읽기 쉽다. (A)로 했다.
-  - 동시 요청의 두 번째가 같은 조였는지 다른 조였는지는 다시 조회할 수 없다(Postgres는 제약 위반 뒤 그 트랜잭션의 쿼리를 받지 않는다). 그래서 문구를 "이미 이 과제의 조에 있습니다"로 넓혔고, 같은 조로 동시에 두 번 보낸 경우도 200이 아니라 409다.
+- 결정: `team_member`에 `assignment_id`를 두고 unique 제약을 `(team_id, member_id)`에서 `(assignment_id, member_id)`로 바꿈. 합류 저장은 `saveAndFlush` + `DataIntegrityViolationException` → 409 `DUPLICATE`. 동료평가 제출과 같은 모양임
+  - 문제: "한 학생은 한 과제에서 한 조"를 Service만 확인했음. 같은 학생이 1조와 2조 링크로 거의 동시에 합류하면 두 요청이 모두 검사를 통과해 두 조에 들어갈 수 있었음. 이전 unique `(team_id, member_id)`는 같은 조에 두 번 들어가는 것만 막았고, 그때는 500이 났음(TODO "알려진 한계"에 적혀 있던 것)
+  - 선택지: (A) `team_member`에 과제를 복사해 두고 unique (B) 합류할 때 회원 행을 잠금(`@Lock(PESSIMISTIC_WRITE)`)해서 요청을 줄 세움 (C) 그대로 두고 한계로 적어 둠. (B)는 초심자에게 잠금과 트랜잭션 격리를 설명해야 하고, 잠금을 빼먹은 다른 저장 경로(과제 생성의 조장 저장)는 막지 못함. (A)는 열 하나가 중복되지만 생성자가 `team.getAssignment()`로 채워서 어긋날 수 없고, 평가와 같은 "Service 검사 + DB unique" 패턴이라 읽기 쉬움. (A)로 함
+  - 동시 요청의 두 번째가 같은 조였는지 다른 조였는지는 다시 조회할 수 없음(Postgres는 제약 위반 뒤 그 트랜잭션의 쿼리를 받지 않음). 그래서 문구를 "이미 이 과제의 조에 있습니다"로 넓혔고, 같은 조로 동시에 두 번 보낸 경우도 200이 아니라 409임
 - 고친 파일: `backend/.../entity/TeamMember.java`(assignment 연관과 unique 제약), `backend/.../service/TeamService.java`(join 저장), `docs/api-draft.md`(합류 409 줄과 서버 규칙), `docs/architecture.md`(ERD와 설명), `TODO.md`("동시 합류 요청" 한계 삭제), `docs/worklog.md`
-- 가짜 API: 고치지 않았다. 응답에 `assignment_id`가 나가지 않고, json-server는 요청을 하나씩 처리해서 동시성 문제가 없다.
+- 가짜 API: 고치지 않음. 응답에 `assignment_id`가 나가지 않고, json-server는 요청을 하나씩 처리해서 동시성 문제가 없음
 - 확인:
-  - `gradlew build`(테스트 포함) 통과. 백엔드 컨테이너를 다시 빌드한 뒤 Postgres `\d team_member`에 `UNIQUE (assignment_id, member_id)`가 있다.
-  - node로 학생 8명이 두 조에 동시에 합류(라운드 5번, 요청 80개): 200 40개, Service 검사의 409 10개, unique 제약의 409 30개. 500 없음. 라운드마다 두 조의 조원 합이 정확히 8명.
-  - curl 순차 요청: 같은 조 재합류 200, 다른 조 409 "이미 이 과제의 다른 조에 있습니다". 이전과 같다.
-  - 프론트엔드 코드는 고치지 않아서 `npm run build`·`lint`는 돌리지 않았다. rule-check 자가 검사 걸린 것 없음.
-- 읽을 때 볼 곳: `TeamMember` 생성자의 `this.assignment = team.getAssignment();` 한 줄이 이 단위의 핵심이다. 호출하는 쪽(`AssignmentService`, `DataInitializer`, `TeamService`)은 바뀌지 않았다. `ddl-auto: create`라 스키마는 다시 켤 때 새로 만들어진다.
-- 내가 채운 가정: 동시 요청의 409 문구 "이미 이 과제의 조에 있습니다"는 내가 정했다.
+  - `gradlew build`(테스트 포함) 통과. 백엔드 컨테이너를 다시 빌드한 뒤 Postgres `\d team_member`에 `UNIQUE (assignment_id, member_id)`가 있음
+  - node로 학생 8명이 두 조에 동시에 합류(라운드 5번, 요청 80개): 200 40개, Service 검사의 409 10개, unique 제약의 409 30개. 500 없음. 라운드마다 두 조의 조원 합이 정확히 8명
+  - curl 순차 요청: 같은 조 재합류 200, 다른 조 409 "이미 이 과제의 다른 조에 있습니다". 이전과 같음
+  - 프론트엔드 코드는 고치지 않아서 `npm run build`·`lint`는 돌리지 않음. rule-check 자가 검사 걸린 것 없음
+- 읽을 때 볼 곳: `TeamMember` 생성자의 `this.assignment = team.getAssignment();` 한 줄이 이 단위의 핵심임. 호출하는 쪽(`AssignmentService`, `DataInitializer`, `TeamService`)은 바뀌지 않음. `ddl-auto: create`라 스키마는 다시 켤 때 새로 만들어짐
+- 내가 채운 가정: 동시 요청의 409 문구 "이미 이 과제의 조에 있습니다"는 내가 정함
 
 ### 단위 3: 정수가 아닌 점수 거부 (관리자 지시 "코드 문제 단위업무로 수정")
-- 결정: `application.yml`에서 Jackson의 자동 변환 두 가지를 껐다. `spring.jackson.deserialization.accept-float-as-int: false`, `spring.jackson.mapper.allow-coercion-of-scalars: false`.
-  - 문제: 실제 백엔드는 점수 `4.5`를 받아 4로 잘라 저장했고(200), `"5"`, `5.0`, `1e0`도 숫자 5·1로 받아들였다. 가짜 API는 `Number.isInteger`로 검사해서 `4.5`, `"5"`를 400으로 막았다. 같은 요청에 결과가 달랐다.
-  - 선택지: (A) 설정 두 줄로 서버 전체에 적용 (B) 점수 필드를 `JsonNode`로 받아 직접 검사 (C) 점수 필드마다 커스텀 deserializer. (B)·(C)는 DTO가 복잡해지고 다른 숫자 필드(`targetTeamMemberId`)는 그대로 남는다. (A)는 숨은 동작이 설정 파일 한 곳에 보이고, 의존성도 늘지 않는다. (A)로 했다.
-  - 영향 범위: 모든 요청 body. 날짜(`"2026-11-02"`)는 원래 문자열로 받는 타입이라 영향이 없다. path·query 값은 Jackson을 거치지 않아서 영향이 없다.
+- 결정: `application.yml`에서 Jackson의 자동 변환 두 가지를 끔. `spring.jackson.deserialization.accept-float-as-int: false`, `spring.jackson.mapper.allow-coercion-of-scalars: false`
+  - 문제: 실제 백엔드는 점수 `4.5`를 받아 4로 잘라 저장했고(200), `"5"`, `5.0`, `1e0`도 숫자 5·1로 받아들였음. 가짜 API는 `Number.isInteger`로 검사해서 `4.5`, `"5"`를 400으로 막았음. 같은 요청에 결과가 달랐음
+  - 선택지: (A) 설정 두 줄로 서버 전체에 적용 (B) 점수 필드를 `JsonNode`로 받아 직접 검사 (C) 점수 필드마다 커스텀 deserializer. (B)·(C)는 DTO가 복잡해지고 다른 숫자 필드(`targetTeamMemberId`)는 그대로 남음. (A)는 숨은 동작이 설정 파일 한 곳에 보이고, 의존성도 늘지 않음. (A)로 함
+  - 영향 범위: 모든 요청 body. 날짜(`"2026-11-02"`)는 원래 문자열로 받는 타입이라 영향이 없음. path·query 값은 Jackson을 거치지 않아서 영향이 없음
 - 고친 파일: `backend/src/main/resources/application.yml`, `docs/api-draft.md`("공통"에 타입 규칙 한 줄, 평가 제출 400 줄), `docs/worklog.md`
-- 가짜 API: 고치지 않았다. 이미 `Number.isInteger`와 `typeof === 'number'`로 검사하고 있었다. 남은 차이 두 가지는 api-draft에 적었다.
-  - `5.0`, `1e0`: JavaScript가 JSON을 읽으면 `5`, `1`과 같은 값이 되어 가짜 API는 받는다. 실제는 400이다. 화면은 정수만 보낸다.
-  - 400 메시지: 타입이 틀리면 실제는 "요청 body의 형식이 올바르지 않습니다", 가짜 API는 "입력값이 올바르지 않습니다"다. `code`는 둘 다 `INVALID_INPUT`이다. 이 차이는 이 단위 전부터 있었다(`"abc"`).
+- 가짜 API: 고치지 않음. 이미 `Number.isInteger`와 `typeof === 'number'`로 검사하고 있었음. 남은 차이 두 가지는 api-draft에 적음
+  - `5.0`, `1e0`: JavaScript가 JSON을 읽으면 `5`, `1`과 같은 값이 되어 가짜 API는 받음. 실제는 400임. 화면은 정수만 보냄
+  - 400 메시지: 타입이 틀리면 실제는 "요청 body의 형식이 올바르지 않습니다", 가짜 API는 "입력값이 올바르지 않습니다"임. `code`는 둘 다 `INVALID_INPUT`임. 이 차이는 이 단위 전부터 있었음(`"abc"`)
 - 확인:
-  - `gradlew build`(테스트 포함) 통과. 컨테이너를 다시 빌드한 뒤 점수에 `4.5`, `"5"`, `true`, `5.0`, `1e0`, `"abc"` → 모두 400 "요청 body의 형식이 올바르지 않습니다". `0`, `6` → 400 "입력값이 올바르지 않습니다". `5` → 200. `targetTeamMemberId: "7"` → 400.
-  - 다른 흐름: 과제 생성(날짜 문자열), 초대 코드 발급, 합류가 그대로 200·409.
-  - 프론트엔드 코드는 고치지 않아서 `npm run build`·`lint`는 돌리지 않았다. rule-check 자가 검사 걸린 것 없음.
-- 읽을 때 볼 곳: 이 설정은 코드에 보이지 않는 동작을 바꾼다. "Integer 필드인데 왜 `"5"`가 400이지?"라고 물으면 `application.yml`의 `jackson` 부분이 답이다. 이 400을 만드는 곳은 `GlobalExceptionHandler`의 `HttpMessageNotReadableException` 처리다.
-- 내가 채운 가정: 없음.
+  - `gradlew build`(테스트 포함) 통과. 컨테이너를 다시 빌드한 뒤 점수에 `4.5`, `"5"`, `true`, `5.0`, `1e0`, `"abc"` → 모두 400 "요청 body의 형식이 올바르지 않습니다". `0`, `6` → 400 "입력값이 올바르지 않습니다". `5` → 200. `targetTeamMemberId: "7"` → 400
+  - 다른 흐름: 과제 생성(날짜 문자열), 초대 코드 발급, 합류가 그대로 200·409
+  - 프론트엔드 코드는 고치지 않아서 `npm run build`·`lint`는 돌리지 않음. rule-check 자가 검사 걸린 것 없음
+- 읽을 때 볼 곳: 이 설정은 코드에 보이지 않는 동작을 바꿈. "Integer 필드인데 왜 `"5"`가 400이지?"라고 물으면 `application.yml`의 `jackson` 부분이 답임. 이 400을 만드는 곳은 `GlobalExceptionHandler`의 `HttpMessageNotReadableException` 처리임
+- 내가 채운 가정: 없음
+
+### 사람용 문서 문체를 개조식으로 (관리자 지시 "전체 문구 어투를 개조식으로")
+- 결정:
+  - 범위는 관리자가 고름(2026.10.30): 사람용 문서만. `TODO.md`, `docs/api-draft.md`, `docs/laptop-setup.md`, `docs/postman/README.md`, 이 worklog의 2026.10.30 항목
+  - 그대로 둔 것: `CLAUDE.md`·`.claude/skills`(도구 설정, 명령형 반말), 2026.10.29까지의 worklog 기록, 코드 주석(CLAUDE.md "짧은 완결 문장" 규칙), 큰따옴표·backtick 안 인용(오류 메시지·화면 문구·식별자), code block
+  - 어미: ~한다→~함, ~이다→~임, ~있다→~있음, ~된다→~됨. 줄 끝 마침표 없앰. 한 줄에 문장이 여럿이면 사이의 ". "는 남김. `docs/postman/README.md`는 ~합니다 체였어서 같은 방식으로 바꿈
+  - 문장을 쪼개거나 합치지 않음. 줄 수는 파일마다 그대로임
+- 고친 파일: `TODO.md`, `docs/api-draft.md`, `docs/laptop-setup.md`, `docs/postman/README.md`, `docs/worklog.md`
+- 확인:
+  - 파일 5개 모두 바꾸기 전(HEAD)과 비교해서 code block, backtick 안, 큰따옴표 안, 숫자, 링크가 똑같음(스크립트로 비교). 다른 것은 일부러 바꾼 `laptop-setup.md` 제목 2줄("새로 만든다" → "새로 만듦")뿐
+  - `grep -E '(다|요)\.?\s*$'`로 남은 평서체를 찾음. 남은 줄은 모두 code block 안(`laptop-setup.md`의 붙여 넣을 템플릿)이거나 인용임
+  - 문서만 바꿔서 빌드는 돌리지 않음
+- 읽을 때 볼 곳:
+  - 문체는 이제 두 갈래임. 사람용 문서는 개조식, 도구 설정(`CLAUDE.md`, skill)은 명령형 반말. 코드 주석과 화면·오류 문구는 ~합니다 체
+  - 문체 규칙이 `CLAUDE.md`에 없음. 앞으로 새로 쓰는 문서가 다시 평서체로 돌아갈 수 있음
+- 내가 채운 가정:
+  - `TODO.md` "알려진 한계"의 굵은 이름 4개도 개조식으로 바꿈("시작 파일이 쌓인다" → "쌓임" 등). 다른 문서에서 이 이름을 인용한 곳은 없음
+  - `TODO.md` "이것부터다"는 "이것부터임"이 어색해서 "이것부터 해야 함"으로 바꿈. 어미만 바꾸지 않은 유일한 곳
