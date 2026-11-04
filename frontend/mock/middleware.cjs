@@ -664,6 +664,56 @@ function handleDeleteDeliverable(req, res, loginMember, deliverableId) {
   return res.json(toDeliverableResponse(db, db.get('deliverables').find({ id: deliverableId }).value()))
 }
 
+// 기여 항목 한 건의 모양입니다. 실제 ContributionResponse와 같습니다.
+function toContributionResponse(db, contribution) {
+  const { id, title, assigneeId, createdAt, reportMemo, reportedAt, canceledAt } = contribution
+  const teamMember = db.get('teamMembers').find({ id: assigneeId }).value()
+  const member = db.get('members').find({ id: teamMember.memberId }).value()
+  return { id, title, assigneeMemberId: member.id, assigneeName: member.name, createdAt, reportMemo, reportedAt, canceledAt }
+}
+
+// POST /teams/{teamId}/contributions: 조장이 항목명과 담당 조원을 정해 기여 항목을 등록합니다.
+function handleCreateContribution(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const { title, teamMemberId } = req.body
+  // 숫자로 읽을 수 없으면 실제 백엔드는 JSON을 읽는 단계에서, 나머지는 @NotBlank @Size @NotNull 검사에서 400입니다. 모두 권한 검사보다 먼저입니다.
+  if (teamMemberId != null && !Number.isInteger(teamMemberId)) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
+  }
+  if (isBlank(title) || title.length > 255 || teamMemberId == null) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
+  }
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team || !checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
+
+  const assignee = db.get('teamMembers').find({ id: teamMemberId, teamId }).value()
+  if (!assignee) {
+    return sendError(res, 404, 'NOT_FOUND', '이 조의 조원이 아닙니다. id=' + teamMemberId)
+  }
+
+  const contribution = {
+    id: nextId(db, 'contributions'),
+    teamId,
+    assigneeId: assignee.id,
+    title: title.trim(),
+    createdAt: nowLocalDateTime(),
+    reportMemo: null,
+    reportedAt: null,
+    canceledAt: null,
+  }
+  db.get('contributions').push(contribution).write()
+  return res.json(toContributionResponse(db, contribution))
+}
+
+// GET /teams/{teamId}/contributions: 조의 기여 항목을 최근에 등록한 것부터 돌려줍니다. 취소된 항목도 빼지 않습니다.
+function handleGetContributions(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team || !checkTeamAccess(db, res, team, loginMember)) return
+  const contributions = db.get('contributions').filter({ teamId }).sortBy('id').reverse().value()
+  return res.json(contributions.map((contribution) => toContributionResponse(db, contribution)))
+}
+
 // 동료평가 6개 항목의 이름입니다. 실제 EvaluationSubmitRequest.Item의 점수 필드와 같습니다.
 const SCORE_FIELDS = ['goalSharing', 'roleFulfillment', 'encouragement', 'onlineCommunication', 'offlineCommunication', 'progressCheck']
 
@@ -858,6 +908,16 @@ function handleRequest(req, res, next) {
     const teamId = parseIdOrSendError(res, evaluationsTeamIdText)
     if (teamId === null) return
     return handleSubmitEvaluations(req, res, loginMember, teamId)
+  }
+
+  const contributionsTeamIdText = matchId(/^\/teams\/([^/]+)\/contributions$/, req.path)
+  if ((req.method === 'GET' || req.method === 'POST') && contributionsTeamIdText !== null) {
+    const teamId = parseIdOrSendError(res, contributionsTeamIdText)
+    if (teamId === null) return
+    if (req.method === 'POST') {
+      return handleCreateContribution(req, res, loginMember, teamId)
+    }
+    return handleGetContributions(req, res, loginMember, teamId)
   }
 
   const leaderTeamIdText = matchId(/^\/teams\/([^/]+)\/leader$/, req.path)

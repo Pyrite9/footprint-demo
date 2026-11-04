@@ -43,5 +43,9 @@
   ],
   "evaluations": [],
   "roleHistories": [],
-  "leaderHistories": []
+  "leaderHistories": [],
+  "contributions": [
+    {"id": 1, "teamId": 1, "assigneeId": 3, "title": "회의록 정리", "createdAt": "2026-10-25T09:00:00", "reportMemo": null, "reportedAt": null, "canceledAt": null},
+    {"id": 2, "teamId": 3, "assigneeId": 12, "title": "자료 취합", "createdAt": "2026-10-25T09:00:00", "reportMemo": null, "reportedAt": null, "canceledAt": null}
+  ]
 }

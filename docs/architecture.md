@@ -197,7 +197,7 @@ flowchart TB
 
 ### 데이터 구조
 
-엔티티 8개. 산출물과 평가는 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴.
+엔티티 9개. 산출물과 평가, 기여 항목의 담당은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴.
 
 ```mermaid
 erDiagram
@@ -211,6 +211,8 @@ erDiagram
     TEAM_MEMBER ||--o{ LEADER_HISTORY : "이전 조장 previous_leader_id"
     TEAM_MEMBER ||--o{ LEADER_HISTORY : "새 조장 new_leader_id"
     TEAM_MEMBER ||--o{ DELIVERABLE : "올림"
+    TEAM ||--o{ CONTRIBUTION : "기록함"
+    TEAM_MEMBER ||--o{ CONTRIBUTION : "담당함"
     TEAM_MEMBER ||--o{ EVALUATION : "평가자 evaluator_id"
     TEAM_MEMBER ||--o{ EVALUATION : "대상 target_id"
 
@@ -268,6 +270,16 @@ erDiagram
         LocalDateTime uploadedAt "올린 시각 · 서버가 기록"
         LocalDateTime deletedAt "삭제 시각 · 서버가 기록. 삭제 전에는 null"
     }
+    CONTRIBUTION {
+        Long id PK "기여 항목 번호"
+        Long team_id FK "이 항목이 속한 조"
+        Long assignee_id FK "담당 조원의 조 참여"
+        String title "항목명 · 등록한 뒤 고치지 않음"
+        LocalDateTime createdAt "등록 시각 · 서버가 기록"
+        String reportMemo "완료 보고 메모 · 보고 전에는 null"
+        LocalDateTime reportedAt "완료 보고 시각 · 서버가 기록. 보고 전에는 null"
+        LocalDateTime canceledAt "취소 시각 · 서버가 기록. 취소 전에는 null"
+    }
     EVALUATION {
         Long id PK "평가 번호"
         Long evaluator_id FK "평가한 조원의 조 참여"
@@ -295,4 +307,4 @@ erDiagram
 - `LEADER_HISTORY`는 조장이 바뀔 때마다 한 줄 쌓임. 만든 뒤에는 고치거나 지우지 않음
 - 조장이 조마다 한 명인 것은 DB 제약이 아니라 `TeamService.changeLeader`가 지킴. 조 행을 잠가 교체 요청을 차례로 처리함
 - 점수 열은 6개 그대로 저장함. 합계·평균 열은 두지 않음
-- 기록 시각(`uploadedAt`, `deletedAt`, `roleAssignedAt`, `changedAt`, `submittedAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음
+- 기록 시각(`uploadedAt`, `deletedAt`, `createdAt`, `reportedAt`, `canceledAt`, `roleAssignedAt`, `changedAt`, `submittedAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음

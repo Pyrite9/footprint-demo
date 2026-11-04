@@ -139,6 +139,7 @@ function TeamPage() {
             <nav className="links">
                 {/* 산출물은 기록 단계에서 조원만 올립니다. 그 밖에는 "보기"만 보여 줍니다. */}
                 <Link to={`/teams/${team.id}/deliverables`}>{isMember && isRecording ? '산출물 보기·올리기' : '산출물 보기'}</Link>
+                <Link to={`/teams/${team.id}/contributions`}>기여 항목</Link>
                 {isMember && <Link to={`/teams/${team.id}/evaluation`}>동료평가</Link>}
             </nav>
 

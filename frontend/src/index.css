@@ -200,13 +200,15 @@ code {
 /* 입력 칸과 버튼은 본문보다 한 단계 작게 둡니다. 둘의 높이(32px)가 같아져 한 줄에 놓아도 가지런합니다. */
 input,
 textarea,
+select,
 button {
   font: inherit;
   font-size: var(--font-control);
 }
 
 input:not([type='radio']):not([type='file']),
-textarea {
+textarea,
+select {
   padding: 5px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -218,6 +220,7 @@ textarea {
 /* 입력 칸을 누르면 파란 테두리로 지금 어디에 쓰는지 보이게 합니다. */
 input:focus,
 textarea:focus,
+select:focus,
 button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -1px;

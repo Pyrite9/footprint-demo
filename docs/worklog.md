@@ -1293,3 +1293,39 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 같은 산출물을 동시에 삭제하는 두 요청은 잠그지 않음. 올린 사람 한 명의 일이고 화면이 버튼을 막음
   - 삭제 확인은 `window.confirm`으로 함. 확인 문구, 안내 문구, 오류 메시지, 화면 제목 "올린 산출물 (역할별 최신순)"은 내가 씀
   - 시작 데이터와 `frontend/db.json`에 삭제된 산출물을 넣지 않음
+
+### R-2-1 기여 항목 등록, R-2-2 기여 항목 조회
+
+- 문서 충돌: `docs/api-draft.md`의 추가 예정 표는 `GET /teams/{teamId}/contributions`를 "조원"만으로 적음. `CLAUDE.md` 접근 범위는 "조원 또는 과제를 만든 교수"이고, R-3-3과 V-1, E-1도 교수에게 열려 있음. 기준 문서 순서대로 교수도 보게 하고 api-draft를 고침. 시작 전에 관리자에게 알림
+- 결정:
+  - R-2 한 줄이 파일 8개를 넘어서 `TODO.md` 규칙대로 commit을 셋으로 나눔. 등록과 조회는 서로 없으면 확인이 안 돼서 한 commit임
+  - 상태 열을 두지 않음. `canceledAt`, `reportedAt`이 있는지로 정함. 선택지: `status` 열과 응답 필드. 시각과 어긋날 수 있고 `deletedAt`의 패턴과 달라져서 쓰지 않음. 화면의 상태 이름은 `ContributionList.statusOf`가 계산함
+  - 담당은 요청에서 조 참여 번호(`teamMemberId`)로 받음. 조장 교체와 같음. 응답은 회원 번호와 이름으로 펼침
+  - 항목명은 `@Size(max = 255)`임. 역할명과 같음
+  - 화면은 산출물처럼 따로 둠(`/teams/{teamId}/contributions`). 조 화면에 넣으면 조원, 역할, 이력과 섞여 길어짐
+  - 시작 데이터에 기여 항목 2건을 넣음. 1조 1건, 평가 단계 조 1건. 평가 단계 화면은 항목을 새로 등록할 수 없어서 시작 데이터가 있어야 볼 수 있음
+- 만든 파일:
+  - 백엔드: `entity/Contribution`, `repository/ContributionRepository`, `service/ContributionService`, `controller/ContributionController`, `dto/ContributionCreateRequest`, `dto/ContributionResponse`, `ContributionRuleTests`
+  - 화면: `api/contributions.js`, `pages/ContributionsPage.jsx`, `components/ContributionCreateForm.jsx`, `components/ContributionList.jsx`
+- 고친 파일:
+  - 백엔드: `config/DataInitializer`
+  - 가짜 API: `frontend/mock/middleware.cjs`, `frontend/db.json`
+  - 화면: `App.jsx`, `pages/TeamPage.jsx`, `components/StartEvaluationPanel.jsx`, `index.css`(`select`)
+  - 문서: `docs/api-draft.md`, `docs/architecture.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`
+- 고친 기존 문제:
+  - `docs/api-draft.md` "이미 있는 API의 응답이 바뀌는 곳"에 R-1-3 때 끝난 `deletedAt` 줄이 남아 있어서 지움
+- 확인:
+  - `gradlew build` 성공. 테스트 74개, 실패 0(`ContributionRuleTests` 7개 새로). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 59개, 확인 116개, 실패 0
+  - 실제 백엔드와 가짜 API에 같은 요청 15개를 보내 응답과 오류 메시지가 같음을 비교함(저장소에 넣지 않은 임시 스크립트)
+  - 브라우저에서 실제 백엔드로 확인: 조 화면 링크로 들어감. 항목명, 담당이 빠지면 문구가 나옴. 등록하면 목록 맨 위에 "보고 전"으로 나오고 칸이 비워짐
+  - 화면 확인에서 내 실수를 찾아 고침: `api/contributions.js`가 body를 `JSON.stringify`로 바꿨는데 `client.js`도 다시 바꿔서 400이 남. Newman과 비교 스크립트는 `client.js`를 거치지 않아 잡지 못함
+  - rule-check: 금지 패턴 없음. 점수 계산 없음. 새 클래스와 public 메서드에 주석 있음. 값을 바꾸는 `create`에 `@Transactional` 있음. 수정 필요 없음
+- 읽을 때 볼 곳:
+  - `Contribution`에 상태 열이 없는 이유(클래스 주석)와 `ContributionList.statusOf`
+  - `ContributionService.create`의 `filter`. 번호가 있어도 다른 조의 조원이면 404임
+  - `ContributionsPage`의 `assigneeId`. select의 값은 글자라서 보낼 때 `Number`로 바꿈
+- 내가 채운 가정:
+  - 담당이 이 조의 조원이 아니면 404임. 조장 교체와 같음
+  - 시작 기여 항목의 이름(`회의록 정리`, `자료 취합`)과 담당
+  - 화면 문구, "기여 항목 (최근 등록순)" 제목, 등록 form의 안내 문구는 내가 씀

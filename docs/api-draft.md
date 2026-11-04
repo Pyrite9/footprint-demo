@@ -484,6 +484,59 @@ token
 
 ---
 
+## 기여 항목
+
+파일이 남지 않는 일(회의 진행, 자료 취합 등)의 기록임. 상태 열은 없음. `canceledAt`이 있으면 취소됨, `reportedAt`이 있으면 보고됨, 둘 다 없으면 보고 전임
+
+### POST /teams/{teamId}/contributions — 기여 항목 등록 (R-2-1) · 2026.11.04
+
+조장이 항목명과 담당 조원 한 명을 정해 등록함. 등록 시각은 서버가 기록함
+
+요청
+```json
+{ "title": "회의록 정리", "teamMemberId": 2 }
+```
+
+- `title`: 필수. 255자까지. 앞뒤 공백은 지우고 저장함
+- `teamMemberId`: 필수. 담당 조원의 조 참여 번호. 조장 자신도 됨. 역할이 없어도 됨
+
+200: 저장된 항목. 모양은 목록의 한 줄과 같음
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 입력값이 틀렸을 때, 주소의 번호가 숫자가 아닐 때, 평가 단계일 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 조장이 아닐 때(교수 포함) |
+| 404 | `NOT_FOUND` | 없는 조일 때, 담당이 이 조의 조원이 아닐 때 |
+
+서버 쪽 규칙
+- 등록한 항목은 고칠 수 없음
+
+### GET /teams/{teamId}/contributions — 기여 항목 목록 (R-2-2) · 2026.11.04
+
+조원과 그 과제를 만든 교수가 봄. 최근에 등록한 것부터 돌려줌. 평가 단계에서도 봄
+
+200
+```json
+[
+  { "id": 3, "title": "회의록 정리", "assigneeMemberId": 3, "assigneeName": "이서연", "createdAt": "2026-11-05T14:03:22", "reportMemo": null, "reportedAt": null, "canceledAt": null }
+]
+```
+
+- `assigneeMemberId`: 담당 조원의 회원 번호. 화면이 내가 맡은 항목을 알아볼 때 씀
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원도 그 과제를 만든 교수도 아닐 때 |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+
+서버 쪽 규칙
+- 취소된 항목도 목록에서 빼지 않음
+
+---
+
 ## 동료평가
 
 평가 항목 6개(신태섭 2018, 문장은 `frontend/src/constants/peerEvaluation.js`)는 요청·저장에서 아래 이름을 씀. 점수는 1~5 정수임
@@ -560,8 +613,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 7 | R-2-1 | `POST /teams/{teamId}/contributions` | 조장 |
-| 7 | R-2-2 | `GET /teams/{teamId}/contributions` | 조원 |
 | 7 | R-2-3 | `POST /contributions/{contributionId}/report` | 담당 조원 |
 | 7 | R-2-4 | `POST /contributions/{contributionId}/cancel` | 조장 |
 | 8 | R-3-1 | `POST /deliverables/{deliverableId}/confirmations` | 올린 조원을 뺀 조원 |
@@ -585,7 +636,6 @@ token
 이미 있는 API의 응답이 바뀌는 곳
 
 - 조 정보(`GET /teams/{teamId}`)에 과제 기간 `startDate`, `endDate` 추가. 진척 화면(R-4-1)이 씀
-- 산출물 목록에 `deletedAt` 추가. 삭제된 산출물의 다운로드는 404
 - 새로 만드는 조 운영·과정 기록 쓰기 요청도 평가 단계에서 400 `INVALID_INPUT`
 - 내 정보(`GET /members/me`)에 `privacyConsentedAt` 추가(X-2)
 - 400 응답의 `message`에 틀린 칸을 적음. 모양은 그대로임(X-7)

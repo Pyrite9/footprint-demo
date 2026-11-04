@@ -1293,7 +1293,257 @@
       ]
     },
     {
-      "name": "4. 평가 시작과 동료평가 (A-3, E-2)",
+      "name": "4. 기여 항목 (R-2)",
+      "description": "파일이 남지 않는 일의 기록입니다. 조장이 등록하고, 조원과 교수가 목록을 봅니다.",
+      "item": [
+        {
+          "name": "기여 항목 등록 - 조원은 403 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/contributions",
+            "description": "조장만 등록합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"회의록 정리\",\n  \"teamMemberId\": {{memberTeamMemberId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "항목명이 없으면 400 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/contributions",
+            "description": "항목명은 필수입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \" \",\n  \"teamMemberId\": {{memberTeamMemberId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "없는 담당이면 404 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/contributions",
+            "description": "담당은 이 조의 조원이어야 합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"회의록 정리\",\n  \"teamMemberId\": 999999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 응답', () => pm.response.to.have.status(404));",
+                  "pm.test('code가 NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "기여 항목 등록 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/contributions",
+            "description": "담당 조원을 정해 등록합니다. 처음에는 보고 전입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"회의록 정리\",\n  \"teamMemberId\": {{memberTeamMemberId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('담당 이름이 펼쳐져 옴', () => pm.expect(pm.response.json().assigneeName).to.be.a('string'));",
+                  "pm.test('보고 전', () => pm.expect(pm.response.json().reportedAt).to.eql(null));",
+                  "pm.collectionVariables.set('contributionId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "기여 항목 목록 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/contributions",
+            "description": "조원과 과제를 만든 교수가 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('1건', () => pm.expect(pm.response.json().length).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "기여 항목 목록 - 다른 조 학생은 403 (다른 조)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/contributions",
+            "description": "다른 조의 기록은 볼 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. 평가 시작과 동료평가 (A-3, E-2)",
       "description": "교수가 평가를 시작한 뒤 조원이 자신을 뺀 조원 전원(여기서는 조장 1명)을 평가해 제출합니다. 점수는 시스템이 계산하지 않고, 응답에도 점수가 없습니다.",
       "item": [
         {
@@ -1537,6 +1787,51 @@
           ]
         },
         {
+          "name": "평가 단계에서 기여 항목을 등록하면 400 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/contributions",
+            "description": "평가 단계에서는 등록할 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"회의록 정리\",\n  \"teamMemberId\": {{memberTeamMemberId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "평가 단계에서 역할을 바꾸면 400 (조장)",
           "request": {
             "method": "PUT",
@@ -1750,7 +2045,7 @@
       ]
     },
     {
-      "name": "5. 오류 예시",
+      "name": "6. 오류 예시",
       "description": "오류는 모두 { code, message } 모양입니다. code는 NOT_FOUND, INVALID_INPUT, UNAUTHORIZED, FORBIDDEN, DUPLICATE, SERVER_ERROR 여섯 가지입니다(SERVER_ERROR는 여기서 재현하지 않습니다).",
       "item": [
         {
@@ -2021,6 +2316,10 @@
     },
     {
       "key": "deliverableId",
+      "value": ""
+    },
+    {
+      "key": "contributionId",
       "value": ""
     }
   ]
