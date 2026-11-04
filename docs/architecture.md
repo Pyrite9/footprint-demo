@@ -141,6 +141,7 @@ flowchart TB
     page --> comp1["components/TeamMemberList.jsx"]
     comp1 --> comp2["components/RoleAssignForm.jsx"]
     page --> comp3["components/InviteLinkPanel.jsx"]
+    page --> comp4["components/RoleHistoryPanel.jsx"]
 
     page -- "함수 호출" --> api["api/teams.js<br/>주소 한 줄씩"]
     page -- "getMe" --> auth["api/auth.js"]
@@ -195,7 +196,7 @@ flowchart TB
 
 ### 데이터 구조
 
-엔티티 6개. 산출물과 평가는 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴.
+엔티티 7개. 산출물과 평가는 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴.
 
 ```mermaid
 erDiagram
@@ -204,6 +205,7 @@ erDiagram
     ASSIGNMENT ||--o{ TEAM : "assignment_id"
     ASSIGNMENT ||--o{ TEAM_MEMBER : "assignment_id"
     TEAM ||--o{ TEAM_MEMBER : "team_id"
+    TEAM_MEMBER ||--o{ ROLE_HISTORY : "이전 역할"
     TEAM_MEMBER ||--o{ DELIVERABLE : "올림"
     TEAM_MEMBER ||--o{ EVALUATION : "평가자 evaluator_id"
     TEAM_MEMBER ||--o{ EVALUATION : "대상 target_id"
@@ -237,7 +239,13 @@ erDiagram
         Long member_id FK "참여한 회원"
         boolean leader "조장이면 true · 조장도 조원으로 함께 등록"
         String roleName "조장이 정한 역할명 · 배정 전에는 null"
-        LocalDateTime roleAssignedAt "역할 지정 시각 · 서버가 기록 · 배정 전에는 null"
+        LocalDateTime roleAssignedAt "지금 역할을 지정한 시각 · 바꾸면 새 시각 · 서버가 기록 · 배정 전에는 null"
+    }
+    ROLE_HISTORY {
+        Long id PK "역할 이력 번호"
+        Long team_member_id FK "역할이 바뀐 조원의 조 참여"
+        String previousRoleName "바뀌기 전의 역할명"
+        LocalDateTime changedAt "바뀐 시각 · 서버가 기록"
     }
     DELIVERABLE {
         Long id PK "산출물 번호"
@@ -271,5 +279,6 @@ erDiagram
 - 평가: 이미 제출했으면 Service 검사로 409 `DUPLICATE`. `EVALUATION`의 unique는 두 요청이 거의 동시에 올 때를 막는 마지막 장치
 - 조장을 따로 두지 않고 조 참여의 `leader`로 표시함. 선택 이유와 열린 부분은 `../TODO.md` "아직 정하지 않은 것"
 - `DELIVERABLE.roleName`은 `TEAM_MEMBER.roleName`을 가리키지 않고 **값을 복사해 둔 것.** 나중에 역할이 바뀌어도 산출물 순번이 끊기지 않게 함
+- `ROLE_HISTORY`는 역할이 바뀔 때마다 한 줄 쌓임. 첫 지정은 이전 역할이 없어서 남기지 않음. 만든 뒤에는 고치거나 지우지 않음
 - 점수 열은 6개 그대로 저장함. 합계·평균 열은 두지 않음
-- 기록 시각(`uploadedAt`, `roleAssignedAt`, `submittedAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음
+- 기록 시각(`uploadedAt`, `roleAssignedAt`, `changedAt`, `submittedAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음

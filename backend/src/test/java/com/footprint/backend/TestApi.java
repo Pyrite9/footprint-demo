@@ -54,6 +54,14 @@ class TestApi {
                 .content(body));
     }
 
+    // token을 붙여 JSON body가 있는 PUT 요청을 보냅니다.
+    ResultActions put(String path, String token, String body) throws Exception {
+        return mockMvc.perform(MockMvcRequestBuilders.put(path)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body));
+    }
+
     // token을 붙여 DELETE 요청을 보냅니다.
     ResultActions delete(String path, String token) throws Exception {
         return mockMvc.perform(MockMvcRequestBuilders.delete(path)

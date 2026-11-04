@@ -1158,3 +1158,42 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 평가 단계에서 조장의 초대 패널은 숨김. 서버의 초대 코드 조회는 열람이라 그대로 됨
   - 평가 단계 시작 데이터의 과제 이름과 기간, 역할, 파일 내용은 내가 정함
   - 가짜 API의 평가 시작 시각 시작값은 고정값이고 실제 백엔드는 서버를 켠 시각임
+
+### T-2-2 역할 변경과 이력 보관
+- 결정:
+  - 변경은 `PUT .../role`로 따로 둠. `POST .../role`(첫 지정)의 409는 그대로임. `TODO.md`에 적어 둔 추천안임
+  - 역할이 없는 조원에게 `PUT`하면 400 `INVALID_INPUT`임. 선택지: 그대로 지정해 주기(첫 지정이 두 길이 되고 이전 역할이 없는 이력을 어떻게 할지 정해야 함), 404(조원은 있음). 첫 지정은 POST 하나로 둠
+  - 지금과 같은 역할로 바꾸면 400 `INVALID_INPUT`임. 선택지: 200으로 이력을 안 남김(조장이 바꾼 줄 알게 됨), 이력을 남김(바뀌지 않은 일이 기록으로 쌓임). 비교는 앞뒤 공백을 지운 값으로 함
+  - `RoleHistory`는 조 참여, 이전 역할명, 바뀐 시각만 가짐(`TODO.md` 추천안 그대로). 새 역할명은 저장하지 않음. 최신 줄의 다음 역할은 조원의 지금 역할이고, 나머지는 바로 뒤에 바뀐 줄의 `previousRoleName`이라 다시 알 수 있음
+  - 이력 응답은 `{ id, previousRoleName, changedAt }`이고 최근 것부터임. 산출물 목록과 같은 순서임
+  - 이력 조회 권한은 조 기록과 같게 `checkTeamAccess`임. 평가 단계에서도 열람은 됨
+  - 역할을 바꾸면 `roleAssignedAt`도 새 시각이 됨. `TeamMember.assignRole`을 그대로 씀. 메서드를 둘로 나눠도 하는 일이 같음
+  - 화면은 조장에게 줄마다 입력 칸을 항상 보임. 역할이 없으면 "지정", 있으면 "변경". 선택지: 변경 버튼을 눌러야 칸이 열림(줄마다 열림 state가 더 필요함). 이력은 한 번에 한 명만 아래 패널로 보임
+- 만든 파일: `entity/RoleHistory`, `repository/RoleHistoryRepository`, `dto/RoleChangeRequest`, `dto/RoleHistoryResponse`, `RoleChangeRuleTests`, `frontend/src/components/RoleHistoryPanel.jsx`
+- 고친 파일:
+  - 백엔드: `service/TeamService`, `controller/TeamController`, `entity/TeamMember`, 테스트 `TestApi`, `PhaseRuleTests`
+  - 가짜 API: `frontend/mock/middleware.cjs`, `frontend/db.json`
+  - 화면: `api/teams.js`, `pages/TeamPage.jsx`, `components/TeamMemberList.jsx`, `components/RoleAssignForm.jsx`, `components/StartEvaluationPanel.jsx`, `index.css`
+  - 문서: `docs/api-draft.md`, `docs/architecture.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`
+- 고친 기존 문제:
+  - `.end`가 `.row`와 함께 붙으면 오른쪽으로 밀리지 않았음. `.row`가 CSS에서 뒤에 있고 `margin`을 정하기 때문임. `.row.end`를 더함. 역할 지정 form도 같은 문제였음
+  - 조 화면의 오류 문구가 초대 패널 아래에 있어 입력 칸에서 멀었음. 조원 목록 바로 아래로 옮김
+  - `TODO.md`의 "13개는 됐고 16개가 남음"은 A-3-1에서 고치지 못한 값이었음. README의 14개와 어긋났음. 이번에 둘 다 15개로 맞춤
+  - Postman 안내의 `seed-1.txt`, `seed-2.txt`는 A-3-1에서 `seed-3.txt`가 생긴 뒤 틀린 글이었음. `seed-`로 시작하는 파일로 고침
+- 확인:
+  - `gradlew build` 성공. 테스트 49개, 실패 0(`RoleChangeRuleTests` 8개 새로). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 39개, 확인 73개, 실패 0
+  - 실제 백엔드와 가짜 API의 `PUT`, 이력 응답 필드와 오류 메시지가 같음을 비교함
+  - 브라우저에서 실제 백엔드로 확인: 조장의 역할 변경 → 조원 목록과 열린 이력 패널이 바로 바뀜. 같은 역할은 오류 문구가 보임. 역할을 바꾼 이서연의 시작 산출물은 "백엔드 1번째"로 남음. 조원은 이력만 보임. 교수는 평가 단계 조에서 이력 버튼만 보이고 안내 문구가 보임. 375px 폭에서 가로 스크롤 없음
+  - rule-check: 금지 패턴 없음. 점수 계산 없음. 새 클래스와 public 메서드에 주석 있음. 값을 바꾸는 `changeRole`에 `@Transactional` 있음
+- 읽을 때 볼 곳:
+  - `TeamService.changeRole`의 순서. 이력을 먼저 저장해야 이전 역할명이 남음. 이력과 역할 변경은 한 트랜잭션이라 둘 다 되거나 둘 다 안 됨
+  - `findRoleHistories`에는 `@Transactional`이 없음. 값을 바꾸지 않기 때문임
+  - `TeamPage`의 `handleSaveRole`은 역할 유무로 `assignRole`과 `changeRole` 중 하나를 고름. 함수도 값이라 변수에 담을 수 있음
+  - 저장 중에는 버튼과 입력 칸을 막음. 막지 않으면 `.then` 안의 옛 `members`, `roleNameInputs`가 그 사이의 변경을 덮어씀
+  - 같은 조원을 두 요청이 같은 순간에 바꾸면 둘 다 같은 이전 역할을 이력에 남길 수 있음. 잠금을 두지 않음. 조장 한 명이 하는 일이고 화면은 저장 중 버튼을 막음
+- 내가 채운 가정:
+  - 조장은 자기 역할도 바꿀 수 있음. 첫 지정이 그랬기 때문임
+  - 오류 메시지 "아직 역할이 지정되지 않은 조원입니다", "지금과 같은 역할입니다"와 화면 문구("이력", "변경", "역할이 바뀐 적이 없습니다", "…까지")는 내가 씀
+  - 이력 버튼은 역할이 있는 조원에게만 보임. 역할이 없으면 바뀐 적도 없음
+  - 시작 데이터와 `frontend/db.json`에 역할 이력을 넣지 않음. 처음에는 모두 "바뀐 적이 없습니다"임

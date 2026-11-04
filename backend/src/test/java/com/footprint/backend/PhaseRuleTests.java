@@ -124,6 +124,8 @@ class PhaseRuleTests {
         expectBadRequest(api.post("/teams/" + teamId + "/invite-code", leader, ""), BLOCKED_MESSAGE);
         expectBadRequest(api.post("/teams/" + teamId + "/members/" + member.getId() + "/role", leader,
                 "{ \"roleName\": \"기획\" }"), BLOCKED_MESSAGE);
+        expectBadRequest(api.put("/teams/" + teamId + "/members/" + member.getId() + "/role", leader,
+                "{ \"roleName\": \"기획\" }"), BLOCKED_MESSAGE);
         expectBadRequest(api.upload("/teams/" + teamId + "/deliverables", leader, file), BLOCKED_MESSAGE);
         expectBadRequest(api.post("/teams/join", api.login("student04@example.com"),
                 "{ \"inviteCode\": \"demo-evaluation-1\" }"), BLOCKED_MESSAGE);
@@ -149,7 +151,9 @@ class PhaseRuleTests {
     void readsAreAllowedInEvaluation() throws Exception {
         Long teamId = evaluationTeam.getId();
         Long deliverableId = deliverableRepository.findByTeamMemberTeamIdOrderByIdDesc(teamId).get(0).getId();
+        Long teamMemberId = teamMemberRepository.findByTeamIdOrderByIdAsc(teamId).get(0).getId();
         List<String> paths = List.of("/teams/" + teamId, "/teams/" + teamId + "/members",
+                "/teams/" + teamId + "/members/" + teamMemberId + "/role-histories",
                 "/teams/" + teamId + "/deliverables", "/deliverables/" + deliverableId + "/download");
 
         for (String email : List.of("student01@example.com", "professor@example.com")) {

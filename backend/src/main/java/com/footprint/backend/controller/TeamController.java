@@ -2,6 +2,8 @@ package com.footprint.backend.controller;
 
 import com.footprint.backend.dto.InviteCodeResponse;
 import com.footprint.backend.dto.RoleAssignRequest;
+import com.footprint.backend.dto.RoleChangeRequest;
+import com.footprint.backend.dto.RoleHistoryResponse;
 import com.footprint.backend.dto.TeamJoinRequest;
 import com.footprint.backend.dto.TeamMemberResponse;
 import com.footprint.backend.dto.TeamResponse;
@@ -11,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -59,6 +62,22 @@ public class TeamController {
     public TeamMemberResponse assignRole(@AuthenticationPrincipal Long memberId, @PathVariable Long teamId,
                                          @PathVariable Long teamMemberId, @Valid @RequestBody RoleAssignRequest request) {
         return TeamMemberResponse.from(teamService.assignRole(teamId, teamMemberId, request.roleName(), memberId));
+    }
+
+    // 조장이 조원의 역할을 바꾸고, 역할이 바뀐 조원을 돌려줍니다. 첫 지정은 위의 POST입니다.
+    @PutMapping("/{teamId}/members/{teamMemberId}/role")
+    public TeamMemberResponse changeRole(@AuthenticationPrincipal Long memberId, @PathVariable Long teamId,
+                                         @PathVariable Long teamMemberId, @Valid @RequestBody RoleChangeRequest request) {
+        return TeamMemberResponse.from(teamService.changeRole(teamId, teamMemberId, request.roleName(), memberId));
+    }
+
+    // 한 조원의 역할 이력을 최근에 바뀐 것부터 돌려줍니다.
+    @GetMapping("/{teamId}/members/{teamMemberId}/role-histories")
+    public List<RoleHistoryResponse> getRoleHistories(@AuthenticationPrincipal Long memberId, @PathVariable Long teamId,
+                                                      @PathVariable Long teamMemberId) {
+        return teamService.findRoleHistories(teamId, teamMemberId, memberId).stream()
+                .map(RoleHistoryResponse::from)
+                .toList();
     }
 
     // 초대 코드로 조에 합류하고 합류한 조를 돌려줍니다.

@@ -409,6 +409,52 @@ function handleAssignRole(req, res, loginMember, teamId, teamMemberId) {
   return res.json(toTeamMemberResponse(db, updated))
 }
 
+// PUT /teams/{teamId}/members/{teamMemberId}/role: 조장이 조원의 역할을 바꾸고 이전 역할을 이력으로 남깁니다. 검사 순서는 실제 백엔드와 같습니다.
+function handleChangeRole(req, res, loginMember, teamId, teamMemberId) {
+  const db = req.app.db
+  const { roleName } = req.body
+  // @NotBlank @Size(max = 255) 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다.
+  if (isBlank(roleName) || roleName.length > 255) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
+  }
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team || !checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
+
+  const target = db.get('teamMembers').find({ id: teamMemberId, teamId }).value()
+  if (!target) {
+    return sendError(res, 404, 'NOT_FOUND', '이 조의 조원이 아닙니다. id=' + teamMemberId)
+  }
+  if (target.roleName === null) {
+    return sendError(res, 400, 'INVALID_INPUT', '아직 역할이 지정되지 않은 조원입니다')
+  }
+  const newRoleName = roleName.trim()
+  if (newRoleName === target.roleName) {
+    return sendError(res, 400, 'INVALID_INPUT', '지금과 같은 역할입니다')
+  }
+
+  const now = nowLocalDateTime()
+  db.get('roleHistories')
+    .push({ id: nextId(db, 'roleHistories'), teamMemberId, previousRoleName: target.roleName, changedAt: now })
+    .write()
+  db.get('teamMembers').find({ id: teamMemberId }).assign({ roleName: newRoleName, roleAssignedAt: now }).write()
+  const updated = db.get('teamMembers').find({ id: teamMemberId }).value()
+  return res.json(toTeamMemberResponse(db, updated))
+}
+
+// GET /teams/{teamId}/members/{teamMemberId}/role-histories: 한 조원의 역할 이력을 최근에 바뀐 것부터 돌려줍니다.
+function handleGetRoleHistories(req, res, loginMember, teamId, teamMemberId) {
+  const db = req.app.db
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team || !checkTeamAccess(db, res, team, loginMember)) return
+
+  const target = db.get('teamMembers').find({ id: teamMemberId, teamId }).value()
+  if (!target) {
+    return sendError(res, 404, 'NOT_FOUND', '이 조의 조원이 아닙니다. id=' + teamMemberId)
+  }
+  const histories = db.get('roleHistories').filter({ teamMemberId }).sortBy('id').reverse().value()
+  return res.json(histories.map(({ id, previousRoleName, changedAt }) => ({ id, previousRoleName, changedAt })))
+}
+
 // 산출물 한 건의 모양 { id, roleName, fileName, fileSize, uploaderName, uploadedAt }입니다. 실제 DeliverableResponse와 같습니다.
 function toDeliverableResponse(db, deliverable) {
   const teamMember = db.get('teamMembers').find({ id: deliverable.teamMemberId }).value()
@@ -725,12 +771,24 @@ function handleRequest(req, res, next) {
   }
 
   const roleMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/role$/)
-  if (req.method === 'POST' && roleMatch) {
+  if ((req.method === 'POST' || req.method === 'PUT') && roleMatch) {
     const teamId = parseIdOrSendError(res, roleMatch[1])
     if (teamId === null) return
     const teamMemberId = parseIdOrSendError(res, roleMatch[2])
     if (teamMemberId === null) return
+    if (req.method === 'PUT') {
+      return handleChangeRole(req, res, loginMember, teamId, teamMemberId)
+    }
     return handleAssignRole(req, res, loginMember, teamId, teamMemberId)
+  }
+
+  const roleHistoriesMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/role-histories$/)
+  if (req.method === 'GET' && roleHistoriesMatch) {
+    const teamId = parseIdOrSendError(res, roleHistoriesMatch[1])
+    if (teamId === null) return
+    const teamMemberId = parseIdOrSendError(res, roleHistoriesMatch[2])
+    if (teamMemberId === null) return
+    return handleGetRoleHistories(req, res, loginMember, teamId, teamMemberId)
   }
 
   // 실제 API에 없는 주소입니다. json-server의 기본 주소(/members 등)로 넘기면 비밀번호까지 그대로 보이므로 막습니다.

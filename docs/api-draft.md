@@ -286,7 +286,7 @@ token
 
 ### POST /teams/{teamId}/members/{teamMemberId}/role — 역할 지정 (T-2-1) · 2026.10.25
 
-조장이 조원 한 명(조장 자신 포함)에게 역할을 지정함. 역할이 없는 조원에게만 지정할 수 있음. 역할 변경(T-2-2)은 아래 "완성 범위에서 더할 API"의 `PUT`으로 따로 둠
+조장이 조원 한 명(조장 자신 포함)에게 역할을 지정함. 역할이 없는 조원에게만 지정할 수 있음. 이미 역할이 있으면 아래 `PUT`으로 바꿈
 `teamMemberId`는 조원 목록의 `id`(조 참여 번호)임. 지정 시각은 서버가 기록함
 
 요청
@@ -310,6 +310,51 @@ token
 서버 쪽 규칙
 - 역할명 앞뒤 공백은 지우고 저장함. 같은 역할을 여러 조원이 맡을 수 있음
 - 메서드는 POST임. 첫 지정은 "새로 만든다"에 가깝고, CORS 허용 목록(GET, POST, PUT, DELETE)을 바꾸지 않아도 됨
+
+### PUT /teams/{teamId}/members/{teamMemberId}/role — 역할 변경 (T-2-2) · 2026.11.04
+
+조장이 역할이 있는 조원(조장 자신 포함)의 역할을 바꾸고 이전 역할을 이력으로 남김. 바뀐 시각은 서버가 기록함
+
+요청
+```json
+{ "roleName": "데이터" }
+```
+
+200: 역할이 바뀐 조원. 모양은 조원 목록의 한 줄과 같음
+```json
+{ "id": 12, "memberId": 8, "name": "조은우", "roleName": "데이터", "leader": false }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `roleName`이 비었거나 255자를 넘을 때, 주소의 번호가 숫자가 아닐 때, 평가 단계일 때, 아직 역할이 없는 조원일 때(메시지 "아직 역할이 지정되지 않은 조원입니다"), 지금과 같은 역할일 때(메시지 "지금과 같은 역할입니다") |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조장이 아닐 때(교수 포함) |
+| 404 | `NOT_FOUND` | 없는 조이거나, 그 조의 조원이 아닌 `teamMemberId`일 때 |
+
+서버 쪽 규칙
+- 역할명 앞뒤 공백은 지우고 비교·저장함
+- 이미 올린 산출물은 올릴 때의 역할명을 그대로 가짐. 바꾼 뒤에 올리는 산출물부터 새 역할명이 복사됨
+- 조원 목록의 `roleName`은 새 역할명이 됨. `TeamMember.roleAssignedAt`도 바뀐 시각이 됨
+
+### GET /teams/{teamId}/members/{teamMemberId}/role-histories — 역할 이력 (T-2-2) · 2026.11.04
+
+한 조원의 이전 역할을 최근에 바뀐 것부터 돌려줌. 그 조의 조원과 그 과제를 만든 교수가 볼 수 있음. 평가 단계에서도 볼 수 있음
+
+200: 바뀐 적이 없으면 빈 배열
+```json
+[
+  { "id": 2, "previousRoleName": "데이터", "changedAt": "2026-11-04T15:10:00" },
+  { "id": 1, "previousRoleName": "백엔드", "changedAt": "2026-11-04T14:30:00" }
+]
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원도, 그 과제를 만든 교수도 아닐 때 |
+| 404 | `NOT_FOUND` | 없는 조이거나, 그 조의 조원이 아닌 `teamMemberId`일 때 |
 
 ---
 
@@ -447,8 +492,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 4 | T-2-2 | `PUT /teams/{teamId}/members/{teamMemberId}/role` | 조장 |
-| 4 | T-2-2 | `GET /teams/{teamId}/members/{teamMemberId}/role-histories` | 조원, 교수 |
 | 5 | X-3 | `PUT /teams/{teamId}/leader` | 과제를 만든 교수 |
 | 5 | X-3 | `GET /teams/{teamId}/leader-histories` | 조원, 교수 |
 | 6 | R-1-3 | `DELETE /deliverables/{deliverableId}` | 올린 조원 |

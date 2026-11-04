@@ -41,5 +41,6 @@
     {"id": 2, "teamMemberId": 2, "roleName": "백엔드", "fileName": "API 명세.txt", "fileSize": 33, "storageKey": "seed-2.txt", "uploadedAt": "2026-10-25T09:00:00"},
     {"id": 3, "teamMemberId": 12, "roleName": "백엔드", "fileName": "최종 보고서.txt", "fileSize": 44, "storageKey": "seed-3.txt", "uploadedAt": "2026-10-25T09:00:00"}
   ],
-  "evaluations": []
+  "evaluations": [],
+  "roleHistories": []
 }

@@ -43,7 +43,7 @@ public class TeamMember {
     // 조장이 정한 역할명입니다. 역할을 배정하기 전에는 비어 있습니다.
     private String roleName;
 
-    // 역할을 지정한 시각입니다. 서버가 기록하고, 사용자가 보낸 시각은 받지 않습니다.
+    // 지금 역할을 지정한 시각입니다. 역할을 바꾸면 새 시각이 됩니다. 서버가 기록하고, 사용자가 보낸 시각은 받지 않습니다.
     private LocalDateTime roleAssignedAt;
 
     public TeamMember(Team team, Member member, boolean leader) {
@@ -53,7 +53,7 @@ public class TeamMember {
         this.leader = leader;
     }
 
-    // 역할을 지정합니다. 지정 시각은 서버의 현재 시각으로 기록합니다. 다른 기록 시각처럼 초 아래는 버립니다.
+    // 역할을 지정하거나 바꿉니다. 지정 시각은 서버의 현재 시각으로 기록합니다. 다른 기록 시각처럼 초 아래는 버립니다.
     public void assignRole(String roleName) {
         this.roleName = roleName;
         this.roleAssignedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);

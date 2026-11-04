@@ -29,3 +29,13 @@ export function joinTeam(inviteCode) {
 export function assignRole(teamId, teamMemberId, roleName) {
   return request(`/teams/${teamId}/members/${teamMemberId}/role`, { method: 'POST', body: { roleName } })
 }
+
+// 조장이 조원의 역할을 바꿉니다. 역할이 바뀐 조원 { id, memberId, name, roleName, leader }를 돌려줍니다.
+export function changeRole(teamId, teamMemberId, roleName) {
+  return request(`/teams/${teamId}/members/${teamMemberId}/role`, { method: 'PUT', body: { roleName } })
+}
+
+// 한 조원의 역할 이력 [{ id, previousRoleName, changedAt }]을 최근에 바뀐 것부터 가져옵니다.
+export function getRoleHistories(teamId, teamMemberId) {
+  return request(`/teams/${teamId}/members/${teamMemberId}/role-histories`)
+}

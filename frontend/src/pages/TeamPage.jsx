@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getMe } from '../api/auth'
-import { assignRole, getInviteCode, getTeam, getTeamMembers, issueInviteCode } from '../api/teams'
+import { assignRole, changeRole, getInviteCode, getRoleHistories, getTeam, getTeamMembers, issueInviteCode } from '../api/teams'
 import InviteLinkPanel from '../components/InviteLinkPanel'
+import RoleHistoryPanel from '../components/RoleHistoryPanel'
 import TeamMemberList from '../components/TeamMemberList'
 
-// 조 화면입니다. 조원 목록을 보여 주고, 기록 단계이면 조장에게 초대 링크 발급과 역할 지정을 보여 줍니다.
+// 조 화면입니다. 조원 목록과 역할 이력을 보여 주고, 기록 단계이면 조장에게 초대 링크 발급과 역할 지정·변경을 보여 줍니다.
 // 이 조의 조원과 그 과제를 만든 교수만 볼 수 있습니다(서버가 확인합니다).
 function TeamPage() {
     const { teamId } = useParams()
@@ -20,9 +21,13 @@ function TeamPage() {
     const [issuing, setIssuing] = useState(false)
     // 조원마다 입력 중인 역할명입니다. { 조 참여 번호: 역할명 } 모양입니다.
     const [roleNameInputs, setRoleNameInputs] = useState({})
-    // 지금 역할을 지정하는 중인 조 참여 번호입니다. 지정 중에는 모든 줄의 버튼을 막습니다.
-    // 두 줄을 동시에 지정하면 먼저 끝난 결과를 나중에 끝난 쪽이 옛 members로 덮어써 화면에서 사라지기 때문입니다.
-    const [assigningId, setAssigningId] = useState(null)
+    // 역할을 지정하거나 바꾸는 중이면 true입니다. 그동안 모든 줄의 버튼과 입력 칸을 막습니다.
+    // 두 줄을 동시에 저장하면 먼저 끝난 결과를 나중에 끝난 쪽이 옛 members로 덮어써 화면에서 사라지기 때문입니다.
+    const [savingRole, setSavingRole] = useState(false)
+    // 역할 이력을 보고 있는 조원의 조 참여 번호와 그 이력입니다. 한 번에 한 명만 봅니다.
+    const [historyMemberId, setHistoryMemberId] = useState(null)
+    const [roleHistories, setRoleHistories] = useState([])
+    const [loadingHistory, setLoadingHistory] = useState(false)
 
     useEffect(() => {
         Promise.all([getMe(), getTeam(teamId), getTeamMembers(teamId)])
@@ -55,16 +60,36 @@ function TeamPage() {
         setRoleNameInputs({ ...roleNameInputs, [teamMemberId]: value })
     }
 
-    // 한 조원에게 역할을 지정합니다. 성공하면 조원 목록에서 그 조원만 서버가 돌려준 값으로 바꿉니다.
-    function handleAssignRole(teamMemberId) {
+    // 한 조원의 역할을 저장합니다. 역할이 없으면 지정(POST), 있으면 변경(PUT)입니다.
+    // 성공하면 조원 목록에서 그 조원만 서버가 돌려준 값으로 바꾸고, 그 줄의 입력 칸을 비웁니다.
+    function handleSaveRole(target) {
+        const save = target.roleName === null ? assignRole : changeRole
         setActionError(null)
-        setAssigningId(teamMemberId)
-        assignRole(teamId, teamMemberId, roleNameInputs[teamMemberId] ?? '')
+        setSavingRole(true)
+        save(teamId, target.id, roleNameInputs[target.id] ?? '')
             .then((updated) => {
                 setMembers(members.map((member) => (member.id === updated.id ? updated : member)))
+                setRoleNameInputs({ ...roleNameInputs, [updated.id]: '' })
+                // 그 조원의 이력을 보고 있었으면 방금 생긴 줄이 보이도록 다시 불러옵니다.
+                if (historyMemberId === updated.id) {
+                    return getRoleHistories(teamId, updated.id).then((data) => setRoleHistories(data))
+                }
             })
             .catch((err) => setActionError(err.message))
-            .finally(() => setAssigningId(null))
+            .finally(() => setSavingRole(false))
+    }
+
+    // 한 조원의 역할 이력을 불러와 보여 줍니다.
+    function handleShowHistory(teamMemberId) {
+        setActionError(null)
+        setLoadingHistory(true)
+        getRoleHistories(teamId, teamMemberId)
+            .then((data) => {
+                setRoleHistories(data)
+                setHistoryMemberId(teamMemberId)
+            })
+            .catch((err) => setActionError(err.message))
+            .finally(() => setLoadingHistory(false))
     }
 
     if (loading) return <main><p>불러오는 중...</p></main>
@@ -83,6 +108,8 @@ function TeamPage() {
     const isMember = members.some((member) => member.memberId === me.id)
     // 평가 단계에서는 조 운영을 바꿀 수 없습니다.
     const isRecording = team.phase === 'RECORDING'
+    // 이력을 보고 있는 조원입니다. 이름과 지금 역할을 조원 목록에서 찾습니다.
+    const historyMember = members.find((member) => member.id === historyMemberId)
 
     return (
         <main>
@@ -100,13 +127,19 @@ function TeamPage() {
                 canAssignRole={isLeader && isRecording}
                 roleNameInputs={roleNameInputs}
                 onRoleNameChange={handleRoleNameChange}
-                onAssignRole={handleAssignRole}
-                assigningId={assigningId}
+                onSaveRole={handleSaveRole}
+                onShowHistory={handleShowHistory}
+                busy={savingRole || loadingHistory}
             />
+            {/* 역할 저장 오류를 그 입력 칸 가까이에 보여 주려고 조원 목록 바로 아래에 둡니다. */}
+            {actionError && <p className="error">{actionError}</p>}
+
+            {historyMember && (
+                <RoleHistoryPanel member={historyMember} histories={roleHistories} onClose={() => setHistoryMemberId(null)} />
+            )}
 
             {isLeader && isRecording && <InviteLinkPanel inviteCode={inviteCode} onIssue={handleIssueInviteCode} issuing={issuing} />}
-            {!isRecording && <p className="notice">평가 단계입니다. 초대와 역할 지정은 더 할 수 없습니다.</p>}
-            {actionError && <p className="error">{actionError}</p>}
+            {!isRecording && <p className="notice">평가 단계입니다. 초대와 역할 지정·변경은 더 할 수 없습니다.</p>}
         </main>
     )
 }

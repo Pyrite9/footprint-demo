@@ -440,9 +440,10 @@ ul.notice {
   margin-left: auto;
 }
 
-/* 목록 줄 안의 form(역할 지정)은 줄 바깥 여백을 없앱니다. */
+/* 목록 줄 안의 버튼·form 묶음은 위아래 여백을 없앱니다. */
 .item-list .row {
-  margin: 0;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 /* 짧은 꼬리표입니다(예: 백엔드 2번째). Primer의 Label 모양입니다. */
@@ -474,6 +475,11 @@ ul.notice {
   align-items: center;
   gap: 8px 12px;
   margin: 0 0 12px;
+}
+
+/* .row가 margin을 정해서 .end만으로는 밀리지 않습니다. 둘이 함께 붙은 줄을 오른쪽 끝으로 밉니다. */
+.row.end {
+  margin-left: auto;
 }
 
 /* 줄 안의 제목은 줄의 여백만 씁니다. */

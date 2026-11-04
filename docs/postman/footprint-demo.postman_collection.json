@@ -591,7 +591,7 @@
               }
             ],
             "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/role",
-            "description": "역할 변경은 2단계입니다. 이미 역할이 있으면 409입니다.",
+            "description": "이미 역할이 있으면 POST는 409입니다. 역할 변경은 PUT입니다.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -628,8 +628,8 @@
       ]
     },
     {
-      "name": "3. 산출물 (R-1)",
-      "description": "역할이 있는 조원이 파일을 올리고, 교수가 목록을 보고 내려받습니다.",
+      "name": "3. 산출물과 역할 변경 (R-1, T-2-2)",
+      "description": "역할이 있는 조원이 파일을 올리고, 교수가 목록을 보고 내려받습니다. 조장이 역할을 바꿔도 올린 산출물의 역할명은 그대로입니다.",
       "item": [
         {
           "name": "산출물 업로드 (조원)",
@@ -730,6 +730,159 @@
                 "exec": [
                   "pm.test('200 응답', () => pm.response.to.have.status(200));",
                   "pm.test('첨부 파일 header', () => pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "역할 변경 (조장)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/role",
+            "description": "이전 역할은 이력으로 남습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"데이터\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('역할 데이터', () => pm.expect(pm.response.json().roleName).to.eql('데이터'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "같은 역할로 바꾸면 400 (조장)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/role",
+            "description": "바뀐 것이 없어 이력을 남기지 않습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"데이터\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "역할 이력 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/role-histories",
+            "description": "최근에 바뀐 것부터입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('1건', () => pm.expect(pm.response.json().length).to.eql(1));",
+                  "pm.test('이전 역할 백엔드', () => pm.expect(pm.response.json()[0].previousRoleName).to.eql('백엔드'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "역할이 바뀌어도 산출물의 역할명은 그대로 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/deliverables",
+            "description": "업로드할 때의 역할명을 복사해 두었기 때문입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('역할명 백엔드', () => pm.expect(pm.response.json()[0].roleName).to.eql('백엔드'));"
                 ]
               }
             }
@@ -945,6 +1098,51 @@
                 "exec": [
                   "pm.test('400 응답', () => pm.response.to.have.status(400));",
                   "pm.test('code는 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 단계에서 역할을 바꾸면 400 (조장)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/role",
+            "description": "평가 단계에서는 역할도 바꿀 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"문서\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
                 ]
               }
             }
