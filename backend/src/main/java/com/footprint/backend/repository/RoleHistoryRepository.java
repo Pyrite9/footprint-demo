@@ -10,4 +10,7 @@ public interface RoleHistoryRepository extends JpaRepository<RoleHistory, Long> 
 
     // 한 조원의 역할 이력을 최근에 바뀐 것부터 찾습니다. id가 클수록 나중에 저장한 줄입니다.
     List<RoleHistory> findByTeamMemberIdOrderByIdDesc(Long teamMemberId);
+
+    // 한 조의 역할 이력을 최근에 바뀐 것부터 찾습니다. TeamMemberTeamId는 teamMember.team.id입니다.
+    List<RoleHistory> findByTeamMemberTeamIdOrderByIdDesc(Long teamId);
 }

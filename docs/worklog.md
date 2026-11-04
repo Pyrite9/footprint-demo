@@ -1618,3 +1618,50 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 내가 채운 가정:
   - 원칙 문장을 지우지 않고 설명 문장 끝으로 옮김
   - 설명 문장의 "점수를 계산하지 않고, 기록만 보여 줍니다"는 원칙 문장과 겹쳐서 뺌
+
+### V-1-1 조별 기록 열람
+
+- 결정:
+  - `GET /teams/{teamId}/records`를 둠. `docs/api-draft.md` 예정 표의 주소 그대로임
+  - 응답은 줄의 배열 하나임. 줄 모양은 `type`, `occurredAt`, 조원 칸, 대상 칸, `title`, 역할 칸, 기록 번호로 모든 종류가 같음. 값이 없는 칸은 null임. 선택지: 종류마다 다른 모양. 화면 분기가 늘고 가짜 API 맞추기도 어려워서 고르지 않음
+  - 줄은 최근 것부터임. `TODO.md`의 "시간순"을 이렇게 읽음. 선택지: 오래된 것부터. 다른 목록이 모두 최근 것부터라서 같게 함. 시각이 같으면 평가 시작, 조장 교체, 완료확인, 기여 항목, 산출물, 역할 순이고 한 기록 안에서는 나중 단계가 위임
+  - 넣는 기록은 시각을 저장하는 것 전부임: 업로드, 삭제, 기여 항목 등록·보고·취소, 완료확인·취소, 역할 지정·변경, 조장 교체, 평가 시작. 평가 제출과 임시 저장은 `TODO.md`대로 뺌. 합류와 초대 코드 발급은 시각을 저장하지 않아서 뺌
+  - 삭제와 취소는 원래 줄을 지우지 않고 줄을 하나 더함
+  - 기여 항목의 등록과 취소는 조장이 하지만 누가 했는지 저장하지 않음. 조장은 바뀔 수 있어서 지금 조장으로 적으면 틀릴 수 있음. 줄의 이름은 담당 조원이고 화면 문구는 "담당 기여 항목 등록"임. 선택지: `Contribution`에 등록한 조원 칸 더하기. 규칙에 없는 칸이라 더하지 않음
+  - `RoleHistory`에 `previousRoleAssignedAt`을 더함. 역할을 바꾸면 `TeamMember.roleAssignedAt`이 새 값으로 바뀌어 첫 지정 시각이 사라지기 때문임. 역할 이력 API의 응답은 그대로임. 선택지: 첫 지정 줄을 빼기, `TeamMember`에 첫 지정 시각 칸 더하기. 빼면 기록이 줄고, `TeamMember` 칸은 시작 데이터까지 고쳐야 함
+  - Service는 Entity 묶음 `TeamRecords`를 돌려주고 `RecordResponse.listFrom`이 줄로 펼침. "Entity → DTO 변환은 Controller" 규칙과 `TeamMemberEvidence`와 같은 방식임
+  - 조원별 보기는 API를 더 부르지 않고 화면에서 고름. 그 조원이 한 일에 더해, 그 조원의 기록에 남은 확인과 그 조원에게서 넘어간 조장 교체도 보여 줌. 평가 시작 줄은 사람이 없어 시간순에만 나옴
+  - 파일이나 항목 이름을 누르면 `state`로 번호를 넘겨 산출물·기여 항목 화면에서 상세를 엶. 조 홈의 최근 산출물과 같은 방식임
+  - 메뉴 이름은 "전체 기록"이고 학생은 "과정 기록" 아래, 교수는 고른 조 아래에 둠
+  - 페이지 나누기는 두지 않음. 한 조의 기록이 많아도 수백 줄이라고 봄. 조원을 줄마다 다시 읽는 지연 조회가 있지만 다른 목록과 같은 수준으로 둠
+- 만든 파일:
+  - 백엔드: `controller/RecordController`, `service/RecordService`, `service/TeamRecords`, `dto/RecordResponse`, 테스트 `RecordRuleTests`
+  - 화면: `api/records.js`, `pages/RecordsPage.jsx`, `components/RecordList.jsx`, `components/RecordRow.jsx`
+- 고친 파일:
+  - 백엔드: `entity/RoleHistory`, `service/TeamService`, `repository/RoleHistoryRepository`, `repository/ConfirmationRepository`
+  - 가짜 API: `frontend/mock/middleware.cjs`
+  - 화면: `App.jsx`, `format.js`, `index.css`, `components/SideNav.jsx`, `components/Icon.jsx`
+  - 문서: `docs/api-draft.md`, `docs/architecture.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`, `frontend/README.md`
+- 확인:
+  - `gradlew clean build` 성공. 테스트 123개, 실패 0(`RecordRuleTests` 8개 더함). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 119개, 확인 265개, 실패 0
+  - 실제 백엔드와 가짜 API에 같은 조회와 쓰기를 보내 응답 24건이 같음을 비교함(저장소에 넣지 않은 임시 스크립트). 권한, 없는 조, 잘못된 번호, 쓰기 10건 뒤의 줄과 순서, 평가 시작 뒤를 포함함. 시작 데이터의 시각이 양쪽 달라서 전체는 줄을 정렬해 비교하고, 새로 쌓은 줄은 맨 앞 순서까지 비교함
+  - 브라우저에서 실제 백엔드로 확인: student01이 `/teams/3/records`에서 평가 시작 줄을 맨 위로 보고, 조원별로 바꾸면 조원마다 묶임. 기여 항목 이름을 누르면 기여 항목 화면에서 상세가 열림. 교수는 `/teams/1/records`에서 메뉴가 "전체 기록"에 켜지고, 파일 이름을 누르면 산출물 화면에서 상세가 열림. 다른 조 학생(student06)은 "이 조에 접근할 권한이 없습니다" 화면임. 폭 375px에서 가로 스크롤 없음. 콘솔 오류는 다른 조 학생 시험의 403뿐임
+  - 실제 요청으로 역할 변경, 기여 항목 등록·보고·취소, 완료확인과 취소, 산출물 삭제, 조장 교체를 쌓은 뒤 student02 화면에서 줄 문구를 모두 확인함. 조원별 보기에서 이서연 아래에 받은 확인이, 김민준 아래에 넘겨준 조장 교체가 나옴. 쓰기가 같은 초에 몰려서 그 줄들은 시각이 아니라 넣는 순서로 놓임
+  - 시험 뒤 `frontend/db.json`과 `frontend/mock/files`를 되돌림
+  - rule-check: 금지 패턴 없음. 건수, 합계, 평균 없음(`.length`는 빈 목록 문구를 고를 때만 씀). 새 public 메서드에 주석 있음. 읽기 전용이라 `@Transactional` 없음. 접근 범위 검사가 Service에 메서드 호출로 보임. 시각은 서버가 정함. 수정 필요 없음
+- 읽을 때 볼 곳:
+  - `RecordResponse.listFrom`의 넣는 순서와 마지막 정렬. `sort`는 시각이 같은 줄의 순서를 유지해서 넣는 순서가 곧 같은 시각의 순서가 됨
+  - `RecordResponse.addRoleRows`. 지금 역할에서 시작해 이력을 최근 것부터 거슬러 올라감. 변수 `roleName`이 줄마다 "그때의 새 역할"이 됨
+  - `RoleHistory.previousRoleAssignedAt`과 `TeamService.changeRole`. `assignRole`을 부르기 전에 이력을 저장해야 이전 시각이 남음
+  - `ConfirmationRepository.findByConfirmerTeamIdOrderByIdDesc`. 메서드 이름이 confirmer.team.id로 읽힘
+  - `RecordList`의 `key`. 줄에 고유 번호가 없어서 순서 번호를 씀. 목록 순서가 바뀌지 않아서 괜찮음
+  - `RecordRuleTests`의 `ReflectionTestUtils.setField`. 시각은 서버가 정해서 요청으로 바꿀 수 없음. 테스트에서만 칸에 직접 넣음
+- 내가 채운 가정:
+  - 최근 것부터 놓음. 시각이 같을 때의 순서도 내가 정함
+  - 합류와 초대 코드 발급은 목록에 없음
+  - 기여 항목 등록과 취소의 줄 이름은 담당 조원임
+  - `RoleHistory`에 `previousRoleAssignedAt`을 더함
+  - 조원별 보기에 받은 확인과 넘겨준 조장 교체도 보여 줌
+  - 메뉴 이름 "전체 기록", 줄 문구, 페이지 설명은 내가 씀
+  - 페이지 나누기는 두지 않음

@@ -63,4 +63,5 @@ http://localhost:5173 을 열면 로그인 화면이 나옴. 아래 "시작 계�
 - 동료평가는 `db.json`의 `evaluations`에 `evaluatorId`, `targetId`(둘 다 조 참여 번호)로 저장됨. 시작 상태는 빈 목록. 화면과 API는 점수를 돌려주지 않고 제출 여부만 돌려줌
 - 평가 임시 저장은 `db.json`의 `evaluationDrafts`에 저장됨. 시작 상태는 빈 목록. 저장한 본인에게만 돌려줌
 - 근거 패널은 따로 저장하지 않음. `deliverables`, `contributions`, `confirmations`에서 그 조원의 기록을 모아 돌려줌
+- 기록 열람도 따로 저장하지 않음. 조의 기록을 모아 한 줄씩 펼쳐 돌려줌. 시작 데이터의 시각은 실제 백엔드와 달라서 시작 줄의 순서는 다를 수 있음
 - 가짜 API의 다운로드 header는 실제와 모양이 조금 다름(`res.attachment`가 만듦). 한글 이름은 둘 다 `filename*=UTF-8''...`로 옴. 화면은 이 header를 읽지 않고 목록의 `fileName`을 씀

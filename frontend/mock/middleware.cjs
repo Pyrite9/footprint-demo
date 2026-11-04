@@ -434,7 +434,7 @@ function handleChangeRole(req, res, loginMember, teamId, teamMemberId) {
 
   const now = nowLocalDateTime()
   db.get('roleHistories')
-    .push({ id: nextId(db, 'roleHistories'), teamMemberId, previousRoleName: target.roleName, changedAt: now })
+    .push({ id: nextId(db, 'roleHistories'), teamMemberId, previousRoleName: target.roleName, previousRoleAssignedAt: target.roleAssignedAt, changedAt: now })
     .write()
   db.get('teamMembers').find({ id: teamMemberId }).assign({ roleName: newRoleName, roleAssignedAt: now }).write()
   const updated = db.get('teamMembers').find({ id: teamMemberId }).value()
@@ -1093,6 +1093,129 @@ function handleGetEvidence(req, res, loginMember, teamId, teamMemberId) {
   })
 }
 
+// 기록 열람의 한 줄을 만듭니다. 실제 RecordResponse와 같은 모양이고 값이 없는 칸은 null입니다.
+function toRecordRow(type, occurredAt, values) {
+  return {
+    type,
+    occurredAt,
+    teamMemberId: null,
+    memberName: null,
+    targetTeamMemberId: null,
+    targetMemberName: null,
+    title: null,
+    roleName: null,
+    previousRoleName: null,
+    deliverableId: null,
+    contributionId: null,
+    ...values,
+  }
+}
+
+// 조 참여 번호로 { teamMemberId, memberName } 칸을 만듭니다.
+function memberCellsOf(db, teamMemberId) {
+  const teamMember = db.get('teamMembers').find({ id: teamMemberId }).value()
+  const member = db.get('members').find({ id: teamMember.memberId }).value()
+  return { teamMemberId, memberName: member.name }
+}
+
+// 조 참여 번호로 { targetTeamMemberId, targetMemberName } 칸을 만듭니다.
+function targetCellsOf(db, teamMemberId) {
+  const { memberName } = memberCellsOf(db, teamMemberId)
+  return { targetTeamMemberId: teamMemberId, targetMemberName: memberName }
+}
+
+// 완료확인 한 건의 줄입니다. 취소했으면 취소 줄을 먼저 넣습니다.
+function toConfirmationRecordRows(db, confirmation) {
+  const deliverable = confirmation.deliverableId === null ? null : db.get('deliverables').find({ id: confirmation.deliverableId }).value()
+  const contribution = confirmation.contributionId === null ? null : db.get('contributions').find({ id: confirmation.contributionId }).value()
+  const values = {
+    ...memberCellsOf(db, confirmation.confirmerId),
+    ...targetCellsOf(db, deliverable ? deliverable.teamMemberId : contribution.assigneeId),
+    title: deliverable ? deliverable.fileName : contribution.title,
+    deliverableId: confirmation.deliverableId,
+    contributionId: confirmation.contributionId,
+  }
+  const rows = []
+  if (confirmation.canceledAt !== null) rows.push(toRecordRow('CONFIRMATION_CANCELED', confirmation.canceledAt, values))
+  rows.push(toRecordRow('CONFIRMATION_CREATED', confirmation.confirmedAt, values))
+  return rows
+}
+
+// 기여 항목 한 건의 줄입니다. 나중에 일어나는 일의 줄을 먼저 넣습니다.
+function toContributionRecordRows(db, contribution) {
+  const values = { ...memberCellsOf(db, contribution.assigneeId), title: contribution.title, contributionId: contribution.id }
+  const rows = []
+  if (contribution.canceledAt !== null) rows.push(toRecordRow('CONTRIBUTION_CANCELED', contribution.canceledAt, values))
+  if (contribution.reportedAt !== null) rows.push(toRecordRow('CONTRIBUTION_REPORTED', contribution.reportedAt, values))
+  rows.push(toRecordRow('CONTRIBUTION_CREATED', contribution.createdAt, values))
+  return rows
+}
+
+// 산출물 한 건의 줄입니다. 삭제했으면 삭제 줄을 먼저 넣습니다.
+function toDeliverableRecordRows(db, deliverable) {
+  const values = {
+    ...memberCellsOf(db, deliverable.teamMemberId),
+    title: deliverable.fileName,
+    roleName: deliverable.roleName,
+    deliverableId: deliverable.id,
+  }
+  const rows = []
+  if (deliverable.deletedAt !== null) rows.push(toRecordRow('DELIVERABLE_DELETED', deliverable.deletedAt, values))
+  rows.push(toRecordRow('DELIVERABLE_UPLOADED', deliverable.uploadedAt, values))
+  return rows
+}
+
+// 한 조원의 역할 줄입니다. 이력은 최근 것부터이므로 지금 역할에서 시작해 한 칸씩 과거로 갑니다. 첫 지정 시각은 가장 오래된 이력에서 읽습니다.
+function toRoleRecordRows(db, teamMember) {
+  const memberCells = memberCellsOf(db, teamMember.id)
+  const histories = db.get('roleHistories').filter({ teamMemberId: teamMember.id }).sortBy('id').reverse().value()
+  const rows = []
+  let roleName = teamMember.roleName
+  let assignedAt = teamMember.roleAssignedAt
+  histories.forEach((history) => {
+    rows.push(toRecordRow('ROLE_CHANGED', history.changedAt, { ...memberCells, roleName, previousRoleName: history.previousRoleName }))
+    roleName = history.previousRoleName
+    assignedAt = history.previousRoleAssignedAt
+  })
+  if (roleName !== null) rows.push(toRecordRow('ROLE_ASSIGNED', assignedAt, { ...memberCells, roleName }))
+  return rows
+}
+
+// GET /teams/{teamId}/records: 한 조의 기록을 한 줄씩 펼쳐 최근 것부터 돌려줍니다. 동료평가와 임시 저장은 넣지 않습니다. 넣는 순서는 실제 RecordResponse와 같습니다.
+function handleGetRecords(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team || !checkTeamAccess(db, res, team, loginMember)) return
+
+  const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
+  const teamMembers = db.get('teamMembers').filter({ teamId }).sortBy('id').value()
+  const teamMemberIds = teamMembers.map((teamMember) => teamMember.id)
+  const newestFirst = (collection) => db.get(collection).sortBy('id').reverse().value()
+
+  const rows = []
+  if (assignment.evaluationStartedAt !== null) rows.push(toRecordRow('EVALUATION_STARTED', assignment.evaluationStartedAt, {}))
+  newestFirst('leaderHistories')
+    .filter((history) => history.teamId === teamId)
+    .forEach((history) => rows.push(toRecordRow('LEADER_CHANGED', history.changedAt, {
+      ...memberCellsOf(db, history.newLeaderId),
+      ...targetCellsOf(db, history.previousLeaderId),
+    })))
+  newestFirst('confirmations')
+    .filter((confirmation) => teamMemberIds.includes(confirmation.confirmerId))
+    .forEach((confirmation) => rows.push(...toConfirmationRecordRows(db, confirmation)))
+  newestFirst('contributions')
+    .filter((contribution) => contribution.teamId === teamId)
+    .forEach((contribution) => rows.push(...toContributionRecordRows(db, contribution)))
+  newestFirst('deliverables')
+    .filter((deliverable) => teamMemberIds.includes(deliverable.teamMemberId))
+    .forEach((deliverable) => rows.push(...toDeliverableRecordRows(db, deliverable)))
+  teamMembers.forEach((teamMember) => rows.push(...toRoleRecordRows(db, teamMember)))
+
+  // sort는 시각이 같은 줄의 순서를 바꾸지 않습니다. 시각은 같은 모양의 글자라 글자 비교가 곧 시간 비교입니다.
+  rows.sort((a, b) => (a.occurredAt === b.occurredAt ? 0 : a.occurredAt < b.occurredAt ? 1 : -1))
+  return res.json(rows)
+}
+
 // 주소가 pattern과 맞으면 {id} 자리의 글자를 돌려줍니다. 맞지 않으면 null입니다.
 // 예: matchId(/^\/assignments\/([^/]+)$/, '/assignments/3') → '3'(글자). 숫자 검사는 parseIdOrSendError가 합니다.
 function matchId(pattern, path) {
@@ -1293,6 +1416,13 @@ function handleRequest(req, res, next) {
       return handleChangeRole(req, res, loginMember, teamId, teamMemberId)
     }
     return handleAssignRole(req, res, loginMember, teamId, teamMemberId)
+  }
+
+  const recordsMatch = req.path.match(/^\/teams\/([^/]+)\/records$/)
+  if (req.method === 'GET' && recordsMatch) {
+    const teamId = parseIdOrSendError(res, recordsMatch[1])
+    if (teamId === null) return
+    return handleGetRecords(req, res, loginMember, teamId)
   }
 
   const evidenceMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/evidence$/)

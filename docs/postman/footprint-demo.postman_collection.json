@@ -1488,6 +1488,38 @@
           ]
         },
         {
+          "name": "전체 기록 - 역할 변경 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/records",
+            "description": "역할을 바꿔도 첫 지정 줄이 남고 변경 줄에 이전 역할과 새 역할이 담깁니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('역할 변경 줄이 있음', () => pm.expect(pm.response.json().find((row) => row.type === 'ROLE_CHANGED').previousRoleName).to.be.a('string'));",
+                  "pm.test('첫 지정 줄이 남음', () => pm.expect(pm.response.json().map((row) => row.type)).to.include('ROLE_ASSIGNED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "역할이 바뀌어도 산출물의 역할명은 그대로 (교수)",
           "request": {
             "method": "GET",
@@ -2603,7 +2635,7 @@
       ]
     },
     {
-      "name": "5. 평가 시작과 동료평가 (A-3, E-1, E-2)",
+      "name": "5. 평가 시작과 동료평가 (A-3, E-1, E-2, V-1)",
       "description": "교수가 평가를 시작한 뒤 조원이 자신을 뺀 조원 전원(여기서는 조장 1명)을 평가해 제출합니다. 점수는 시스템이 계산하지 않고, 응답에도 점수가 없습니다.",
       "item": [
         {
@@ -2722,6 +2754,37 @@
                 "exec": [
                   "pm.test('400 응답', () => pm.response.to.have.status(400));",
                   "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "전체 기록 - 기록 단계에도 봄 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/records",
+            "description": "조원은 기록 단계와 평가 단계 모두 봅니다. 평가 시작 줄은 아직 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('평가 시작 줄이 없음', () => pm.expect(pm.response.json().map((row) => row.type)).to.not.include('EVALUATION_STARTED'));"
                 ]
               }
             }
@@ -3595,6 +3658,103 @@
           ]
         },
         {
+          "name": "전체 기록 - 평가 단계에도 봄 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/records",
+            "description": "과정 기록이 한 줄씩 펼쳐 옵니다. 삭제와 취소도 줄로 남습니다. 임시 저장은 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('평가 시작 줄이 맨 위', () => pm.expect(pm.response.json()[0].type).to.eql('EVALUATION_STARTED'));",
+                  "['DELIVERABLE_UPLOADED', 'DELIVERABLE_DELETED', 'CONTRIBUTION_CREATED', 'CONTRIBUTION_REPORTED', 'CONTRIBUTION_CANCELED', 'CONFIRMATION_CREATED', 'CONFIRMATION_CANCELED', 'ROLE_ASSIGNED', 'ROLE_CHANGED', 'LEADER_CHANGED'].forEach((type) => pm.test(type + ' 줄이 있음', () => pm.expect(pm.response.json().map((row) => row.type)).to.include(type)));",
+                  "pm.test('삭제된 산출물 번호가 담김', () => pm.expect(pm.response.json().find((row) => row.type === 'DELIVERABLE_DELETED').deliverableId).to.eql(Number(pm.collectionVariables.get('deliverableId'))));",
+                  "pm.test('응답이 줄의 배열임', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "pm.test('임시 저장 줄이 없음', () => pm.expect(pm.response.json().filter((row) => row.type.includes('DRAFT'))).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "전체 기록 - 다른 조 학생은 403 (다른 조)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/records",
+            "description": "그 조의 조원과 과제를 만든 교수만 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "전체 기록 - 없는 조면 404 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/999999/records",
+            "description": "없는 조면 404입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 응답', () => pm.response.to.have.status(404));",
+                  "pm.test('code가 NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "근거 패널 - 올린 기록 (조장)",
           "request": {
             "method": "GET",
@@ -3914,6 +4074,37 @@
                 "exec": [
                   "pm.test('409 응답', () => pm.response.to.have.status(409));",
                   "pm.test('code가 DUPLICATE', () => pm.expect(pm.response.json().code).to.eql('DUPLICATE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "제출해도 전체 기록에 없음 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/records",
+            "description": "평가 제출은 기록 열람에 넣지 않습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('평가 제출 줄이 없음', () => pm.expect(pm.response.json().filter((row) => row.type.includes('SUBMIT'))).to.eql([]));"
                 ]
               }
             }

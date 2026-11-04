@@ -60,6 +60,21 @@ export const CONTRIBUTION_STATUS_PILLS = {
   '취소됨': 'gray',
 }
 
+// 기록 열람의 줄 종류마다 보여 줄 이름입니다. 기여 항목의 등록과 취소는 조장이 하지만 줄의 이름은 담당 조원이라서 "담당"을 붙입니다.
+export const RECORD_TYPE_LABELS = {
+  DELIVERABLE_UPLOADED: '산출물 업로드',
+  DELIVERABLE_DELETED: '산출물 삭제',
+  CONTRIBUTION_CREATED: '담당 기여 항목 등록',
+  CONTRIBUTION_REPORTED: '완료 보고',
+  CONTRIBUTION_CANCELED: '담당 기여 항목 취소',
+  CONFIRMATION_CREATED: '완료확인',
+  CONFIRMATION_CANCELED: '완료확인 취소',
+  ROLE_ASSIGNED: '역할 지정',
+  ROLE_CHANGED: '역할 변경',
+  LEADER_CHANGED: '조장으로 교체',
+  EVALUATION_STARTED: '평가 시작. 기록 단계에서 평가 단계로 바뀜',
+}
+
 // 과제 단계마다 꼬리표 색 class입니다.
 export const PHASE_PILLS = {
   RECORDING: 'blue',

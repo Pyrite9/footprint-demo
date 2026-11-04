@@ -841,13 +841,65 @@ token
 
 ---
 
+## 기록 열람
+
+### GET /teams/{teamId}/records — 조별 기록 (V-1-1) · 2026.11.04
+
+한 조의 기록을 한 줄씩 펼쳐 최근 것부터 돌려줌. 그 조의 조원과 그 과제를 만든 교수가 기록 단계와 평가 단계 모두 부를 수 있음
+
+200
+```json
+[
+  { "type": "CONFIRMATION_CREATED", "occurredAt": "2026-11-13T21:00:00", "teamMemberId": 11, "memberName": "김민준",
+    "targetTeamMemberId": 12, "targetMemberName": "이서연", "title": "최종 보고서.txt", "roleName": null,
+    "previousRoleName": null, "deliverableId": 3, "contributionId": null },
+  { "type": "ROLE_CHANGED", "occurredAt": "2026-11-13T20:00:00", "teamMemberId": 12, "memberName": "이서연",
+    "targetTeamMemberId": null, "targetMemberName": null, "title": null, "roleName": "백엔드",
+    "previousRoleName": "기획", "deliverableId": null, "contributionId": null }
+]
+```
+
+| `type` | 뜻 | `teamMemberId` | `target...` | `title` | `roleName` |
+|---|---|---|---|---|---|
+| `DELIVERABLE_UPLOADED` | 산출물 업로드 | 올린 조원 | | 파일 이름 | 올릴 때의 역할명 |
+| `DELIVERABLE_DELETED` | 산출물 삭제 | 올린 조원 | | 파일 이름 | 올릴 때의 역할명 |
+| `CONTRIBUTION_CREATED` | 기여 항목 등록 | 담당 조원 | | 항목명 | |
+| `CONTRIBUTION_REPORTED` | 완료 보고 | 담당 조원 | | 항목명 | |
+| `CONTRIBUTION_CANCELED` | 기여 항목 취소 | 담당 조원 | | 항목명 | |
+| `CONFIRMATION_CREATED` | 완료확인 | 확인한 조원 | 기록의 주인 | 파일 이름 또는 항목명 | |
+| `CONFIRMATION_CANCELED` | 완료확인 취소 | 확인한 조원 | 기록의 주인 | 파일 이름 또는 항목명 | |
+| `ROLE_ASSIGNED` | 첫 역할 지정 | 그 조원 | | | 처음 역할 |
+| `ROLE_CHANGED` | 역할 변경 | 그 조원 | | | 새 역할. 이전 역할은 `previousRoleName` |
+| `LEADER_CHANGED` | 조장 교체 | 새 조장 | 이전 조장 | | |
+| `EVALUATION_STARTED` | 평가 시작 | 없음 | | | |
+
+- `occurredAt`: 그 일이 일어난 시각. 모두 서버가 저장한 값임
+- `teamMemberId`, `targetTeamMemberId`: 조원 목록(`GET /teams/{teamId}/members`)의 `id`임. 화면의 조원별 보기가 이 값으로 고름
+- `deliverableId`, `contributionId`: 줄의 기록 번호. 산출물과 완료확인, 기여 항목과 완료확인의 줄에 있음. 그 밖에는 null임
+- 값이 없는 칸은 null임. 칸을 빼지 않음. 기록이 없으면 `[]`임
+- 기여 항목의 등록과 취소는 조장이 하지만 누가 했는지 저장하지 않아서 담당 조원을 담음
+- 시각이 같으면 평가 시작, 조장 교체, 완료확인, 기여 항목, 산출물, 역할 순임. 한 기록 안에서는 나중 단계가 위임
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `teamId`가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원도, 과제를 만든 교수도 아닐 때 |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+
+서버 쪽 규칙
+- 건수, 합계, 점수를 담지 않음. 기록을 있는 그대로 돌려줌
+- 평가 제출과 임시 저장은 담지 않음
+- 조원 합류와 초대 코드 발급은 시각을 저장하지 않아서 담지 않음
+
+---
+
 ## 완성 범위에서 더할 API · 2026.11.04
 
 아직 만들지 않은 API의 주소 추천안임(관리자 결정 2026.11.04 "최대한 완성", 추가 기능 필수·권장 포함). 위 절과 달리 **지금 부르면 404임.** 만들 때 위쪽에 요청·응답·오류 표를 적고 이 표에서 그 줄을 지움. 규칙은 `TODO.md` 1절
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 11 | V-1-1 | `GET /teams/{teamId}/records` | 조원, 교수 |
 | 12 | V-2-1 | `GET /teams/{teamId}/evaluations/status` | 교수 |
 | 12 | V-2-2 | `GET /teams/{teamId}/evaluations` | 교수 |
 | 12 | X-5 | `GET /teams/{teamId}/evaluations/export` | 교수 |

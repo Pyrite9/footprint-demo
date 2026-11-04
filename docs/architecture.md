@@ -257,6 +257,7 @@ erDiagram
         Long id PK "역할 이력 번호"
         Long team_member_id FK "역할이 바뀐 조원의 조 참여"
         String previousRoleName "바뀌기 전의 역할명"
+        LocalDateTime previousRoleAssignedAt "바뀌기 전의 역할을 지정한 시각 · 기록 열람의 첫 지정 줄이 씀"
         LocalDateTime changedAt "바뀐 시각 · 서버가 기록"
     }
     LEADER_HISTORY {

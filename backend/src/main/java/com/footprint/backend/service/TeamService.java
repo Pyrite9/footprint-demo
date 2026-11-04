@@ -147,7 +147,7 @@ public class TeamService {
         }
 
         // 역할을 덮어쓰면 이전 값이 사라지므로, 이력을 먼저 저장합니다.
-        roleHistoryRepository.save(new RoleHistory(target, target.getRoleName()));
+        roleHistoryRepository.save(new RoleHistory(target, target.getRoleName(), target.getRoleAssignedAt()));
         target.assignRole(newRoleName);
         return target;
     }

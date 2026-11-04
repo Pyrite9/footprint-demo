@@ -1075,6 +1075,32 @@ code {
   font-size: 12px;
 }
 
+/* 전체 기록의 한 줄입니다. */
+.record-row {
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.record-row:first-child {
+  border-top: none;
+}
+
+.record-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  overflow-wrap: anywhere;
+}
+
+.record-link {
+  font-weight: 600;
+}
+
+.record-link:hover {
+  color: var(--accent-text);
+}
+
 /* "이름 + 칸" 한 묶음입니다. 이름을 칸 위에 둡니다. */
 .field {
   display: flex;
