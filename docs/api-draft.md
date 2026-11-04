@@ -728,12 +728,70 @@ token
 | 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
 | 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함) |
 | 404 | `NOT_FOUND` | 없는 조일 때 |
-| 409 | `DUPLICATE` | 이미 제출했을 때(두 요청을 거의 동시에 보내 unique 제약에 걸린 두 번째 요청 포함) |
+| 409 | `DUPLICATE` | 이미 제출했을 때(두 요청을 거의 동시에 보낸 두 번째 요청 포함) |
 
 서버 쪽 규칙
 - 조에 자신만 있으면 평가할 대상이 없어서 제출할 것이 없음. 제출 여부는 계속 `submitted: false`임. 화면은 입력 폼 대신 "평가할 조원이 없습니다."를 보여 주고 이 요청을 보내지 않음(2026.10.30 결정)
 - 평가는 회원이 아니라 조 참여(`TeamMember`)를 평가자·대상으로 참조함. (평가자, 대상)에 데이터베이스 unique 제약이 있음
 - 평가와 의견은 과제를 만든 교수만 열람함. 교수 열람 화면·API(V-2)는 아직 없고 지금은 저장까지임. 조원끼리는 서로의 평가를 볼 수 없음(조회 API 없음)
+- 제출에 성공하면 그 평가자의 임시 저장을 같은 트랜잭션에서 지움. 제출에 실패하면 임시 저장은 그대로임
+- 제출과 임시 저장은 조 행을 잠가 한 번에 하나씩 처리함
+
+### GET /teams/{teamId}/evaluations/draft — 내 평가 임시 저장 불러오기 (E-2-2) · 2026.11.04
+
+내가 이 조에서 임시 저장한 내용을 받음. 다른 조원의 임시 저장은 받을 수 없음. 그 조의 조원만 부를 수 있고 교수는 403임
+
+200
+```json
+[
+  { "targetTeamMemberId": 2, "goalSharing": 5, "roleFulfillment": null, "encouragement": null,
+    "onlineCommunication": null, "offlineCommunication": null, "progressCheck": null,
+    "comment": "API 명세를 먼저 정리해 줌", "savedAt": "2026-11-13T21:05:00" }
+]
+```
+
+임시 저장이 없으면 `[]`임. 기록 단계와 제출한 뒤에도 `[]`임
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `teamId`가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함) |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+
+### PUT /teams/{teamId}/evaluations/draft — 내 평가 임시 저장 (E-2-2) · 2026.11.04
+
+지금까지 입력한 내용을 저장함. 조원 일부만 보내도 되고 점수도 일부만 채워도 됨. 저장 시각은 서버가 기록함
+보낸 내용이 이전 임시 저장 **전체**를 대신함. 보내지 않은 조원의 임시 저장은 사라짐. `evaluations`가 `[]`이면 모두 지움
+
+요청
+```json
+{
+  "evaluations": [
+    { "targetTeamMemberId": 2, "goalSharing": 5, "roleFulfillment": null, "encouragement": null,
+      "onlineCommunication": null, "offlineCommunication": null, "progressCheck": null,
+      "comment": "API 명세를 먼저 정리해 줌" }
+  ]
+}
+```
+
+200: 저장한 내용. 모양은 `GET /teams/{teamId}/evaluations/draft`와 같음
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `evaluations`가 빠졌거나, 원소가 null이거나, `targetTeamMemberId`가 빠졌거나, 값이 있는 점수가 1~5의 정수가 아니거나(`4.5`, `"5"` 포함, 위 "공통"), `comment`가 2000자를 넘을 때 |
+| 400 | `INVALID_INPUT` | 같은 조원이 두 번 있거나, 자기 자신이나 다른 조 조원일 때 |
+| 400 | `INVALID_INPUT` | 기록 단계일 때. 메시지 "동료평가는 평가 단계에서만 입력할 수 있습니다" |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함) |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+| 409 | `DUPLICATE` | 이미 제출했을 때 |
+
+서버 쪽 규칙
+- 임시 저장은 제출본과 다른 테이블(`EvaluationDraft`)에 저장함. 제출본 `Evaluation`의 점수는 그대로 NOT NULL임
+- 임시 저장만 있으면 제출 여부는 계속 `submitted: false`임
+- 교수가 임시 저장을 볼 수 있는 API는 없음
+- `comment`는 앞뒤 공백을 지우고, 비었으면 null로 저장함
 
 ---
 
@@ -743,8 +801,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 9 | E-2-2 | `GET /teams/{teamId}/evaluations/draft` | 조원 |
-| 9 | E-2-2 | `PUT /teams/{teamId}/evaluations/draft` | 조원 |
 | 10 | E-1-1 | `GET /teams/{teamId}/members/{teamMemberId}/evidence` | 조원(평가 단계), 교수 |
 | 11 | V-1-1 | `GET /teams/{teamId}/records` | 조원, 교수 |
 | 12 | V-2-1 | `GET /teams/{teamId}/evaluations/status` | 교수 |

@@ -1472,3 +1472,46 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 삭제된 산출물의 확인도 취소할 수 있음
   - 취소 응답은 200으로 확인을 돌려줌
   - "확인 취소" 버튼과 오류 메시지는 내가 씀
+
+### E-2-2 평가 임시 저장
+
+- 결정:
+  - `GET`, `PUT /teams/{teamId}/evaluations/draft`를 둠. `docs/api-draft.md` 예정 표의 주소 그대로임
+  - `EvaluationDraft`를 새로 둠. `TODO.md`의 추천안대로이고 제출본 `Evaluation`의 점수는 NOT NULL로 유지함. 선택지: `Evaluation`에 "임시" 표시를 더하고 점수를 null 허용으로 바꾸기. 제출본 검사가 코드에만 남고 교수 조회에서 임시 행을 빼는 조건이 계속 따라다녀서 고르지 않음
+  - PUT은 보낸 내용으로 이전 임시 저장 전체를 바꿈. 선택지: 조원별로 보낸 것만 고치기. 화면이 늘 전체를 보내고 "마지막 내용으로 바뀜"이 그대로 보여서 전체 교체로 함. 빈 목록은 모두 지움
+  - 저장은 평가 단계에서 제출 전까지만 됨. 기록 단계 400, 제출 뒤 409임. 불러오기는 단계 검사 없이 빈 목록을 돌려줌. 평가 화면이 기록 단계에도 같은 요청을 보내기 때문임
+  - 대상은 자신을 뺀 같은 조 조원만임. 자기 자신, 다른 조, 중복은 400임
+  - 응답에는 임시 저장 번호(`id`)를 두지 않음. 저장할 때마다 바뀌는 값이고 화면은 대상 조원 번호로 찾음
+  - 저장과 제출은 조 행을 잠가 한 번에 하나씩 처리함(`findWithLockById`). 잠금이 없으면 겹친 저장이 unique 제약에 걸려 500이 남. 제출과 겹친 저장은 제출 뒤에 임시 저장을 남길 수 있음. 선택지: 평가자의 조 참여 행 잠금. 조 행은 이미 잠그는 메서드가 있고 조 안의 저장이 잠깐 기다릴 뿐이라 조 행으로 함
+  - 제출의 unique 오류 처리(409)는 잠금을 더해도 마지막 장치로 둠
+  - 제출에 성공하면 같은 트랜잭션에서 내 임시 저장만 지움
+  - 화면은 임시 저장 버튼과 저장 시각만 더함. 고치고 저장하지 않은 채 나갈 때의 경고와 자동 저장은 `TODO.md`에 없어서 만들지 않음
+  - 시작 데이터에 임시 저장을 넣지 않음
+- 만든 파일:
+  - 백엔드: `entity/EvaluationDraft`, `repository/EvaluationDraftRepository`, `dto/EvaluationDraftSaveRequest`, `dto/EvaluationDraftResponse`, 테스트 `EvaluationDraftRuleTests`
+- 고친 파일:
+  - 백엔드: `service/EvaluationService`, `controller/EvaluationController`
+  - 가짜 API: `frontend/db.json`, `frontend/mock/middleware.cjs`. 정수가 아닌 점수의 오류 문구가 실제와 달라서 제출 쪽도 함께 맞춤(`hasNotIntegerScore`)
+  - 화면: `api/evaluations.js`, `pages/EvaluationPage.jsx`
+  - 문서: `docs/api-draft.md`, `docs/architecture.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`, `frontend/README.md`
+- 확인:
+  - `gradlew clean build` 성공. 테스트 108개, 실패 0(`EvaluationDraftRuleTests` 8개 더함). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 107개, 확인 224개, 실패 0
+  - 실제 백엔드와 가짜 API에 같은 요청 40개를 보내 응답과 오류 메시지가 같음을 비교함(저장소에 넣지 않은 임시 스크립트)
+  - 겹치는 요청 시험(저장소에 넣지 않은 임시 스크립트): 같은 조원의 저장 두 개를 동시에 보내기 30번, 모두 200이고 어느 한 요청의 내용만 남음. 세 조원의 저장을 동시에 보내기 30번, 모두 200임. 제출과 저장 두 개를 동시에 보내기 1번, 임시 저장이 남지 않음. 제출과 겹치는 시험은 제출이 한 번뿐이라 1번만 함
+  - 잠금을 뺀 코드와 비교함: 같은 조원의 저장 두 개에서 30번 중 21번 한쪽이 500임. 제출과 겹친 시험에서도 저장 하나가 500임
+  - 브라우저에서 실제 백엔드로 확인: 점수 3개와 의견만 넣고 임시 저장하면 저장 시각이 나옴. 다시 열면 고른 점수, 의견, 저장 시각이 그대로임. 나머지를 채워 확인 화면을 거쳐 제출하면 "제출했습니다" 화면이 나오고 임시 저장은 빈 목록이며 다시 저장하면 409임. 교수의 불러오기는 403임. 아무것도 고르지 않은 저장도 됨. 기록 단계 화면은 오류 없이 안내만 나옴. 폭 375px에서 가로 스크롤 없음. 서버 오류 로그 없음
+  - 브라우저 확인 중 다른 세션이 같은 폴더의 `frontend/src`를 바꾸고 `EvaluationPage.jsx`를 지웠다가 복구함. 복구한 파일은 diff로 내 패치와 대조했고, 내용이 바뀐 파일이 `api/evaluations.js`, `pages/EvaluationPage.jsx` 둘뿐임을 확인한 뒤 브라우저 확인을 처음부터 다시 함
+  - rule-check: 금지 패턴 없음. 점수 계산 없음. 새 public 메서드에 주석 있음. 값을 바꾸는 `saveDrafts`에 `@Transactional` 있음. 시각은 서버가 정함. 수정 필요 없음
+- 읽을 때 볼 곳:
+  - `EvaluationService.saveDrafts`의 `deleteAllInBatch`. JPA는 모아 둔 SQL을 보낼 때 INSERT를 DELETE보다 먼저 보내서, 그냥 지우면 새 행이 unique 제약에 걸림
+  - `EvaluationDraftSaveRequest.Item`과 `EvaluationSubmitRequest.Item`의 차이. 점수에 `@NotNull`이 없고, `@Min`, `@Max`는 null이면 통과함
+  - `EvaluationDraft`의 점수가 `int`가 아니라 `Integer`인 이유. `int`는 null을 담지 못함
+  - `EvaluationPage`의 `createInputs`. 서버의 빈 의견 null을 빈 글자로 바꿈. textarea의 value는 글자여야 하고 확인 화면도 `comment.trim()`을 씀
+- 내가 채운 가정:
+  - PUT은 전체 교체이고 빈 목록은 모두 지움
+  - 불러오기는 기록 단계에도 200이고 빈 목록임
+  - 제출 뒤 저장은 409임
+  - 응답에 임시 저장 번호가 없음
+  - 저장과 제출에 조 행 잠금을 씀
+  - 임시 저장 버튼 위치, 안내 문구, 오류 메시지 "평가 대상이 아닌 조원입니다"는 내가 씀

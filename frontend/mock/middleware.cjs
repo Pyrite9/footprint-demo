@@ -902,6 +902,12 @@ function toEvaluationStatusResponse(myEvaluations) {
   return { submitted: true, submittedAt: myEvaluations[0].submittedAt }
 }
 
+// 점수에 정수가 아닌 값(4.5, "5" 등)이 있으면 true입니다. 실제 백엔드는 이 값을 Integer로 읽지 못해서 다른 문구의 400을 돌려줍니다.
+function hasNotIntegerScore(evaluations) {
+  return Array.isArray(evaluations) && evaluations.some((item) => item !== null && typeof item === 'object'
+    && SCORE_FIELDS.some((field) => item[field] != null && !Number.isInteger(item[field])))
+}
+
 // 평가 하나가 실제 백엔드의 @NotNull, @Min(1), @Max(5), @Size(max = 2000) 검사를 통과하면 true입니다.
 function isValidEvaluationItem(item) {
   if (item === null || typeof item !== 'object') return false
@@ -909,6 +915,77 @@ function isValidEvaluationItem(item) {
   const scoresValid = SCORE_FIELDS.every((field) => Number.isInteger(item[field]) && item[field] >= 1 && item[field] <= 5)
   const commentValid = item.comment == null || (typeof item.comment === 'string' && item.comment.length <= 2000)
   return scoresValid && commentValid
+}
+
+// 임시 저장 행을 실제 EvaluationDraftResponse 모양으로 바꿉니다.
+function toEvaluationDraftResponse(draft) {
+  const scores = {}
+  SCORE_FIELDS.forEach((field) => { scores[field] = draft[field] })
+  return { targetTeamMemberId: draft.targetId, ...scores, comment: draft.comment, savedAt: draft.savedAt }
+}
+
+// 임시 저장 하나가 실제 백엔드의 검사를 통과하면 true입니다. 제출과 달리 점수는 빠지거나 null이어도 됩니다.
+function isValidEvaluationDraftItem(item) {
+  if (item === null || typeof item !== 'object') return false
+  if (typeof item.targetTeamMemberId !== 'number') return false
+  const scoresValid = SCORE_FIELDS.every((field) => item[field] == null || (Number.isInteger(item[field]) && item[field] >= 1 && item[field] <= 5))
+  const commentValid = item.comment == null || (typeof item.comment === 'string' && item.comment.length <= 2000)
+  return scoresValid && commentValid
+}
+
+// GET /teams/{teamId}/evaluations/draft: 내가 이 조에서 임시 저장한 내용을 돌려줍니다. 교수는 조원이 아니라서 403입니다.
+function handleGetMyEvaluationDrafts(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team) return
+  const evaluator = checkTeamMember(db, res, team, loginMember)
+  if (!evaluator) return
+  return res.json(db.get('evaluationDrafts').filter({ evaluatorId: evaluator.id }).value().map(toEvaluationDraftResponse))
+}
+
+// PUT /teams/{teamId}/evaluations/draft: 이전 임시 저장을 모두 지우고 보낸 내용으로 바꿉니다. 검사 순서는 실제 백엔드와 같습니다.
+function handleSaveEvaluationDrafts(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const { evaluations } = req.body
+  if (hasNotIntegerScore(evaluations)) return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
+  // 1. @NotNull @Valid 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다. 빈 목록은 통과합니다.
+  if (!Array.isArray(evaluations) || !evaluations.every(isValidEvaluationDraftItem)) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
+  }
+  // 2. 여기부터는 Service의 검사입니다.
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team) return
+  const evaluator = checkTeamMember(db, res, team, loginMember)
+  if (!evaluator) return
+  if (!checkEvaluation(db, res, team)) return
+  if (db.get('evaluations').filter({ evaluatorId: evaluator.id }).value().length > 0) {
+    return sendError(res, 409, 'DUPLICATE', '이미 동료평가를 제출했습니다')
+  }
+
+  const targetIds = db.get('teamMembers').filter({ teamId }).map('id').value().filter((id) => id !== evaluator.id)
+  const savedIds = new Set()
+  for (const item of evaluations) {
+    if (savedIds.has(item.targetTeamMemberId)) {
+      return sendError(res, 400, 'INVALID_INPUT', '같은 조원을 두 번 평가했습니다. id=' + item.targetTeamMemberId)
+    }
+    savedIds.add(item.targetTeamMemberId)
+    if (!targetIds.includes(item.targetTeamMemberId)) {
+      return sendError(res, 400, 'INVALID_INPUT', '평가 대상이 아닌 조원입니다. id=' + item.targetTeamMemberId)
+    }
+  }
+
+  db.get('evaluationDrafts').remove({ evaluatorId: evaluator.id }).write()
+  // 실제 백엔드처럼 한 번에 저장한 내용은 모두 같은 시각입니다. 의견은 앞뒤 공백을 지우고, 비었으면 null입니다.
+  const savedAt = nowLocalDateTime()
+  for (const item of evaluations) {
+    const scores = {}
+    SCORE_FIELDS.forEach((field) => { scores[field] = item[field] ?? null })
+    const comment = isBlank(item.comment) ? null : item.comment.trim()
+    db.get('evaluationDrafts')
+      .push({ id: nextId(db, 'evaluationDrafts'), evaluatorId: evaluator.id, targetId: item.targetTeamMemberId, ...scores, comment, savedAt })
+      .write()
+  }
+  return res.json(db.get('evaluationDrafts').filter({ evaluatorId: evaluator.id }).value().map(toEvaluationDraftResponse))
 }
 
 // GET /teams/{teamId}/evaluations/mine: 내가 이 조에서 동료평가를 제출했는지 돌려줍니다.
@@ -926,6 +1003,7 @@ function handleGetMyEvaluationStatus(req, res, loginMember, teamId) {
 function handleSubmitEvaluations(req, res, loginMember, teamId) {
   const db = req.app.db
   const { evaluations } = req.body
+  if (hasNotIntegerScore(evaluations)) return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
   // 1. @NotEmpty @Valid 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다.
   if (!Array.isArray(evaluations) || evaluations.length === 0 || !evaluations.every(isValidEvaluationItem)) {
     return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
@@ -968,6 +1046,8 @@ function handleSubmitEvaluations(req, res, loginMember, teamId) {
       .push({ id: nextId(db, 'evaluations'), evaluatorId: evaluator.id, targetId: item.targetTeamMemberId, ...scores, comment, submittedAt })
       .write()
   }
+  // 제출한 뒤에는 임시 저장이 필요 없어서 지웁니다.
+  db.get('evaluationDrafts').remove({ evaluatorId: evaluator.id }).write()
   const myEvaluations = db.get('evaluations').filter({ evaluatorId: evaluator.id }).value()
   return res.json(toEvaluationStatusResponse(myEvaluations))
 }
@@ -1080,6 +1160,14 @@ function handleRequest(req, res, next) {
     const teamId = parseIdOrSendError(res, myEvaluationTeamIdText)
     if (teamId === null) return
     return handleGetMyEvaluationStatus(req, res, loginMember, teamId)
+  }
+
+  const evaluationDraftTeamIdText = matchId(/^\/teams\/([^/]+)\/evaluations\/draft$/, req.path)
+  if ((req.method === 'GET' || req.method === 'PUT') && evaluationDraftTeamIdText !== null) {
+    const teamId = parseIdOrSendError(res, evaluationDraftTeamIdText)
+    if (teamId === null) return
+    if (req.method === 'GET') return handleGetMyEvaluationDrafts(req, res, loginMember, teamId)
+    return handleSaveEvaluationDrafts(req, res, loginMember, teamId)
   }
 
   const evaluationsTeamIdText = matchId(/^\/teams\/([^/]+)\/evaluations$/, req.path)

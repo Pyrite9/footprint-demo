@@ -197,7 +197,7 @@ flowchart TB
 
 ### 데이터 구조
 
-엔티티 10개. 산출물과 평가, 기여 항목의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴.
+엔티티 11개. 산출물과 평가, 기여 항목의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴.
 
 ```mermaid
 erDiagram
@@ -218,6 +218,8 @@ erDiagram
     CONTRIBUTION |o--o{ CONFIRMATION : "contribution_id"
     TEAM_MEMBER ||--o{ EVALUATION : "평가자 evaluator_id"
     TEAM_MEMBER ||--o{ EVALUATION : "대상 target_id"
+    TEAM_MEMBER ||--o{ EVALUATION_DRAFT : "평가자 evaluator_id"
+    TEAM_MEMBER ||--o{ EVALUATION_DRAFT : "대상 target_id"
 
     MEMBER {
         Long id PK "회원 번호"
@@ -304,15 +306,28 @@ erDiagram
         String comment "조원별 서술 의견 · 선택 · 최대 2000자"
         LocalDateTime submittedAt "제출 시각 · 서버가 기록 · 한 번에 낸 평가는 같은 시각"
     }
+    EVALUATION_DRAFT {
+        Long id PK "임시 저장 번호"
+        Long evaluator_id FK "저장한 조원의 조 참여"
+        Long target_id FK "평가 대상 조원의 조 참여"
+        Integer goalSharing "목표 공유·협업 · 1~5점 · 고르지 않으면 null"
+        Integer roleFulfillment "역할 수행 · 1~5점 · 고르지 않으면 null"
+        Integer encouragement "격려·도움 · 1~5점 · 고르지 않으면 null"
+        Integer onlineCommunication "온라인 소통 · 1~5점 · 고르지 않으면 null"
+        Integer offlineCommunication "대면 소통 · 1~5점 · 고르지 않으면 null"
+        Integer progressCheck "진행 점검·보충 · 1~5점 · 고르지 않으면 null"
+        String comment "조원별 서술 의견 · 선택 · 최대 2000자"
+        LocalDateTime savedAt "저장 시각 · 서버가 기록 · 한 번에 저장한 내용은 같은 시각"
+    }
 ```
 
 - 각 열의 오른쪽 칸은 비고. 그 값이 무엇에 쓰이는지 적음. `id`는 모두 데이터베이스가 자동으로 붙이는 번호(`IDENTITY`)임. `EVALUATION` 점수 열의 항목 이름은 `frontend/src/constants/peerEvaluation.js`의 `name`과 같음
 - 열 이름 표기: FK는 데이터베이스 열 이름(`professor_id`), 나머지는 Java 필드 이름(`startDate`)으로 적음. 실제 데이터베이스 열은 snake_case임(`startDate` → `start_date`)
-- `TEAM_MEMBER`에 `(assignment_id, member_id)` unique, `EVALUATION`에 `(evaluator_id, target_id)` unique
+- `TEAM_MEMBER`에 `(assignment_id, member_id)` unique, `EVALUATION`과 `EVALUATION_DRAFT`에 각각 `(evaluator_id, target_id)` unique
 - `CONFIRMATION`은 취소한 행이 남아서 일반 unique를 걸 수 없음. 한 조원의 유효한 확인이 하나인 것은 대상 행을 잠그고 `ConfirmationService`가 확인함
 - `TEAM_MEMBER.assignment_id`는 `TEAM.assignment_id`와 같은 값. unique 제약은 한 테이블의 열만 쓸 수 있어서, "한 학생은 한 과제에서 한 조"를 DB가 지키도록 복사해 둠. 생성자가 team에서 채우므로 둘이 달라질 수 없음
 - 합류: 같은 조에 다시 합류하면 오류 없이 200. 같은 과제의 다른 조에 이미 있으면 Service 검사로 409 `DUPLICATE`. `TEAM_MEMBER`의 unique는 두 요청이 거의 동시에 올 때를 막는 마지막 장치
-- 평가: 이미 제출했으면 Service 검사로 409 `DUPLICATE`. `EVALUATION`의 unique는 두 요청이 거의 동시에 올 때를 막는 마지막 장치
+- 평가: 이미 제출했으면 Service 검사로 409 `DUPLICATE`. 겹치는 제출과 임시 저장은 조 행을 잠가 한 번에 하나씩 처리함. `EVALUATION`의 unique는 마지막 장치
 - 조장을 따로 두지 않고 조 참여의 `leader`로 표시함. 선택 이유와 열린 부분은 `../TODO.md` "아직 정하지 않은 것"
 - `DELIVERABLE.roleName`은 `TEAM_MEMBER.roleName`을 가리키지 않고 **값을 복사해 둔 것.** 나중에 역할이 바뀌어도 산출물 순번이 끊기지 않게 함
 - `ROLE_HISTORY`는 역할이 바뀔 때마다 한 줄 쌓임. 첫 지정은 이전 역할이 없어서 남기지 않음. 만든 뒤에는 고치거나 지우지 않음

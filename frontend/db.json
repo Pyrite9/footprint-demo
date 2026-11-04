@@ -42,6 +42,7 @@
     {"id": 3, "teamMemberId": 12, "roleName": "백엔드", "fileName": "최종 보고서.txt", "fileSize": 44, "storageKey": "seed-3.txt", "uploadedAt": "2026-10-25T09:00:00", "deletedAt": null}
   ],
   "evaluations": [],
+  "evaluationDrafts": [],
   "roleHistories": [],
   "leaderHistories": [],
   "contributions": [

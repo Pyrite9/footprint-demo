@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getMe } from '../api/auth'
-import { getMyEvaluationStatus, submitEvaluations } from '../api/evaluations'
+import { getMyEvaluationDrafts, getMyEvaluationStatus, saveEvaluationDrafts, submitEvaluations } from '../api/evaluations'
 import { getTeam, getTeamMembers } from '../api/teams'
 import EvaluationNotice from '../components/EvaluationNotice'
 import EvaluationReview from '../components/EvaluationReview'
@@ -9,6 +9,7 @@ import EvaluationTargetForm from '../components/EvaluationTargetForm'
 import { EVALUATION_CRITERIA } from '../constants/peerEvaluation'
 
 // 동료평가 화면입니다. 평가 단계에서 자신을 뺀 조원 전원을 입력 → 확인 화면에서 한 번에 보고 → 제출합니다. 제출한 평가는 고칠 수 없습니다.
+// 입력 중에는 일부만 채워도 임시 저장할 수 있고, 다시 열면 저장한 내용부터 이어서 입력합니다.
 function EvaluationPage() {
     const { teamId } = useParams()
     const [me, setMe] = useState(null)
@@ -23,15 +24,20 @@ function EvaluationPage() {
     const [error, setError] = useState(null)
     const [actionError, setActionError] = useState(null)
     const [submitting, setSubmitting] = useState(false)
+    // 마지막으로 임시 저장한 시각입니다. 저장한 적이 없으면 null입니다.
+    const [draftSavedAt, setDraftSavedAt] = useState(null)
+    const [savingDraft, setSavingDraft] = useState(false)
 
     useEffect(() => {
-        Promise.all([getMe(), getTeam(teamId), getTeamMembers(teamId), getMyEvaluationStatus(teamId)])
-            .then(([meData, teamData, membersData, statusData]) => {
+        Promise.all([getMe(), getTeam(teamId), getTeamMembers(teamId), getMyEvaluationStatus(teamId), getMyEvaluationDrafts(teamId)])
+            .then(([meData, teamData, membersData, statusData, draftsData]) => {
                 setMe(meData)
                 setTeam(teamData)
                 setMembers(membersData)
                 setStatus(statusData)
-                setInputs(createEmptyInputs(membersData.filter((member) => member.memberId !== meData.id)))
+                setInputs(createInputs(membersData.filter((member) => member.memberId !== meData.id), draftsData))
+                // 한 번에 저장한 내용은 시각이 모두 같아서 첫 줄의 시각을 씁니다.
+                if (draftsData.length > 0) setDraftSavedAt(draftsData[0].savedAt)
             })
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false))
@@ -45,6 +51,17 @@ function EvaluationPage() {
     // 조원 한 명의 서술 의견을 바꿉니다.
     function handleCommentChange(targetId, comment) {
         setInputs({ ...inputs, [targetId]: { ...inputs[targetId], comment } })
+    }
+
+    // 지금까지 입력한 내용을 임시 저장합니다. 고르지 않은 점수는 null 그대로 보냅니다. 입력값은 화면에 있는 그대로 둡니다.
+    function handleSaveDraft(targets) {
+        setActionError(null)
+        setSavingDraft(true)
+        const evaluations = targets.map((target) => ({ targetTeamMemberId: target.id, ...inputs[target.id] }))
+        saveEvaluationDrafts(teamId, evaluations)
+            .then((data) => setDraftSavedAt(data[0].savedAt))
+            .catch((err) => setActionError(err.message))
+            .finally(() => setSavingDraft(false))
     }
 
     // 모든 조원의 6개 항목을 골랐으면 확인 화면으로 넘어갑니다. 빠진 조원이 있으면 이름을 알려 줍니다.
@@ -101,6 +118,7 @@ function EvaluationPage() {
             {canInput && targets.length > 0 && !reviewing && (
                 <>
                     <p>자신을 뺀 조원 {targets.length}명을 모두 평가해야 제출할 수 있습니다. 평가는 과제를 만든 교수만 봅니다.</p>
+                    <p className="muted">임시 저장한 내용은 교수에게 보이지 않고, 제출하기 전까지 미제출로 남습니다.</p>
                     {targets.map((target) => (
                         <EvaluationTargetForm
                             key={target.id}
@@ -110,7 +128,11 @@ function EvaluationPage() {
                             onCommentChange={(comment) => handleCommentChange(target.id, comment)}
                         />
                     ))}
-                    <button type="button" onClick={() => handleReview(notFilledTargets)}>입력 내용 확인</button>
+                    <div className="row">
+                        <button type="button" className="secondary" onClick={() => handleSaveDraft(targets)} disabled={savingDraft}>임시 저장</button>
+                        <button type="button" onClick={() => handleReview(notFilledTargets)} disabled={savingDraft}>입력 내용 확인</button>
+                    </div>
+                    {draftSavedAt && <p className="muted">임시 저장 시각: {draftSavedAt.replace('T', ' ')}</p>}
                 </>
             )}
 
@@ -130,12 +152,14 @@ function EvaluationPage() {
     )
 }
 
-// 평가 대상마다 빈 입력값을 만듭니다. 점수는 모두 null(고르지 않음), 의견은 빈 글자입니다.
-function createEmptyInputs(targets) {
+// 평가 대상마다 입력값을 만듭니다. 임시 저장이 있으면 그 값으로 채우고, 없으면 점수는 null(고르지 않음), 의견은 빈 글자입니다.
+function createInputs(targets, drafts) {
     const inputs = {}
     for (const target of targets) {
-        const input = { comment: '' }
-        EVALUATION_CRITERIA.forEach((criterion) => { input[criterion.key] = null })
+        const draft = drafts.find((item) => item.targetTeamMemberId === target.id)
+        // 서버는 빈 의견을 null로 돌려줍니다. textarea의 value는 글자여야 해서 빈 글자로 바꿉니다.
+        const input = { comment: draft?.comment ?? '' }
+        EVALUATION_CRITERIA.forEach((criterion) => { input[criterion.key] = draft ? draft[criterion.key] : null })
         inputs[target.id] = input
     }
     return inputs
