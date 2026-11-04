@@ -1,172 +1,115 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { getMe } from '../api/auth'
-import { assignRole, changeLeader, changeRole, getInviteCode, getLeaderHistories, getRoleHistories, getTeam, getTeamMembers, issueInviteCode } from '../api/teams'
-import InviteLinkPanel from '../components/InviteLinkPanel'
-import LeaderHistoryPanel from '../components/LeaderHistoryPanel'
-import RoleHistoryPanel from '../components/RoleHistoryPanel'
-import TeamMemberList from '../components/TeamMemberList'
+import { getContributions } from '../api/contributions'
+import { getDeliverables } from '../api/deliverables'
+import { getMyEvaluationStatus } from '../api/evaluations'
+import { getInviteCode, getTeam, getTeamMembers } from '../api/teams'
+import PageError from '../components/PageError'
+import PageLoading from '../components/PageLoading'
+import RecentDeliverableList from '../components/RecentDeliverableList'
+import TeamTodoList from '../components/TeamTodoList'
+import TopBar from '../components/TopBar'
+import { ASSIGNMENT_PHASE_LABELS } from '../constants/assignmentPhases'
+import { initialOf, PHASE_PILLS, roleColorClass } from '../format'
 
-// 조 화면입니다. 조원 목록과 역할·조장 이력을 보여 주고, 기록 단계이면 조장에게 초대 링크 발급과 역할 지정·변경을, 교수에게 조장 교체를 보여 줍니다.
-// 이 조의 조원과 그 과제를 만든 교수만 볼 수 있습니다(서버가 확인합니다).
+// 조 홈입니다. 내가 지금 할 수 있는 일과 최근 산출물을 보여 줍니다. 이 조의 조원과 그 과제를 만든 교수만 볼 수 있습니다(서버가 확인합니다).
 function TeamPage() {
     const { teamId } = useParams()
     const [me, setMe] = useState(null)
     const [team, setTeam] = useState(null)
     const [members, setMembers] = useState([])
+    const [deliverables, setDeliverables] = useState([])
+    const [contributions, setContributions] = useState([])
     const [inviteCode, setInviteCode] = useState(null)
+    const [evaluationStatus, setEvaluationStatus] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
-    // 발급처럼 화면을 연 뒤에 하는 일의 오류입니다. 불러오기 오류(error)와 나눠서, 실패해도 화면은 그대로 둡니다.
-    const [actionError, setActionError] = useState(null)
-    const [issuing, setIssuing] = useState(false)
-    // 조원마다 입력 중인 역할명입니다. { 조 참여 번호: 역할명 } 모양입니다.
-    const [roleNameInputs, setRoleNameInputs] = useState({})
-    // 역할을 지정하거나 바꾸는 중이면 true입니다. 그동안 모든 줄의 버튼과 입력 칸을 막습니다.
-    // 두 줄을 동시에 저장하면 먼저 끝난 결과를 나중에 끝난 쪽이 옛 members로 덮어써 화면에서 사라지기 때문입니다.
-    const [savingRole, setSavingRole] = useState(false)
-    // 역할 이력을 보고 있는 조원의 조 참여 번호와 그 이력입니다. 한 번에 한 명만 봅니다.
-    const [historyMemberId, setHistoryMemberId] = useState(null)
-    const [roleHistories, setRoleHistories] = useState([])
-    const [loadingHistory, setLoadingHistory] = useState(false)
-    const [leaderHistories, setLeaderHistories] = useState([])
-    const [changingLeader, setChangingLeader] = useState(false)
 
     useEffect(() => {
-        Promise.all([getMe(), getTeam(teamId), getTeamMembers(teamId), getLeaderHistories(teamId)])
-            .then(([meData, teamData, membersData, leaderHistoriesData]) => {
+        Promise.all([getMe(), getTeam(teamId), getTeamMembers(teamId), getDeliverables(teamId), getContributions(teamId)])
+            .then(([meData, teamData, membersData, deliverablesData, contributionsData]) => {
                 setMe(meData)
                 setTeam(teamData)
                 setMembers(membersData)
-                setLeaderHistories(leaderHistoriesData)
-                // 초대 코드는 조장만 볼 수 있어서, 내가 조장일 때만 이어서 불러옵니다.
+                setDeliverables(deliverablesData)
+                setContributions(contributionsData)
+                // 초대 코드는 조장만, 평가 제출 여부는 조원만 볼 수 있어서 해당할 때만 이어서 불러옵니다. null은 부르지 않은 것입니다.
                 const myTeamMember = membersData.find((member) => member.memberId === meData.id)
-                if (myTeamMember && myTeamMember.leader) {
-                    return getInviteCode(teamId).then((data) => setInviteCode(data.inviteCode))
-                }
+                const needsInvite = myTeamMember && myTeamMember.leader && teamData.phase === 'RECORDING'
+                const needsStatus = myTeamMember && teamData.phase === 'EVALUATION'
+                return Promise.all([needsInvite ? getInviteCode(teamId) : null, needsStatus ? getMyEvaluationStatus(teamId) : null])
+            })
+            .then(([inviteData, statusData]) => {
+                if (inviteData) setInviteCode(inviteData.inviteCode)
+                setEvaluationStatus(statusData)
             })
             .catch((err) => setError(err.message))
             .finally(() => setLoading(false))
     }, [teamId])
 
-    // 초대 코드를 새로 발급합니다.
-    function handleIssueInviteCode() {
-        setActionError(null)
-        setIssuing(true)
-        issueInviteCode(teamId)
-            .then((data) => setInviteCode(data.inviteCode))
-            .catch((err) => setActionError(err.message))
-            .finally(() => setIssuing(false))
-    }
+    if (loading) return <PageLoading />
+    if (error) return <PageError message={error} />
 
-    // 한 조원의 역할명 입력값을 바꿉니다. 객체 state도 직접 고치지 않고 새 객체로 바꿔 끼웁니다.
-    function handleRoleNameChange(teamMemberId, value) {
-        setRoleNameInputs({ ...roleNameInputs, [teamMemberId]: value })
-    }
-
-    // 한 조원의 역할을 저장합니다. 역할이 없으면 지정(POST), 있으면 변경(PUT)입니다.
-    // 성공하면 조원 목록에서 그 조원만 서버가 돌려준 값으로 바꾸고, 그 줄의 입력 칸을 비웁니다.
-    function handleSaveRole(target) {
-        const save = target.roleName === null ? assignRole : changeRole
-        setActionError(null)
-        setSavingRole(true)
-        save(teamId, target.id, roleNameInputs[target.id] ?? '')
-            .then((updated) => {
-                setMembers(members.map((member) => (member.id === updated.id ? updated : member)))
-                setRoleNameInputs({ ...roleNameInputs, [updated.id]: '' })
-                // 그 조원의 이력을 보고 있었으면 방금 생긴 줄이 보이도록 다시 불러옵니다.
-                if (historyMemberId === updated.id) {
-                    return getRoleHistories(teamId, updated.id).then((data) => setRoleHistories(data))
-                }
-            })
-            .catch((err) => setActionError(err.message))
-            .finally(() => setSavingRole(false))
-    }
-
-    // 권한이 옮겨 가고 이력이 남는 일이라 한 번 더 묻고 조장을 바꿉니다.
-    // 응답은 새 조장 한 줄이라, 조원 목록의 조장 표시를 그 번호로 다시 정하고 이력을 새로 불러옵니다.
-    function handleChangeLeader(target) {
-        if (!window.confirm(`${target.name} 조원을 새 조장으로 바꿀까요? 교체 이력이 남습니다.`)) return
-        setActionError(null)
-        setChangingLeader(true)
-        changeLeader(teamId, target.id)
-            .then((updated) => {
-                setMembers(members.map((member) => ({ ...member, leader: member.id === updated.id })))
-                return getLeaderHistories(teamId).then((data) => setLeaderHistories(data))
-            })
-            .catch((err) => setActionError(err.message))
-            .finally(() => setChangingLeader(false))
-    }
-
-    // 한 조원의 역할 이력을 불러와 보여 줍니다.
-    function handleShowHistory(teamMemberId) {
-        setActionError(null)
-        setLoadingHistory(true)
-        getRoleHistories(teamId, teamMemberId)
-            .then((data) => {
-                setRoleHistories(data)
-                setHistoryMemberId(teamMemberId)
-            })
-            .catch((err) => setActionError(err.message))
-            .finally(() => setLoadingHistory(false))
-    }
-
-    if (loading) return <main><p>불러오는 중...</p></main>
-    if (error) {
-        return (
-            <main>
-                <p className="error">{error}</p>
-                <p><Link to="/">과제 목록으로</Link></p>
-            </main>
-        )
-    }
-
-    // 내가 이 조의 조장인지는 내 정보와 조원 목록으로 계산합니다. 계산할 수 있는 값이라 state로 두지 않습니다.
-    const isLeader = members.some((member) => member.memberId === me.id && member.leader)
-    // 동료평가는 조원만 합니다. 교수에게는 링크를 보여 주지 않습니다.
-    const isMember = members.some((member) => member.memberId === me.id)
-    // 평가 단계에서는 조 운영을 바꿀 수 없습니다.
-    const isRecording = team.phase === 'RECORDING'
-    // 이 화면을 볼 수 있는 교수는 과제를 만든 교수뿐입니다(서버가 확인합니다).
-    const isProfessor = me.memberType === 'PROFESSOR'
-    // 이력을 보고 있는 조원입니다. 이름과 지금 역할을 조원 목록에서 찾습니다.
-    const historyMember = members.find((member) => member.id === historyMemberId)
+    // 내 조 참여 기록입니다. 교수는 조원이 아니라서 없습니다(undefined).
+    const myTeamMember = members.find((member) => member.memberId === me.id)
 
     return (
-        <main>
-            <p className="links"><Link to={`/assignments/${team.assignmentId}`}>← {team.assignmentTitle}</Link></p>
-            <h1>{team.name}</h1>
-            <nav className="links">
-                {/* 산출물은 기록 단계에서 조원만 올립니다. 그 밖에는 "보기"만 보여 줍니다. */}
-                <Link to={`/teams/${team.id}/deliverables`}>{isMember && isRecording ? '산출물 보기·올리기' : '산출물 보기'}</Link>
-                <Link to={`/teams/${team.id}/contributions`}>기여 항목</Link>
-                {isMember && <Link to={`/teams/${team.id}/evaluation`}>동료평가</Link>}
-            </nav>
-
-            <h2>조원</h2>
-            <TeamMemberList
-                members={members}
-                canAssignRole={isLeader && isRecording}
-                canChangeLeader={isProfessor && isRecording}
-                roleNameInputs={roleNameInputs}
-                onRoleNameChange={handleRoleNameChange}
-                onSaveRole={handleSaveRole}
-                onShowHistory={handleShowHistory}
-                onChangeLeader={handleChangeLeader}
-                busy={savingRole || loadingHistory || changingLeader}
-            />
-            {/* 역할 저장 오류를 그 입력 칸 가까이에 보여 주려고 조원 목록 바로 아래에 둡니다. */}
-            {actionError && <p className="error">{actionError}</p>}
-
-            {historyMember && (
-                <RoleHistoryPanel member={historyMember} histories={roleHistories} onClose={() => setHistoryMemberId(null)} />
-            )}
-            {leaderHistories.length > 0 && <LeaderHistoryPanel histories={leaderHistories} />}
-
-            {isLeader && isRecording && <InviteLinkPanel inviteCode={inviteCode} onIssue={handleIssueInviteCode} issuing={issuing} />}
-            {!isRecording && <p className="notice">평가 단계입니다. 초대, 역할 지정·변경, 조장 교체는 더 할 수 없습니다.</p>}
-        </main>
+        <>
+            <TopBar crumbs={[team.assignmentTitle, team.name, '홈']} />
+            <main className="content">
+                <div className="page-head">
+                    <div>
+                        <h1>{team.name}</h1>
+                        <div className="row">
+                            <span className={`pill ${PHASE_PILLS[team.phase]}`}>{ASSIGNMENT_PHASE_LABELS[team.phase]}</span>
+                            {myTeamMember && (
+                                <span className={`role ${roleColorClass(myTeamMember.roleName)}`}>
+                                    <span className="dot" />내 역할 {myTeamMember.roleName ?? '없음'}
+                                </span>
+                            )}
+                            {myTeamMember && myTeamMember.leader && <span className="pill blue">조장</span>}
+                        </div>
+                    </div>
+                    <div className="stack">
+                        {members.map((member) => <span key={member.id} className="av" title={member.name}>{initialOf(member.name)}</span>)}
+                    </div>
+                </div>
+                {myTeamMember && myTeamMember.roleName === null && team.phase === 'RECORDING' && (
+                    <div className="vis">조장이 역할을 정하면 파일을 올릴 수 있습니다. 그전에도 조의 기록은 볼 수 있습니다.</div>
+                )}
+                {myTeamMember && (
+                    <TeamTodoList todos={buildTodos(team, members, contributions, myTeamMember, inviteCode, evaluationStatus)} />
+                )}
+                <RecentDeliverableList teamId={team.id} deliverables={deliverables} />
+            </main>
+        </>
     )
+}
+
+// 조원이 지금 할 수 있는 일을 불러온 기록으로 만듭니다. to는 갈 주소, selectedId는 그 화면에서 바로 열 줄입니다.
+function buildTodos(team, members, contributions, myTeamMember, inviteCode, evaluationStatus) {
+    if (team.phase === 'EVALUATION') {
+        return evaluationStatus && !evaluationStatus.submitted ? [{ text: '동료평가 입력하기', to: `/teams/${team.id}/evaluation` }] : []
+    }
+
+    const todos = []
+    if (myTeamMember.leader && inviteCode === null) {
+        todos.push({ text: '초대 링크 발급하기', to: `/teams/${team.id}/members` })
+    }
+    contributions
+        .filter((contribution) => contribution.assigneeMemberId === myTeamMember.memberId && contribution.reportedAt === null && contribution.canceledAt === null)
+        .forEach((contribution) => {
+            todos.push({ text: `완료 보고: ${contribution.title}`, to: `/teams/${team.id}/contributions`, selectedId: contribution.id })
+        })
+    if (myTeamMember.leader) {
+        members
+            .filter((member) => member.roleName === null)
+            .forEach((member) => {
+                todos.push({ text: `역할 지정: ${member.name}`, to: `/teams/${team.id}/members`, selectedId: member.id })
+            })
+    }
+    return todos
 }
 
 export default TeamPage

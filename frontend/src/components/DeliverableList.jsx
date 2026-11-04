@@ -1,78 +1,54 @@
-import ConfirmationPanel from './ConfirmationPanel'
+import { formatFileSize, formatShortDateTime, roleColorClass, sequenceOf } from '../format'
 
-// 조의 산출물 목록을 역할별로 묶어, 역할마다 최신순으로 그립니다. 데이터와 동작은 page에서 props로 받습니다.
-// 순번: 같은 역할의 산출물에 올린 조원과 관계없이 올린 순서대로 1, 2, 3…을 붙입니다. 삭제된 산출물도 세어서 순번이 끊기지 않습니다. 조회 수·다운로드 수는 없습니다.
-// 삭제 버튼은 canDelete(기록 단계)이고 내가 올린 산출물에만 보여 줍니다. 삭제된 산출물은 파일이 없어서 다운로드 버튼도 없습니다.
-// 완료확인 이력은 삭제된 산출물에도 남아서 모든 줄에서 열 수 있습니다. 새 확인은 canConfirm(기록 단계의 조원)이고 내가 올리지 않은, 삭제되지 않은 산출물에만 합니다. 내 확인 취소는 삭제된 산출물에서도 합니다.
-function DeliverableList({ deliverables, currentMemberId, canDelete, onDownload, onDelete, downloadingId, deleteDisabled, canConfirm, confirmationTargetId, confirmations, onOpenConfirmations, onCloseConfirmations, onConfirm, onCancelConfirmation, confirmationBusy }) {
-    if (deliverables.length === 0) {
-        return <p>아직 올린 산출물이 없습니다.</p>
-    }
-
+// 조의 산출물 목록을 역할별로 묶어, 역할마다 최신순으로 그립니다. 줄의 파일 이름을 누르면 오른쪽 상세가 열립니다. 데이터와 동작은 page에서 props로 받습니다.
+// 순번: 같은 역할의 산출물에 올린 조원과 관계없이 올린 순서대로 1, 2, 3…을 붙입니다. 조회 수·다운로드 수는 없습니다.
+// uploadRoleName: 내가 올릴 수 있는 역할입니다. 그 묶음에만 올리기 버튼을 보여 줍니다. 올릴 수 없으면 null입니다.
+function DeliverableList({ deliverables, members, uploadRoleName, selectedId, onSelect, onUpload }) {
     // 역할 순서는 가나다순으로 고정합니다. 많이 올린 순이나 최근 순으로 두면 역할끼리 비교하는 순위처럼 보입니다.
-    const roleNames = [...new Set(deliverables.map((deliverable) => deliverable.roleName))].sort((a, b) => a.localeCompare(b))
+    // 지금 맡은 사람이 없어도 그 역할로 올린 파일이 있으면 묶음이 남습니다. 파일에는 올릴 때의 역할명이 저장되어 있기 때문입니다.
+    const currentRoleNames = members.filter((member) => member.roleName !== null).map((member) => member.roleName)
+    const uploadedRoleNames = deliverables.map((deliverable) => deliverable.roleName)
+    const roleNames = [...new Set([...currentRoleNames, ...uploadedRoleNames])].sort((a, b) => a.localeCompare(b))
 
-    return roleNames.map((roleName) => (
-        <section key={roleName}>
-            <h3>{roleName}</h3>
-            <ul className="item-list">
-                {deliverables.filter((deliverable) => deliverable.roleName === roleName).map((deliverable) => (
-                    <li key={deliverable.id}>
-                        <span className="badge">{sequenceOf(deliverables, deliverable)}번째</span>
-                        {deliverable.deletedAt === null ? <strong>{deliverable.fileName}</strong> : <span className="muted">{deliverable.fileName}</span>}
-                        {deliverable.deletedAt !== null && <span className="badge">삭제됨</span>}
-                        <span className="muted">
-                            {formatFileSize(deliverable.fileSize)} · {deliverable.uploaderName} · {deliverable.uploadedAt.replace('T', ' ')}
-                            {deliverable.deletedAt !== null && ` · 삭제 ${deliverable.deletedAt.replace('T', ' ')}`}
-                        </span>
-                        <div className="row end">
-                            {confirmationTargetId !== deliverable.id && (
-                                <button type="button" className="secondary" onClick={() => onOpenConfirmations(deliverable)} disabled={confirmationBusy}>완료확인 이력</button>
-                            )}
-                            {deliverable.deletedAt === null && (
-                                <button
-                                    type="button"
-                                    className="secondary"
-                                    onClick={() => onDownload(deliverable)}
-                                    disabled={downloadingId === deliverable.id}
-                                >
-                                    다운로드
-                                </button>
-                            )}
-                            {deliverable.deletedAt === null && canDelete && deliverable.uploaderMemberId === currentMemberId && (
-                                <button type="button" className="secondary" onClick={() => onDelete(deliverable)} disabled={deleteDisabled}>삭제</button>
-                            )}
-                        </div>
-                        {confirmationTargetId === deliverable.id && (
-                            <ConfirmationPanel
-                                confirmations={confirmations}
-                                currentMemberId={currentMemberId}
-                                canConfirm={canConfirm && deliverable.deletedAt === null && deliverable.uploaderMemberId !== currentMemberId}
-                                canCancel={canConfirm}
-                                onConfirm={onConfirm}
-                                onCancel={onCancelConfirmation}
-                                onClose={onCloseConfirmations}
-                                busy={confirmationBusy}
-                            />
+    return (
+        <div className="groups">
+            {roleNames.map((roleName) => {
+                const rows = deliverables.filter((deliverable) => deliverable.roleName === roleName)
+                const people = members.filter((member) => member.roleName === roleName).map((member) => member.name)
+
+                return (
+                    <section key={roleName} className={`card group ${roleColorClass(roleName)}`}>
+                        <header className="group-h">
+                            <div>
+                                <h2><span className="dot" />{roleName}</h2>
+                                <p>{people.length > 0 ? people.join(', ') : '지금 맡은 조원 없음'}</p>
+                            </div>
+                            {roleName === uploadRoleName && <button type="button" className="btn" onClick={onUpload}>파일 올리기</button>}
+                        </header>
+                        {rows.length === 0 && <p className="sub group-empty">이 역할로 올린 파일이 아직 없습니다.</p>}
+                        {rows.length > 0 && (
+                            <div className="scroll-x">
+                                {rows.map((deliverable) => (
+                                    <div key={deliverable.id} className={deliverable.id === selectedId ? 'tr body cols-group sel' : 'tr body cols-group'}>
+                                        <span className="sub">{sequenceOf(deliverables, deliverable)}번째</span>
+                                        <button type="button" className="cell-btn" onClick={() => onSelect(deliverable.id)}>
+                                            <span className={deliverable.deletedAt === null ? undefined : 'struck'}>{deliverable.fileName}</span>
+                                        </button>
+                                        <span>{deliverable.uploaderName}</span>
+                                        <span className="sub">{formatShortDateTime(deliverable.uploadedAt)}</span>
+                                        <span className="sub">{formatFileSize(deliverable.fileSize)}</span>
+                                        <span>
+                                            {deliverable.deletedAt !== null && <span className="pill gray">삭제됨</span>}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
                         )}
-                    </li>
-                ))}
-            </ul>
-        </section>
-    ))
-}
-
-// 같은 역할의 산출물 중 이 산출물보다 먼저(또는 같이) 올린 것의 개수가 순번입니다. id가 작을수록 먼저 올린 것입니다.
-// 목록에서 계산할 수 있는 값이라 서버에도 state에도 두지 않습니다.
-function sequenceOf(deliverables, target) {
-    return deliverables.filter((deliverable) => deliverable.roleName === target.roleName && deliverable.id <= target.id).length
-}
-
-// byte 수를 읽기 쉬운 단위로 바꿉니다. 예: 52344 → "51.1 KB"
-function formatFileSize(bytes) {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+                    </section>
+                )
+            })}
+        </div>
+    )
 }
 
 export default DeliverableList

@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { getMe } from '../api/auth'
 import { getMyEvaluationDrafts, getMyEvaluationStatus, saveEvaluationDrafts, submitEvaluations } from '../api/evaluations'
 import { getTeam, getTeamMembers } from '../api/teams'
 import EvaluationNotice from '../components/EvaluationNotice'
 import EvaluationReview from '../components/EvaluationReview'
 import EvaluationTargetForm from '../components/EvaluationTargetForm'
+import EvaluationTargets from '../components/EvaluationTargets'
+import PageError from '../components/PageError'
+import PageLoading from '../components/PageLoading'
+import TopBar from '../components/TopBar'
 import { EVALUATION_CRITERIA } from '../constants/peerEvaluation'
+import { formatDateTime } from '../format'
 
-// 동료평가 화면입니다. 평가 단계에서 자신을 뺀 조원 전원을 입력 → 확인 화면에서 한 번에 보고 → 제출합니다. 제출한 평가는 고칠 수 없습니다.
+// 동료평가 화면입니다. 평가 단계에서 자신을 뺀 조원 전원을 한 명씩 입력 → 확인 화면에서 한 번에 보고 → 제출합니다. 제출한 평가는 고칠 수 없습니다.
 // 입력 중에는 일부만 채워도 임시 저장할 수 있고, 다시 열면 저장한 내용부터 이어서 입력합니다.
 function EvaluationPage() {
     const { teamId } = useParams()
@@ -18,6 +23,8 @@ function EvaluationPage() {
     const [status, setStatus] = useState(null)
     // 조원별 입력값입니다. 모양: { [조 참여 번호]: { goalSharing: 5, ..., comment: '' } }. 고르지 않은 점수는 null입니다.
     const [inputs, setInputs] = useState({})
+    // 지금 입력 중인 조원의 조 참여 번호입니다. 처음에는 고르지 않아서(null) 첫 조원을 보여 줍니다.
+    const [selectedTargetId, setSelectedTargetId] = useState(null)
     // true이면 입력 화면 대신 확인 화면을 보여 줍니다.
     const [reviewing, setReviewing] = useState(false)
     const [loading, setLoading] = useState(true)
@@ -64,16 +71,6 @@ function EvaluationPage() {
             .finally(() => setSavingDraft(false))
     }
 
-    // 모든 조원의 6개 항목을 골랐으면 확인 화면으로 넘어갑니다. 빠진 조원이 있으면 이름을 알려 줍니다.
-    function handleReview(notFilledTargets) {
-        if (notFilledTargets.length > 0) {
-            setActionError('6개 항목을 모두 고르지 않은 조원이 있습니다: ' + notFilledTargets.map((target) => target.name).join(', '))
-            return
-        }
-        setActionError(null)
-        setReviewing(true)
-    }
-
     // 확인 화면의 내용을 한 번에 제출합니다. 성공하면 제출 여부가 바뀌어 "제출했습니다" 화면이 됩니다.
     function handleSubmit(targets) {
         setActionError(null)
@@ -85,70 +82,102 @@ function EvaluationPage() {
             .finally(() => setSubmitting(false))
     }
 
-    if (loading) return <main><p>불러오는 중...</p></main>
-    if (error) {
-        return (
-            <main>
-                <p className="error">{error}</p>
-                <p><Link to="/">과제 목록으로</Link></p>
-            </main>
-        )
-    }
+    if (loading) return <PageLoading />
+    if (error) return <PageError message={error} />
 
     // 평가 대상(나를 뺀 조원)과 아직 다 고르지 않은 조원은 계산할 수 있는 값이라 state로 두지 않습니다.
     const targets = members.filter((member) => member.memberId !== me.id)
     const notFilledTargets = targets.filter((target) => !isFilled(inputs[target.id]))
+    const selectedTarget = targets.find((target) => target.id === selectedTargetId) ?? targets[0]
+    const isEvaluationPhase = team.phase === 'EVALUATION'
     // 입력은 평가 단계이고 아직 제출하지 않았을 때만 합니다.
-    const canInput = team.phase === 'EVALUATION' && !status.submitted
+    const canInput = isEvaluationPhase && !status.submitted
 
     return (
-        <main>
-            <p className="links"><Link to={`/teams/${team.id}`}>← {team.name}</Link></p>
-            <h1>{team.name} 동료평가</h1>
-            <EvaluationNotice />
+        <>
+            <TopBar crumbs={[team.assignmentTitle, team.name, '동료평가']} />
+            {actionError && <div className="errband" role="alert">{actionError}</div>}
+            <main className="content">
+                <div className="page-head">
+                    <h1>동료평가</h1>
+                    {status.submitted && <span className="pill green">제출함 · {formatDateTime(status.submittedAt)}</span>}
+                </div>
 
-            {status.submitted && (
-                <p className="success">동료평가를 제출했습니다. 제출 시각: {status.submittedAt.replace('T', ' ')}. 제출한 평가는 고칠 수 없습니다.</p>
-            )}
+                {isEvaluationPhase && <div className="vis">평가받는 조원을 포함해 조원은 볼 수 없습니다. 교수는 평가자 이름, 점수, 의견을 봅니다.</div>}
+                <EvaluationNotice />
 
-            {team.phase === 'RECORDING' && <p className="notice">동료평가는 평가 단계에서 입력합니다. 과제를 만든 교수가 평가를 시작하면 입력할 수 있습니다.</p>}
+                {status.submitted && (
+                    <section className="card empty">
+                        <b>동료평가를 제출했습니다</b>
+                        <p className="sub">제출 시각: {formatDateTime(status.submittedAt)}. 제출한 평가는 고칠 수 없습니다.</p>
+                    </section>
+                )}
 
-            {canInput && targets.length === 0 && <p>평가할 조원이 없습니다.</p>}
+                {!isEvaluationPhase && (
+                    <section className="card empty">
+                        <b>아직 기록 단계입니다</b>
+                        <p className="sub">동료평가는 평가 단계에서 입력합니다. 과제를 만든 교수가 평가를 시작하면 입력할 수 있습니다.</p>
+                    </section>
+                )}
 
-            {canInput && targets.length > 0 && !reviewing && (
-                <>
-                    <p>자신을 뺀 조원 {targets.length}명을 모두 평가해야 제출할 수 있습니다. 평가는 과제를 만든 교수만 봅니다.</p>
-                    <p className="muted">임시 저장한 내용은 교수에게 보이지 않고, 제출하기 전까지 미제출로 남습니다.</p>
-                    {targets.map((target) => (
-                        <EvaluationTargetForm
-                            key={target.id}
-                            target={target}
-                            input={inputs[target.id]}
-                            onScoreChange={(key, score) => handleScoreChange(target.id, key, score)}
-                            onCommentChange={(comment) => handleCommentChange(target.id, comment)}
+                {canInput && targets.length === 0 && (
+                    <section className="card empty">
+                        <b>평가할 조원이 없습니다</b>
+                        <p className="sub">조에 자신만 있어서 제출할 평가가 없습니다.</p>
+                    </section>
+                )}
+
+                {canInput && targets.length > 0 && !reviewing && (
+                    <>
+                        <EvaluationTargets
+                            targets={targets}
+                            inputs={inputs}
+                            selectedId={selectedTarget.id}
+                            onSelect={setSelectedTargetId}
                         />
-                    ))}
-                    <div className="row">
-                        <button type="button" className="secondary" onClick={() => handleSaveDraft(targets)} disabled={savingDraft}>임시 저장</button>
-                        <button type="button" onClick={() => handleReview(notFilledTargets)} disabled={savingDraft}>입력 내용 확인</button>
-                    </div>
-                    {draftSavedAt && <p className="muted">임시 저장 시각: {draftSavedAt.replace('T', ' ')}</p>}
-                </>
-            )}
+                        <section className="crit-list">
+                            <EvaluationTargetForm
+                                key={selectedTarget.id}
+                                input={inputs[selectedTarget.id]}
+                                onScoreChange={(key, score) => handleScoreChange(selectedTarget.id, key, score)}
+                                onCommentChange={(comment) => handleCommentChange(selectedTarget.id, comment)}
+                            />
+                            <div className="crit">
+                                <div className="row between">
+                                    <div>
+                                        <p className="sub">
+                                            {notFilledTargets.length > 0
+                                                ? `조원 전원의 6개 항목을 모두 입력해야 다음으로 넘어갑니다. 남은 조원: ${notFilledTargets.map((target) => target.name).join(', ')}`
+                                                : '입력 내용을 확인한 뒤 전원을 한 번에 제출합니다.'}
+                                        </p>
+                                        <p className="sub small">임시 저장한 내용은 교수에게 보이지 않고, 제출하기 전까지 미제출로 남습니다.</p>
+                                        {draftSavedAt && <p className="sub small">임시 저장 시각: {formatDateTime(draftSavedAt)}</p>}
+                                    </div>
+                                    <div className="row">
+                                        <button type="button" className="btn" onClick={() => handleSaveDraft(targets)} disabled={savingDraft}>임시 저장</button>
+                                        <button type="button" className="btn primary" onClick={() => setReviewing(true)} disabled={savingDraft || notFilledTargets.length > 0}>입력 내용 확인</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </>
+                )}
 
-            {canInput && reviewing && (
-                <>
-                    <p>아래 내용으로 제출합니다. 제출한 평가는 고칠 수 없습니다.</p>
-                    <EvaluationReview targets={targets} inputs={inputs} />
-                    <div className="row">
-                        <button type="button" className="secondary" onClick={() => setReviewing(false)} disabled={submitting}>고치기</button>
-                        <button type="button" onClick={() => handleSubmit(targets)} disabled={submitting}>제출</button>
-                    </div>
-                </>
-            )}
-
-            {actionError && <p className="error">{actionError}</p>}
-        </main>
+                {canInput && reviewing && (
+                    <section className="crit-list">
+                        <EvaluationReview targets={targets} inputs={inputs} />
+                        <div className="confirm">
+                            <h2>이 내용으로 전원의 평가를 제출할까요?</h2>
+                            <p className="sub">제출한 평가는 고칠 수 없습니다.</p>
+                            <div className="row">
+                                <button type="button" className="btn primary" onClick={() => handleSubmit(targets)} disabled={submitting}>전원 제출</button>
+                                <button type="button" className="btn" onClick={() => setReviewing(false)} disabled={submitting}>돌아가서 고치기</button>
+                            </div>
+                        </div>
+                    </section>
+                )}
+            </main>
+        </>
     )
 }
 

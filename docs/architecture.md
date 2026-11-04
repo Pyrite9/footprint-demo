@@ -129,19 +129,20 @@ sequenceDiagram
 
 ## 3. 프론트엔드 구조
 
-화면 하나를 그릴 때 어떤 파일을 거치는지. 조 화면(`/teams/:teamId`)을 예로 둠.
+화면 하나를 그릴 때 어떤 파일을 거치는지. 조원과 역할 화면(`/teams/:teamId/members`)을 예로 둠.
 
 ```mermaid
 flowchart TB
     main["main.jsx"] --> app["App.jsx<br/>주소와 화면 짝 짓기"]
     app --> require["components/RequireLogin.jsx<br/>token 없으면 /login으로"]
-    require --> layout["pages/AppLayout.jsx<br/>상단 바 · Outlet"]
-    layout --> page["pages/TeamPage.jsx<br/>데이터 불러오기 · loading · error state"]
+    require --> layout["pages/AppLayout.jsx<br/>과제 레일 · 메뉴 · Outlet"]
+    layout --> page["pages/TeamMembersPage.jsx<br/>데이터 불러오기 · loading · error state"]
 
     page --> comp1["components/TeamMemberList.jsx"]
-    comp1 --> comp2["components/RoleAssignForm.jsx"]
+    page --> comp2["components/MemberDetail.jsx<br/>오른쪽 상세"]
+    comp2 --> comp6["components/RoleAssignForm.jsx"]
+    comp2 --> comp4["components/RoleHistoryPanel.jsx"]
     page --> comp3["components/InviteLinkPanel.jsx"]
-    page --> comp4["components/RoleHistoryPanel.jsx"]
     page --> comp5["components/LeaderHistoryPanel.jsx"]
 
     page -- "함수 호출" --> api["api/teams.js<br/>주소 한 줄씩"]

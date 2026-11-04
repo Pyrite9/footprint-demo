@@ -49,7 +49,7 @@ function send(path, options) {
       // 이 파일은 React 컴포넌트가 아니라서 useNavigate를 쓸 수 없습니다.
       if (res.status === 401 && token) {
         removeToken()
-        window.location.assign('/login')
+        window.location.assign('/login?expired=1')
       }
 
       // 실패 응답의 body를 읽어 status와 code를 담은 오류를 던집니다. 화면의 .catch가 이 오류를 받습니다.

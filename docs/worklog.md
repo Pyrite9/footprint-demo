@@ -1515,3 +1515,47 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 응답에 임시 저장 번호가 없음
   - 저장과 제출에 조 행 잠금을 씀
   - 임시 저장 버튼 위치, 안내 문구, 오류 메시지 "평가 대상이 아닌 조원입니다"는 내가 씀
+
+### 프론트 화면 구조 개편 (관리자 지시 "프론트 구조를 실제 퍼블리싱되는 웹사이트 급으로", 시안 합의안 반영)
+- 결정:
+  - 틀을 상단 바에서 과제 레일, 왼쪽 메뉴, 상단 경로, 본문, 오른쪽 상세로 바꿈. 선택지: 상단 바 유지(메뉴가 늘면 한 줄에 안 들어감), 메뉴만 추가(과제 전환이 내 과제 화면을 거쳐야 함). 시안 토론 뒤 관리자가 레일 유지를 고름
+  - 목록에서 줄을 누르면 화면을 옮기지 않고 오른쪽 상세를 염. 폭이 1260px 이하이면 상세를 오른쪽에 겹쳐 열고, 820px 이하(폰)이면 목록 대신 상세만 보여 줌. 나란히 둘 수 없을 때 상세가 목록 아래로 떨어지면 줄을 눌러도 안 열린 것처럼 보여서 겹침으로 바꿈
+  - 라이트 모드도 색 차이가 있는 라운드 박스로 구역을 나눔(관리자 지시)
+  - `/teams/:teamId`를 조 홈으로 바꾸고 조원 화면을 `/teams/:teamId/members`로 나눔. 조 홈은 내가 할 수 있는 일과 최근 산출물만 보여 줌
+  - `window.confirm`을 화면 안 확인 상자 `ConfirmBox`로 바꿈. 초심자가 같은 부품을 따라 쓰도록 삭제, 취소, 평가 시작, 조장 교체, 합류에 모두 씀
+  - 메뉴 이름 "진척"은 유지하되 API가 없어서 이번에는 메뉴를 넣지 않음. 완료확인 설명 문구는 넣지 않음(관리자 결정)
+  - API가 없는 근거 패널(E-1-1), 전체 기록(V-1-1), 평가 결과와 CSV(V-2, X-5), 진척(R-4-1), 알림(X-6), 합류 미리보기와 복사 버튼(X-4)은 넣지 않음. 시안에만 있음
+  - API와 가짜 API는 바꾸지 않음. `api/client.js`는 로그인 만료 때 가는 주소만 `/login?expired=1`로 바꿈
+  - 새 의존성 없음
+- 만든 파일:
+  - pages: `TeamMembersPage`
+  - components: `AssignmentRail`, `ConfirmBox`, `ContributionDetail`, `DeliverableDetail`, `DeliverableTimeList`, `DetailPanel`, `EvaluationTargets`, `Icon`, `LoginBrand`, `LogoMark`, `MeBox`, `MemberDetail`, `PageError`, `PageLoading`, `RecentDeliverableList`, `SideHead`, `SideNav`, `TeamTodoList`, `TopBar`
+- 고친 파일: `frontend/src/`의 `App.jsx`, `index.css`, `format.js`, `api/client.js`, pages 전부, 나머지 components, `docs/architecture.md`, `frontend/README.md`
+- 지운 파일: `components/StartEvaluationPanel.jsx`(`ConfirmBox`로 대체)
+- 확인:
+  - `npm run build`, `npm run lint` 통과
+  - 가짜 API로 브라우저 확인. 학생, 조장, 교수 계정으로 업로드, 삭제, 항목 등록, 완료 보고, 완료확인과 취소, 임시 저장 뒤 다시 열기, 전원 제출, 조장 교체, 평가 시작, 로그인 만료를 눌러 봄
+  - 다크, 라이트, 375px, 1024px, 1400px 폭을 봄. 375px에서 모든 화면의 가로 넘침이 없음
+  - 실제 백엔드로는 돌리지 않음. API 호출 코드를 바꾸지 않아서 가짜 API 확인으로 갈음함
+- 읽을 때 볼 곳:
+  - `pages/AppLayout.jsx`의 `<Outlet key={location.pathname} />`: 주소가 바뀌면 안쪽 화면을 새로 만들어 이전 화면의 state가 남지 않게 함
+  - `pages/DeliverablesPage.jsx`의 `location.state?.selectedId`: 조 홈에서 넘겨준 줄을 바로 염. 새로고침하면 사라져도 되는 값이라 주소에 넣지 않음
+  - 상세를 불러오는 `useEffect`의 `ignore`: 줄을 빠르게 바꿀 때 늦게 온 옛 응답을 버림
+  - `index.css`의 `display: contents`: 폰 폭에서 메뉴 묶음을 없는 셈 치고 항목을 아래 탭에 한 줄로 놓음
+  - `pages/EvaluationPage.jsx`의 `selectedTargetId`: 고른 적이 없으면 첫 조원을 씀. 계산할 수 있는 값이라 첫 조원을 state에 넣지 않음
+  - `.tr`의 칸 폭: `.cols-*`의 `min-width`는 칸 폭을 더한 값이라 칸을 바꾸면 같이 고쳐야 함
+- 내가 채운 가정:
+  - 내 과제 화면의 왼쪽 메뉴에 내 과제, 새 과제를 보여 줌(시안은 메뉴를 숨김)
+  - 학생이 과제를 열면 자기 조 홈으로 바로 감
+  - 메뉴 머리에 담당 교수와 평가 시작 시각을 보여 줌
+  - 역할 색은 이름의 글자 코드로 정함. 다른 역할이 같은 색일 수 있음
+  - 레일 칸 글자는 앞 두 단어의 첫 글자임. 시드 과제명이 "발자국"으로 같이 시작해서 앞 두 글자로는 구분되지 않음
+  - 역할별 묶음 순서는 가나다순임. 많이 올린 순은 순위처럼 보여서 뺌
+  - 산출물에 시간순 탭을 둠. 역할별이 기본임
+  - 목록의 "삭제됨"에는 시각을 빼고 상세에만 둠. 칸이 좁기 때문임
+  - 새 과제에 입력 내용 확인 단계를 둠. 등록한 과제는 고칠 수 없기 때문임
+  - 완료 보고에 확인 상자를 둠. 보고 뒤 메모를 고칠 수 없기 때문임
+  - 합류 화면은 틀 밖에 둠. 아직 조에 들어가기 전이라 메뉴가 없음
+  - 교수의 조원 줄 버튼 이름은 "조장 교체"임
+  - 조 홈의 할 일에서 완료확인은 뺌. 항목마다 API를 불러야 해서 요청이 많아짐
+  - 입력 칩 상태(입력함, 입력 중, 미입력)는 고른 항목 수로 정함. 점수를 더하지 않음
