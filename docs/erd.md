@@ -137,10 +137,12 @@ erDiagram
 - `TEAM_MEMBER.assignment_id`는 `TEAM.assignment_id`와 같은 값. unique 제약은 한 테이블의 열만 쓸 수 있어서, "한 학생은 한 과제에서 한 조"를 DB가 지키도록 복사해 둠. 생성자가 team에서 채우므로 둘이 달라질 수 없음
 - 합류: 같은 조에 다시 합류하면 오류 없이 200. 같은 과제의 다른 조에 이미 있으면 Service 검사로 409 `DUPLICATE`. `TEAM_MEMBER`의 unique는 두 요청이 거의 동시에 올 때를 막는 마지막 장치
 - 평가: 이미 제출했으면 Service 검사로 409 `DUPLICATE`. 겹치는 제출과 임시 저장은 조 행을 잠가 한 번에 하나씩 처리함. `EVALUATION`의 unique는 마지막 장치
-- 조장을 따로 두지 않고 조 참여의 `leader`로 표시함. 선택 이유와 열린 부분은 `../TODO.md` "아직 정하지 않은 것"
+- 조장을 따로 두지 않고 조 참여의 `leader`로 표시함. 결정 기록은 `worklog.md` A-1a 항목, 데이터베이스 제약이 없는 부분은 `../TODO.md` 5절
+- `CONFIRMATION`은 대상 열을 산출물과 기여 항목으로 나눠 외래 키 제약을 유지함
+- `EVALUATION_DRAFT`를 따로 두어 제출본 `EVALUATION`의 점수를 NOT NULL로 유지함. 제출하면 지우고, 다시 저장하면 행을 지운 뒤 새로 넣음
 - `DELIVERABLE.roleName`은 `TEAM_MEMBER.roleName`을 가리키지 않고 **값을 복사해 둔 것.** 나중에 역할이 바뀌어도 산출물 순번이 끊기지 않게 함
 - `ROLE_HISTORY`는 역할이 바뀔 때마다 한 줄 쌓임. 첫 지정은 이전 역할이 없어서 남기지 않음. 만든 뒤에는 고치거나 지우지 않음
 - `LEADER_HISTORY`는 조장이 바뀔 때마다 한 줄 쌓임. 만든 뒤에는 고치거나 지우지 않음
-- 조장이 조마다 한 명인 것은 DB 제약이 아니라 `TeamService.changeLeader`가 지킴. 조 행을 잠가 교체 요청을 차례로 처리함
+- 조장이 조마다 한 명인 것은 DB 제약이 아니라 `TeamService`가 지킴. 조장 교체와 역할 지정·변경이 같은 조 행을 잠가 차례로 처리함. 그래서 역할 저장이 옛 `leader` 값을 덮어쓰지 않고, 같은 이전 역할이 이력에 두 줄 남지 않음
 - 점수 열은 6개 그대로 저장함. 합계·평균 열은 두지 않음
 - 기록 시각(`evaluationStartedAt`, `roleAssignedAt`, `previousRoleAssignedAt`, `changedAt`, `uploadedAt`, `deletedAt`, `createdAt`, `reportedAt`, `canceledAt`, `confirmedAt`, `submittedAt`, `savedAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음

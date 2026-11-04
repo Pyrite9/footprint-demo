@@ -69,7 +69,7 @@ backend/    Spring Boot. 패키지 com.footprint.backend
   controller/  요청을 받고 Entity를 응답 DTO로 바꿈 (XxxResponse.from)
   service/     업무 규칙과 권한 검사. Entity를 돌려줌
   repository/  JPA
-  entity/      회원, 과제, 조, 조 참여, 역할 이력, 조장 이력, 산출물, 평가 (8개)
+  entity/      회원, 과제, 조, 조 참여, 역할 이력, 조장 이력, 산출물, 기여 항목, 완료확인, 평가, 평가 임시 저장 (11개)
   dto/         record. 요청 하나에 DTO 하나
   exception/   GlobalExceptionHandler 한 곳에서 처리. 응답은 ApiErrorResponse { code, message }
   security/    JWT 발급·검증 필터, 구글 ID token 검증

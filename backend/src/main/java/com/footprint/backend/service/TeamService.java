@@ -114,7 +114,7 @@ public class TeamService {
     // 조장이 조원 한 명에게 역할을 지정합니다. 역할이 없는 조원에게만 지정할 수 있습니다. 이미 역할이 있으면 changeRole을 씁니다.
     @Transactional
     public TeamMember assignRole(Long teamId, Long teamMemberId, String roleName, Long memberId) {
-        Team team = findTeam(teamId);
+        Team team = findTeamWithLock(teamId);
         teamAccessChecker.checkLeader(team, memberId);
         assignmentPhaseChecker.checkRecording(team.getAssignment());
 
@@ -132,7 +132,7 @@ public class TeamService {
     // 조장이 역할이 있는 조원의 역할을 바꾸고 이전 역할을 이력으로 남깁니다. 이미 올린 산출물은 자기 역할명을 갖고 있어서 그대로입니다.
     @Transactional
     public TeamMember changeRole(Long teamId, Long teamMemberId, String roleName, Long memberId) {
-        Team team = findTeam(teamId);
+        Team team = findTeamWithLock(teamId);
         teamAccessChecker.checkLeader(team, memberId);
         assignmentPhaseChecker.checkRecording(team.getAssignment());
         TeamMember target = findTeamMember(teamId, teamMemberId);
@@ -163,9 +163,7 @@ public class TeamService {
     // 과제를 만든 교수가 같은 조의 다른 조원을 새 조장으로 바꾸고 이력을 남깁니다. 이전 조장은 일반 조원으로 남고 역할과 기록은 그대로입니다.
     @Transactional
     public TeamMember changeLeader(Long teamId, Long newLeaderId, Long memberId) {
-        // 교체 요청 두 개가 겹치면 조장이 둘이 될 수 있습니다. 조 행을 잠가 한 번에 하나씩 처리합니다. 잠금은 트랜잭션이 끝나면 풀립니다.
-        Team team = teamRepository.findWithLockById(teamId)
-                .orElseThrow(() -> new NotFoundException("조가 없습니다. id=" + teamId));
+        Team team = findTeamWithLock(teamId);
         if (!teamAccessChecker.isProfessorOf(team.getAssignment(), memberId)) {
             throw new ForbiddenException("과제를 만든 교수만 조장을 바꿀 수 있습니다");
         }
@@ -195,6 +193,13 @@ public class TeamService {
         return teamMemberRepository.findById(teamMemberId)
                 .filter(teamMember -> teamMember.getTeam().getId().equals(teamId))
                 .orElseThrow(() -> new NotFoundException("이 조의 조원이 아닙니다. id=" + teamMemberId));
+    }
+
+    // 조를 찾으면서 그 행을 잠급니다. 잠금은 트랜잭션이 끝나면 풀립니다.
+    // 역할 저장과 조장 교체는 같은 조원 행을 고칩니다. 겹치면 한쪽이 옛 값을 덮어써 조장이 없어지거나 둘이 될 수 있어서 한 번에 하나씩 처리합니다.
+    private Team findTeamWithLock(Long teamId) {
+        return teamRepository.findWithLockById(teamId)
+                .orElseThrow(() -> new NotFoundException("조가 없습니다. id=" + teamId));
     }
 
     // 조를 찾습니다. 없으면 NotFoundException을 던집니다.
