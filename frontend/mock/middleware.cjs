@@ -743,6 +743,26 @@ function handleReportContribution(req, res, loginMember, contributionId) {
   return res.json(toContributionResponse(db, db.get('contributions').find({ id: contributionId }).value()))
 }
 
+// POST /contributions/{contributionId}/cancel: 조장이 보고 전 항목을 취소합니다. 행은 취소 시각과 함께 남습니다.
+function handleCancelContribution(req, res, loginMember, contributionId) {
+  const db = req.app.db
+  const contribution = db.get('contributions').find({ id: contributionId }).value()
+  if (!contribution) {
+    return sendError(res, 404, 'NOT_FOUND', '기여 항목이 없습니다. id=' + contributionId)
+  }
+  const team = db.get('teams').find({ id: contribution.teamId }).value()
+  if (!checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
+  if (contribution.canceledAt !== null) {
+    return sendError(res, 400, 'INVALID_INPUT', '이미 취소된 항목입니다')
+  }
+  if (contribution.reportedAt !== null) {
+    return sendError(res, 400, 'INVALID_INPUT', '보고한 항목은 취소할 수 없습니다')
+  }
+
+  db.get('contributions').find({ id: contributionId }).assign({ canceledAt: nowLocalDateTime() }).write()
+  return res.json(toContributionResponse(db, db.get('contributions').find({ id: contributionId }).value()))
+}
+
 // 동료평가 6개 항목의 이름입니다. 실제 EvaluationSubmitRequest.Item의 점수 필드와 같습니다.
 const SCORE_FIELDS = ['goalSharing', 'roleFulfillment', 'encouragement', 'onlineCommunication', 'offlineCommunication', 'progressCheck']
 
@@ -954,6 +974,13 @@ function handleRequest(req, res, next) {
     const contributionId = parseIdOrSendError(res, reportIdText)
     if (contributionId === null) return
     return handleReportContribution(req, res, loginMember, contributionId)
+  }
+
+  const cancelIdText = matchId(/^\/contributions\/([^/]+)\/cancel$/, req.path)
+  if (req.method === 'POST' && cancelIdText !== null) {
+    const contributionId = parseIdOrSendError(res, cancelIdText)
+    if (contributionId === null) return
+    return handleCancelContribution(req, res, loginMember, contributionId)
   }
 
   const leaderTeamIdText = matchId(/^\/teams\/([^/]+)\/leader$/, req.path)

@@ -1294,7 +1294,7 @@
     },
     {
       "name": "4. 기여 항목 (R-2)",
-      "description": "파일이 남지 않는 일의 기록입니다. 조장이 등록하고, 담당 조원이 완료 보고하고, 조원과 교수가 목록을 봅니다.",
+      "description": "파일이 남지 않는 일의 기록입니다. 조장이 등록하고, 담당 조원이 완료 보고하고, 조장이 보고 전 항목을 취소합니다. 취소해도 목록에 남습니다.",
       "item": [
         {
           "name": "기여 항목 등록 - 조원은 403 (조원)",
@@ -1751,6 +1751,252 @@
               }
             }
           ]
+        },
+        {
+          "name": "취소할 항목 등록 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/contributions",
+            "description": "보고 전 항목만 취소할 수 있어서 새로 등록합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"자료 취합\",\n  \"teamMemberId\": {{memberTeamMemberId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('canceledContributionId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "취소 - 담당 조원은 403 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{canceledContributionId}}/cancel",
+            "description": "조장만 취소합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "기여 항목 취소 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{canceledContributionId}}/cancel",
+            "description": "행은 남고 취소 시각이 채워집니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('취소 시각이 있음', () => pm.expect(pm.response.json().canceledAt).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다시 취소하면 400 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{canceledContributionId}}/cancel",
+            "description": "이미 취소된 항목입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "취소된 항목을 보고하면 400 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contributions/{{canceledContributionId}}/report",
+            "description": "취소된 항목은 보고할 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memo\": \"끝냈습니다\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "보고한 항목을 취소하면 400 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/cancel",
+            "description": "보고 전 항목만 취소합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "취소해도 목록에 남음 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/contributions",
+            "description": "최근에 등록한 것부터 나옵니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('2건', () => pm.expect(pm.response.json().length).to.eql(2));",
+                  "pm.test('맨 위가 취소됨', () => pm.expect(pm.response.json()[0].canceledAt).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -2073,6 +2319,37 @@
                   "language": "json"
                 }
               }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 단계에서 취소하면 400 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{canceledContributionId}}/cancel",
+            "description": "단계 검사가 이미 취소했는지 보는 검사보다 먼저입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -2577,6 +2854,10 @@
     },
     {
       "key": "contributionId",
+      "value": ""
+    },
+    {
+      "key": "canceledContributionId",
       "value": ""
     }
   ]

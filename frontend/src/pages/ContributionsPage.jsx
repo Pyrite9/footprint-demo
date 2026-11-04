@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getMe } from '../api/auth'
-import { createContribution, getContributions, reportContribution } from '../api/contributions'
+import { cancelContribution, createContribution, getContributions, reportContribution } from '../api/contributions'
 import { getTeam, getTeamMembers } from '../api/teams'
 import ContributionCreateForm from '../components/ContributionCreateForm'
 import ContributionList from '../components/ContributionList'
 
-// 조의 기여 항목 화면입니다. 목록은 조원과 교수가 보고, 기록 단계에서 등록은 조장이, 완료 보고는 담당 조원이 합니다(서버가 확인합니다).
+// 조의 기여 항목 화면입니다. 목록은 조원과 교수가 보고, 기록 단계에서 등록과 취소는 조장이, 완료 보고는 담당 조원이 합니다(서버가 확인합니다).
 function ContributionsPage() {
     const { teamId } = useParams()
     const [me, setMe] = useState(null)
@@ -23,8 +23,8 @@ function ContributionsPage() {
     // 완료 보고 form을 열어 둔 항목의 번호입니다. 한 번에 하나만 열립니다.
     const [reportTargetId, setReportTargetId] = useState(null)
     const [memo, setMemo] = useState('')
-    // 등록과 보고는 서로 끝날 때까지 막습니다. 동시에 끝나면 나중에 끝난 쪽이 옛 contributions로 덮어써 먼저 끝난 결과가 사라지기 때문입니다.
     const [reporting, setReporting] = useState(false)
+    const [canceling, setCanceling] = useState(false)
 
     useEffect(() => {
         Promise.all([getMe(), getTeam(teamId), getTeamMembers(teamId), getContributions(teamId)])
@@ -90,6 +90,21 @@ function ContributionsPage() {
             .finally(() => setReporting(false))
     }
 
+    // 되돌릴 수 없는 동작이라 한 번 더 묻고 취소합니다. 성공하면 그 줄만 바꿉니다. 목록에서 빼지 않습니다.
+    function handleCancel(target) {
+        if (!window.confirm(`${target.title} 항목을 취소할까요? 되돌릴 수 없고, 기록은 "취소됨"으로 남습니다.`)) return
+        setActionError(null)
+        setCanceling(true)
+        cancelContribution(target.id)
+            .then((updated) => {
+                setContributions(contributions.map((contribution) => (contribution.id === updated.id ? updated : contribution)))
+                // 조장이 자기 항목의 보고 form을 열어 둔 채 취소했으면 form도 닫습니다.
+                if (reportTargetId === updated.id) handleCloseReport()
+            })
+            .catch((err) => setActionError(err.message))
+            .finally(() => setCanceling(false))
+    }
+
     if (loading) return <main><p>불러오는 중...</p></main>
     if (error) {
         return (
@@ -103,14 +118,16 @@ function ContributionsPage() {
     // 내 조 참여 기록입니다. 교수는 조원이 아니라서 없습니다(undefined).
     const myTeamMember = members.find((member) => member.memberId === me.id)
     const isRecording = team.phase === 'RECORDING'
-    const canCreate = isRecording && myTeamMember !== undefined && myTeamMember.leader
+    const isRecordingLeader = isRecording && myTeamMember !== undefined && myTeamMember.leader
+    // 등록, 보고, 취소는 서로 끝날 때까지 막습니다. 동시에 끝나면 나중에 끝난 쪽이 옛 contributions로 덮어써 먼저 끝난 결과가 사라지기 때문입니다.
+    const busy = creating || reporting || canceling
 
     return (
         <main>
             <p className="links"><Link to={`/teams/${team.id}`}>← {team.name}</Link></p>
             <h1>{team.name} 기여 항목</h1>
 
-            {canCreate && (
+            {isRecordingLeader && (
                 <ContributionCreateForm
                     title={title}
                     assigneeId={assigneeId}
@@ -118,10 +135,10 @@ function ContributionsPage() {
                     onTitleChange={setTitle}
                     onAssigneeChange={setAssigneeId}
                     onSubmit={handleCreate}
-                    creating={creating || reporting}
+                    creating={busy}
                 />
             )}
-            {!isRecording && <p className="notice">평가 단계입니다. 기여 항목을 더 등록하거나 보고할 수 없습니다.</p>}
+            {!isRecording && <p className="notice">평가 단계입니다. 기여 항목을 더 등록, 보고, 취소할 수 없습니다.</p>}
             {actionError && <p className="error">{actionError}</p>}
 
             <h2>기여 항목 (최근 등록순)</h2>
@@ -129,13 +146,15 @@ function ContributionsPage() {
                 contributions={contributions}
                 currentMemberId={me.id}
                 canReport={isRecording}
+                canCancel={isRecordingLeader}
                 reportTargetId={reportTargetId}
                 memo={memo}
                 onStartReport={handleStartReport}
                 onMemoChange={setMemo}
                 onSubmitReport={handleReport}
                 onCloseReport={handleCloseReport}
-                reporting={reporting || creating}
+                onCancel={handleCancel}
+                busy={busy}
             />
         </main>
     )

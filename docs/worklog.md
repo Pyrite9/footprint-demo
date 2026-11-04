@@ -1362,3 +1362,37 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 취소된 항목에 보고하면 400 `INVALID_INPUT`임
   - 시작 데이터의 평가 단계 항목을 "보고됨"으로 둠. 메모 문구는 내가 씀
   - "완료 보고", "보고", "닫기", 메모 안내 문구와 오류 메시지는 내가 씀
+
+### R-2-4 기여 항목 취소
+
+- 결정:
+  - `POST /contributions/{contributionId}/cancel`을 둠. `TODO.md`의 주소 그대로임. body는 없음. 선택지: `DELETE`. 산출물 삭제는 파일 본문이 실제로 지워지지만 여기는 상태만 바뀌어서 `TODO.md`의 추천대로 둠
+  - 검사 순서는 없음 404 → 조장 아니면 403 → 평가 단계 400 → 이미 취소 400 → 이미 보고 400임
+  - 다시 취소하면 400임. 산출물을 다시 삭제할 때와 같음. 보고만 "두 번 제출"과 같은 일이라 409임
+  - 완료 보고와 같은 행 잠금을 씀. 보고와 취소가 겹쳐도 둘 다 성공하지 않음
+  - 취소 전 확인은 `window.confirm`으로 함. 되돌릴 수 없는 동작임
+  - 조장이 자기 항목의 보고 form을 연 채 취소하면 form도 닫음
+  - 등록, 보고, 취소 요청 중에는 `busy`로 버튼을 모두 막음. `.then` 안의 옛 `contributions`가 다른 결과를 덮어쓰지 않게 함
+- 고친 파일:
+  - 백엔드: `entity/Contribution`, `service/ContributionService`, `controller/ContributionController`, 테스트 `ContributionRuleTests`
+  - 가짜 API: `frontend/mock/middleware.cjs`
+  - 화면: `api/contributions.js`, `pages/ContributionsPage.jsx`, `components/ContributionList.jsx`, `components/ContributionCreateForm.jsx`, `components/StartEvaluationPanel.jsx`
+  - 문서: `docs/api-draft.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`
+- 확인:
+  - `gradlew clean build` 성공. 테스트 85개, 실패 0(`ContributionRuleTests`에 6개 더함). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 73개, 확인 145개, 실패 0
+  - 실제 백엔드와 가짜 API에 같은 요청 38개를 보내 응답과 오류 메시지가 같음을 비교함(저장소에 넣지 않은 임시 스크립트)
+  - 겹치는 요청 시험: 같은 항목에 보고와 취소를 동시에 보내기를 20번 함. 매번 하나만 200이고 나머지는 400임. 보고 두 개도 다시 20번 해서 매번 하나만 200임(저장소에 넣지 않은 임시 스크립트). 잠금을 뺀 코드와 비교하지는 않음
+  - 브라우저에서 실제 백엔드로 확인: 조장에게 보고 전 항목마다 취소 버튼이 보임. 확인 창에서 물러나면 그대로이고, 확인하면 "취소됨"과 취소 시각으로 바뀌고 버튼이 사라지며 열어 둔 보고 form도 닫힘. 교수에게는 form도 버튼도 없고 취소된 줄은 보임. 평가 단계 조에서는 조장에게도 form과 버튼이 없고 안내 문구와 보고 메모가 보임. 폭 375px에서 가로 스크롤 없음
+  - 취소 확인 창은 눌러 보지 못함. 시험할 때 `window.confirm`을 바꿔 문구와 양쪽 동작을 확인함
+  - 서버를 막 켠 직후에는 포트가 열려 있어도 시작 데이터가 아직 없어 로그인이 실패할 수 있음. 앱 문제는 아니고 시험 순서 문제였음
+  - rule-check: 금지 패턴 없음. 점수 계산 없음. 새 public 메서드에 주석 있음. 값을 바꾸는 `cancel`에 `@Transactional` 있음. 수정 필요 없음
+- 읽을 때 볼 곳:
+  - `ContributionService.cancel`의 검사 순서. 이미 취소를 이미 보고보다 먼저 봐도 둘은 동시에 생기지 않음(잠금)
+  - `ContributionsPage`의 `busy`. 계산되는 값이라 state로 두지 않음
+  - `ContributionsPage.handleCancel`의 `reportTargetId === updated.id`
+  - `ContributionRuleTests.newLeaderCancelsAfterChange`. 권한을 조회할 때의 조장으로 봄
+- 내가 채운 가정:
+  - 보고한 항목을 취소하면 400, 이미 취소한 항목을 취소하면 400임
+  - 등록한 조장이 아니라 지금 조장이 취소함
+  - 확인 창 문구, "취소" 버튼, 오류 메시지, 등록 form의 "보고 전이면 취소하고 다시 등록합니다"는 내가 씀

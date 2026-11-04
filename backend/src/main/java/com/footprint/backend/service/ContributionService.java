@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-// 기여 항목을 등록하고, 목록을 찾고, 완료 보고를 받습니다. 파일이 남지 않는 일의 기록입니다.
+// 기여 항목을 등록하고, 목록을 찾고, 완료 보고를 받고, 취소합니다. 파일이 남지 않는 일의 기록입니다.
 @Service
 public class ContributionService {
 
@@ -58,7 +58,7 @@ public class ContributionService {
     // 담당 조원이 완료 보고합니다. 한 번만 할 수 있고, 메모는 보고한 뒤 고칠 수 없습니다.
     @Transactional
     public Contribution report(Long contributionId, String memo, Long memberId) {
-        // 보고 요청 두 개가 겹치면 먼저 쓴 메모가 덮어써질 수 있습니다. 행을 잠가 한 번에 하나씩 처리합니다. 잠금은 트랜잭션이 끝나면 풀립니다.
+        // 보고 요청 두 개가 겹치면 먼저 쓴 메모가 덮어써지고, 취소와 겹치면 둘 다 성공할 수 있습니다. 행을 잠가 한 번에 하나씩 처리합니다. 잠금은 트랜잭션이 끝나면 풀립니다.
         Contribution contribution = findContributionWithLock(contributionId);
         teamAccessChecker.checkAssignee(contribution, memberId);
         assignmentPhaseChecker.checkRecording(contribution.getTeam().getAssignment());
@@ -70,6 +70,24 @@ public class ContributionService {
         }
 
         contribution.report(memo.trim());
+        return contribution;
+    }
+
+    // 조장이 보고 전 항목을 취소합니다. 행은 남고 목록에 "취소됨"으로 보입니다. 고치고 싶으면 취소하고 다시 등록합니다.
+    @Transactional
+    public Contribution cancel(Long contributionId, Long memberId) {
+        // report와 같은 이유로 행을 잠급니다.
+        Contribution contribution = findContributionWithLock(contributionId);
+        teamAccessChecker.checkLeader(contribution.getTeam(), memberId);
+        assignmentPhaseChecker.checkRecording(contribution.getTeam().getAssignment());
+        if (contribution.isCanceled()) {
+            throw new InvalidInputException("이미 취소된 항목입니다");
+        }
+        if (contribution.isReported()) {
+            throw new InvalidInputException("보고한 항목은 취소할 수 없습니다");
+        }
+
+        contribution.cancel();
         return contribution;
     }
 

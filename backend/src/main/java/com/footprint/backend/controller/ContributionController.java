@@ -45,4 +45,10 @@ public class ContributionController {
                                        @Valid @RequestBody ContributionReportRequest request) {
         return ContributionResponse.from(contributionService.report(contributionId, request.memo(), memberId));
     }
+
+    // 조장이 보고 전 항목을 취소하고, 취소 시각이 담긴 항목을 돌려줍니다.
+    @PostMapping("/contributions/{contributionId}/cancel")
+    public ContributionResponse cancel(@AuthenticationPrincipal Long memberId, @PathVariable Long contributionId) {
+        return ContributionResponse.from(contributionService.cancel(contributionId, memberId));
+    }
 }

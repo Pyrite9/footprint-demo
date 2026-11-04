@@ -8,7 +8,7 @@ function ContributionCreateForm({ title, assigneeId, members, onTitleChange, onA
     return (
         <form onSubmit={handleSubmit} className="panel">
             <h2>기여 항목 등록</h2>
-            <p className="muted">파일이 남지 않는 일(회의 진행, 자료 취합 등)을 기록합니다. 등록한 항목은 고칠 수 없습니다.</p>
+            <p className="muted">파일이 남지 않는 일(회의 진행, 자료 취합 등)을 기록합니다. 등록한 항목은 고칠 수 없습니다. 보고 전이면 취소하고 다시 등록합니다.</p>
             <p>
                 <label className="field">
                     항목명

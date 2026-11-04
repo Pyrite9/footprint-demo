@@ -17,3 +17,8 @@ export function createContribution(teamId, title, teamMemberId) {
 export function reportContribution(contributionId, memo) {
   return request(`/contributions/${contributionId}/report`, { method: 'POST', body: { memo } })
 }
+
+// 조장이 보고 전 항목을 취소하고, 취소 시각이 담긴 항목을 돌려줍니다.
+export function cancelContribution(contributionId) {
+  return request(`/contributions/${contributionId}/cancel`, { method: 'POST' })
+}

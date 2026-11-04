@@ -225,6 +225,102 @@ class ContributionRuleTests {
         TestApi.expectError(api.post(path, api.login("student01@example.com"), reportBody("끝냈습니다")), 403, "FORBIDDEN");
     }
 
+    // 조장이 보고 전 항목을 취소하면 취소 시각이 저장되고, 목록에 남습니다. 다시 등록할 수 있습니다.
+    @Test
+    void leaderCancelsAndItStaysInList() throws Exception {
+        String leader = api.login("student01@example.com");
+        int id = createAssignedToStudent02();
+
+        api.post("/contributions/" + id + "/cancel", leader, "")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.canceledAt").value(matchesPattern("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}")))
+                .andExpect(jsonPath("$.reportedAt").isEmpty());
+
+        api.get(contributionsPath, api.login("professor@example.com"))
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].id").value(id))
+                .andExpect(jsonPath("$[0].canceledAt").isNotEmpty());
+
+        int again = createAssignedToStudent02();
+        api.get(contributionsPath, leader)
+                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$[0].id").value(again))
+                .andExpect(jsonPath("$[0].canceledAt").isEmpty());
+    }
+
+    // 조장만 취소합니다. 담당 조원, 다른 조 학생, 교수는 403이고 항목은 그대로입니다.
+    @Test
+    void onlyLeaderCancels() throws Exception {
+        int id = createAssignedToStudent02();
+
+        for (String email : List.of("student02@example.com", "student06@example.com", "professor@example.com")) {
+            TestApi.expectError(api.post("/contributions/" + id + "/cancel", api.login(email), ""), 403, "FORBIDDEN");
+        }
+        api.get(contributionsPath, api.login("student01@example.com")).andExpect(jsonPath("$[0].canceledAt").isEmpty());
+    }
+
+    // 보고한 항목은 취소할 수 없고, 취소한 항목은 다시 취소하거나 보고할 수 없습니다. 처음 기록은 그대로입니다.
+    @Test
+    void reportAndCancelExcludeEachOther() throws Exception {
+        String leader = api.login("student01@example.com");
+        String member = api.login("student02@example.com");
+        int reported = createAssignedToStudent02();
+        api.post("/contributions/" + reported + "/report", member, reportBody("끝냈습니다")).andExpect(status().isOk());
+        int canceled = createAssignedToStudent02();
+        String canceledAt = JsonPath.read(api.post("/contributions/" + canceled + "/cancel", leader, "")
+                .andReturn().getResponse().getContentAsString(), "$.canceledAt");
+
+        expectBadRequest(api.post("/contributions/" + reported + "/cancel", leader, ""), "보고한 항목은 취소할 수 없습니다");
+        expectBadRequest(api.post("/contributions/" + canceled + "/cancel", leader, ""), "이미 취소된 항목입니다");
+        expectBadRequest(api.post("/contributions/" + canceled + "/report", member, reportBody("끝냈습니다")), "취소된 항목은 보고할 수 없습니다");
+
+        api.get(contributionsPath, leader)
+                .andExpect(jsonPath("$[0].canceledAt").value(canceledAt))
+                .andExpect(jsonPath("$[0].reportMemo").isEmpty())
+                .andExpect(jsonPath("$[1].reportMemo").value("끝냈습니다"))
+                .andExpect(jsonPath("$[1].canceledAt").isEmpty());
+    }
+
+    // 조장이 바뀌면 새 조장이 취소합니다. 이전 조장은 일반 조원이라 403입니다.
+    @Test
+    void newLeaderCancelsAfterChange() throws Exception {
+        int id = createAssignedToStudent02();
+        api.put("/teams/" + teamId + "/leader", api.login("professor@example.com"),
+                "{ \"teamMemberId\": " + members.get(2).getId() + " }").andExpect(status().isOk());
+
+        TestApi.expectError(api.post("/contributions/" + id + "/cancel", api.login("student01@example.com"), ""), 403, "FORBIDDEN");
+        api.post("/contributions/" + id + "/cancel", api.login("student03@example.com"), "").andExpect(status().isOk());
+    }
+
+    // 없는 항목은 404, 번호가 숫자가 아니면 400입니다.
+    @Test
+    void wrongCancelIsRejected() throws Exception {
+        String leader = api.login("student01@example.com");
+
+        TestApi.expectError(api.post("/contributions/999999/cancel", leader, ""), 404, "NOT_FOUND");
+        TestApi.expectError(api.post("/contributions/abc/cancel", leader, ""), 400, "INVALID_INPUT");
+    }
+
+    // 평가 단계에서는 조장도 취소할 수 없습니다. 권한 검사가 먼저입니다.
+    @Test
+    void evaluationPhaseBlocksCancel() throws Exception {
+        Team evaluationTeam = teamRepository.findByInviteCode("demo-evaluation-1").orElseThrow();
+        String list = api.get("/teams/" + evaluationTeam.getId() + "/contributions", api.login("student01@example.com"))
+                .andReturn().getResponse().getContentAsString();
+        int id = JsonPath.read(list, "$[0].id");
+        String path = "/contributions/" + id + "/cancel";
+
+        expectBadRequest(api.post(path, api.login("student01@example.com"), ""), "평가 단계에서는 조 운영과 과정 기록을 바꿀 수 없습니다");
+        TestApi.expectError(api.post(path, api.login("student02@example.com"), ""), 403, "FORBIDDEN");
+    }
+
+    // 400 INVALID_INPUT이고 메시지가 같은지 확인합니다.
+    private void expectBadRequest(ResultActions result, String message) throws Exception {
+        TestApi.expectError(result, 400, "INVALID_INPUT");
+        result.andExpect(jsonPath("$.message").value(message));
+    }
+
     // 조장이 student02에게 맡긴 항목을 등록하고 번호를 돌려줍니다.
     private int createAssignedToStudent02() throws Exception {
         String response = api.post(contributionsPath, api.login("student01@example.com"), createBody("회의 진행", members.get(1).getId()))

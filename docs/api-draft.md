@@ -560,6 +560,24 @@ token
 - 메모는 보고한 뒤 고칠 수 없음
 - 보고 요청이 겹쳐도 항목 행을 잠가 하나만 저장됨. 나머지는 409임
 
+### POST /contributions/{contributionId}/cancel — 기여 항목 취소 (R-2-4) · 2026.11.04
+
+조장이 기록 단계에서 보고 전 항목을 취소함. 요청 body는 없음. 취소 시각은 서버가 기록함. 고치고 싶으면 취소하고 다시 등록함
+
+200: 취소 시각이 담긴 항목. 모양은 목록의 한 줄과 같음
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때, 평가 단계일 때, 이미 취소됐을 때, 이미 보고한 항목일 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 조장이 아닐 때(담당 조원, 교수 포함) |
+| 404 | `NOT_FOUND` | 없는 항목일 때 |
+
+서버 쪽 규칙
+- 목록에서 빠지지 않고 `canceledAt`이 채워짐
+- 보고와 취소가 겹쳐도 항목 행을 잠가 하나만 성공함
+- 조장이 바뀌면 새 조장이 취소함
+
 ---
 
 ## 동료평가
@@ -638,7 +656,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 7 | R-2-4 | `POST /contributions/{contributionId}/cancel` | 조장 |
 | 8 | R-3-1 | `POST /deliverables/{deliverableId}/confirmations` | 올린 조원을 뺀 조원 |
 | 8 | R-3-1 | `POST /contributions/{contributionId}/confirmations` | 담당 조원을 뺀 조원 |
 | 8 | R-3-2 | `POST /confirmations/{confirmationId}/cancel` | 확인한 조원 |

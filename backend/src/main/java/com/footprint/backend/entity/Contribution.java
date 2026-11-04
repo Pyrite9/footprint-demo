@@ -64,6 +64,11 @@ public class Contribution {
         return canceledAt != null;
     }
 
+    // 취소 시각을 기록합니다. 행은 지우지 않습니다. 시각은 서버가 넣습니다.
+    public void cancel() {
+        this.canceledAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+    }
+
     // 완료 보고 메모와 시각을 기록합니다. 시각은 서버가 넣습니다.
     public void report(String memo) {
         this.reportMemo = memo;
