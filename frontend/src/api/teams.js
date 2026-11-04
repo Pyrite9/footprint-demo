@@ -35,6 +35,16 @@ export function changeRole(teamId, teamMemberId, roleName) {
   return request(`/teams/${teamId}/members/${teamMemberId}/role`, { method: 'PUT', body: { roleName } })
 }
 
+// 과제를 만든 교수가 조원(teamMemberId: 조 참여 번호)을 새 조장으로 바꿉니다. 새 조장 { id, memberId, name, roleName, leader }를 돌려줍니다.
+export function changeLeader(teamId, teamMemberId) {
+  return request(`/teams/${teamId}/leader`, { method: 'PUT', body: { teamMemberId } })
+}
+
+// 한 조의 조장 교체 이력 [{ id, previousLeaderName, newLeaderName, changedAt }]을 최근에 바뀐 것부터 가져옵니다.
+export function getLeaderHistories(teamId) {
+  return request(`/teams/${teamId}/leader-histories`)
+}
+
 // 한 조원의 역할 이력 [{ id, previousRoleName, changedAt }]을 최근에 바뀐 것부터 가져옵니다.
 export function getRoleHistories(teamId, teamMemberId) {
   return request(`/teams/${teamId}/members/${teamMemberId}/role-histories`)

@@ -55,7 +55,7 @@ public class TeamAccessChecker {
     }
 
     // 이 조의 조장인지 확인하고 그 조 참여 기록을 돌려줍니다. 조장이 아니면 ForbiddenException을 던집니다.
-    // 조장만 할 수 있는 일(초대 코드 발급, 역할 지정)에 씁니다.
+    // 조장만 할 수 있는 일(초대 코드 발급, 역할 지정·변경)에 씁니다.
     public TeamMember checkLeader(Team team, Long memberId) {
         TeamMember teamMember = teamMemberRepository.findByTeamIdAndMemberId(team.getId(), memberId)
                 .orElseThrow(() -> new ForbiddenException("조장만 할 수 있습니다"));

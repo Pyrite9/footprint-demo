@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getMe } from '../api/auth'
-import { assignRole, changeRole, getInviteCode, getRoleHistories, getTeam, getTeamMembers, issueInviteCode } from '../api/teams'
+import { assignRole, changeLeader, changeRole, getInviteCode, getLeaderHistories, getRoleHistories, getTeam, getTeamMembers, issueInviteCode } from '../api/teams'
 import InviteLinkPanel from '../components/InviteLinkPanel'
+import LeaderHistoryPanel from '../components/LeaderHistoryPanel'
 import RoleHistoryPanel from '../components/RoleHistoryPanel'
 import TeamMemberList from '../components/TeamMemberList'
 
-// 조 화면입니다. 조원 목록과 역할 이력을 보여 주고, 기록 단계이면 조장에게 초대 링크 발급과 역할 지정·변경을 보여 줍니다.
+// 조 화면입니다. 조원 목록과 역할·조장 이력을 보여 주고, 기록 단계이면 조장에게 초대 링크 발급과 역할 지정·변경을, 교수에게 조장 교체를 보여 줍니다.
 // 이 조의 조원과 그 과제를 만든 교수만 볼 수 있습니다(서버가 확인합니다).
 function TeamPage() {
     const { teamId } = useParams()
@@ -28,13 +29,16 @@ function TeamPage() {
     const [historyMemberId, setHistoryMemberId] = useState(null)
     const [roleHistories, setRoleHistories] = useState([])
     const [loadingHistory, setLoadingHistory] = useState(false)
+    const [leaderHistories, setLeaderHistories] = useState([])
+    const [changingLeader, setChangingLeader] = useState(false)
 
     useEffect(() => {
-        Promise.all([getMe(), getTeam(teamId), getTeamMembers(teamId)])
-            .then(([meData, teamData, membersData]) => {
+        Promise.all([getMe(), getTeam(teamId), getTeamMembers(teamId), getLeaderHistories(teamId)])
+            .then(([meData, teamData, membersData, leaderHistoriesData]) => {
                 setMe(meData)
                 setTeam(teamData)
                 setMembers(membersData)
+                setLeaderHistories(leaderHistoriesData)
                 // 초대 코드는 조장만 볼 수 있어서, 내가 조장일 때만 이어서 불러옵니다.
                 const myTeamMember = membersData.find((member) => member.memberId === meData.id)
                 if (myTeamMember && myTeamMember.leader) {
@@ -79,6 +83,21 @@ function TeamPage() {
             .finally(() => setSavingRole(false))
     }
 
+    // 권한이 옮겨 가고 이력이 남는 일이라 한 번 더 묻고 조장을 바꿉니다.
+    // 응답은 새 조장 한 줄이라, 조원 목록의 조장 표시를 그 번호로 다시 정하고 이력을 새로 불러옵니다.
+    function handleChangeLeader(target) {
+        if (!window.confirm(`${target.name} 조원을 새 조장으로 바꿀까요? 교체 이력이 남습니다.`)) return
+        setActionError(null)
+        setChangingLeader(true)
+        changeLeader(teamId, target.id)
+            .then((updated) => {
+                setMembers(members.map((member) => ({ ...member, leader: member.id === updated.id })))
+                return getLeaderHistories(teamId).then((data) => setLeaderHistories(data))
+            })
+            .catch((err) => setActionError(err.message))
+            .finally(() => setChangingLeader(false))
+    }
+
     // 한 조원의 역할 이력을 불러와 보여 줍니다.
     function handleShowHistory(teamMemberId) {
         setActionError(null)
@@ -108,6 +127,8 @@ function TeamPage() {
     const isMember = members.some((member) => member.memberId === me.id)
     // 평가 단계에서는 조 운영을 바꿀 수 없습니다.
     const isRecording = team.phase === 'RECORDING'
+    // 이 화면을 볼 수 있는 교수는 과제를 만든 교수뿐입니다(서버가 확인합니다).
+    const isProfessor = me.memberType === 'PROFESSOR'
     // 이력을 보고 있는 조원입니다. 이름과 지금 역할을 조원 목록에서 찾습니다.
     const historyMember = members.find((member) => member.id === historyMemberId)
 
@@ -125,11 +146,13 @@ function TeamPage() {
             <TeamMemberList
                 members={members}
                 canAssignRole={isLeader && isRecording}
+                canChangeLeader={isProfessor && isRecording}
                 roleNameInputs={roleNameInputs}
                 onRoleNameChange={handleRoleNameChange}
                 onSaveRole={handleSaveRole}
                 onShowHistory={handleShowHistory}
-                busy={savingRole || loadingHistory}
+                onChangeLeader={handleChangeLeader}
+                busy={savingRole || loadingHistory || changingLeader}
             />
             {/* 역할 저장 오류를 그 입력 칸 가까이에 보여 주려고 조원 목록 바로 아래에 둡니다. */}
             {actionError && <p className="error">{actionError}</p>}
@@ -137,9 +160,10 @@ function TeamPage() {
             {historyMember && (
                 <RoleHistoryPanel member={historyMember} histories={roleHistories} onClose={() => setHistoryMemberId(null)} />
             )}
+            {leaderHistories.length > 0 && <LeaderHistoryPanel histories={leaderHistories} />}
 
             {isLeader && isRecording && <InviteLinkPanel inviteCode={inviteCode} onIssue={handleIssueInviteCode} issuing={issuing} />}
-            {!isRecording && <p className="notice">평가 단계입니다. 초대와 역할 지정·변경은 더 할 수 없습니다.</p>}
+            {!isRecording && <p className="notice">평가 단계입니다. 초대, 역할 지정·변경, 조장 교체는 더 할 수 없습니다.</p>}
         </main>
     )
 }

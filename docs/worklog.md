@@ -1213,3 +1213,41 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 내가 채운 가정:
   - 전체 기록에 평가 제출과 임시 저장을 넣지 않음. 조원끼리 서로의 평가를 볼 수 없다는 규칙 때문임
   - 조원용 메뉴 이름은 "전체 기록"임
+
+### X-3 조장 교체
+- 결정:
+  - 주소는 `PUT /teams/{teamId}/leader`이고 body는 `{ teamMemberId }`임(`api-draft.md` 추천안). 응답은 새 조장 한 줄임. 선택지: 조원 목록 전체(두 줄이 바뀌어서 맞지만 역할 API와 모양이 달라짐). 화면은 `leader`를 그 번호로 다시 계산함
+  - 교체 요청은 조 행을 잠그고(`TeamRepository.findWithLockById`, `PESSIMISTIC_WRITE`) 처리함. 다른 동시 요청은 잠그지 않았지만 여기는 결과가 다름. 조장이 둘이 되면 그 조의 학생은 과제 상세가 500이 되고, 조장 교체도 500이라 화면에서 고칠 길이 없음. 선택지: 잠금 없음(아래 "확인"에서 첫 라운드에 재현됨), DB 부분 unique 인덱스(`WHERE leader`. JPA 어노테이션으로 못 적어서 O-1 Flyway 전에는 둘 곳이 없음). O-1 때 인덱스를 더할지 다시 볼 수 있음
+  - 이미 조장인 조원을 고르면 400 `INVALID_INPUT`임. 역할 변경의 "같은 역할"과 같은 이유임
+  - 검사 순서는 교수 → 단계 → 대상임. 권한 → 단계 순서는 그대로임
+  - 교수 검사는 `TeamAccessChecker`에 새 메서드를 만들지 않고 `isProfessorOf`로 Service에서 함. `AssignmentService.startEvaluation`과 같은 모양이고 메시지가 달라서임
+  - 이력 응답은 `{ id, previousLeaderName, newLeaderName, changedAt }`임. 목록 응답은 연결된 데이터를 펼치는 규칙을 따름
+  - 초대 코드는 교체해도 그대로 둠. 새 조장이 필요하면 다시 발급함. 조원에게 이미 보낸 링크가 갑자기 끊기지 않게 함
+  - 화면은 조 화면의 조원 줄에 "새 조장으로" 버튼을 둠. 교수가 조원을 보는 곳이 여기뿐임. 조장 교체 이력은 한 번이라도 바뀐 조에서만 패널로 보임
+- 만든 파일: `entity/LeaderHistory`, `repository/LeaderHistoryRepository`, `dto/LeaderChangeRequest`, `dto/LeaderHistoryResponse`, `LeaderChangeRuleTests`, `frontend/src/components/LeaderHistoryPanel.jsx`
+- 고친 파일:
+  - 백엔드: `service/TeamService`, `service/TeamAccessChecker`(주석), `controller/TeamController`, `entity/TeamMember`, `repository/TeamRepository`, 테스트 `PhaseRuleTests`
+  - 가짜 API: `frontend/mock/middleware.cjs`, `frontend/db.json`
+  - 화면: `api/teams.js`, `pages/TeamPage.jsx`, `components/TeamMemberList.jsx`, `components/StartEvaluationPanel.jsx`
+  - 문서: `docs/api-draft.md`, `docs/architecture.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`
+- 고친 기존 문제:
+  - README "아직 만들지 않은 것"의 추가 기능 15개는 O-5, O-6을 끝낸 뒤에도 그대로였고 테스트, CI까지 적혀 있었음. O-5, O-6, X-3을 뺀 12개로 고침
+- 확인:
+  - `gradlew build` 성공. 테스트 58개, 실패 0(`LeaderChangeRuleTests` 9개 새로). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 46개, 확인 88개, 실패 0
+  - 실제 백엔드와 가짜 API의 `PUT`, 이력 응답 필드와 오류 메시지 6가지가 같음을 비교함
+  - 동시 요청 시험(서로 다른 조원으로 바꾸는 `PUT` 두 개를 동시에 보냄, 저장소에 넣지 않은 임시 스크립트): 잠금이 있으면 40라운드 모두 조장 한 명. `@Lock`을 잠시 뺀 jar에서는 첫 라운드에 조장 둘이 됨. 그때 그 조 학생의 과제 상세 500, 교수의 과제 상세에 같은 조 두 줄, 조장 교체 500. 시험 뒤 `@Lock`을 되돌리고 다시 빌드해 40라운드를 또 확인함. 이 시험은 `gradlew build`에 들어 있지 않음. 규칙 테스트는 `@Transactional`이라 동시 요청을 만들 수 없음
+  - 브라우저에서 실제 백엔드로 확인: 교수가 교체 → 조장 표시와 이력 패널이 바로 바뀜. 새 조장에게 역할 form과 초대 패널이 보임. 이전 조장은 이력 버튼만 보임. 평가 단계 조의 교수에게는 교체 버튼이 없고 안내 문구가 바뀜. 375px 폭에서 가로 스크롤 없음
+  - 교체 전 확인 창은 눌러 보지 못함. 시험할 때 `window.confirm`을 바꿔 문구만 확인함
+  - rule-check: 금지 패턴 없음. 점수 계산 없음. 새 클래스와 public 메서드에 주석 있음. 값을 바꾸는 `changeLeader`에 `@Transactional` 있음
+- 읽을 때 볼 곳:
+  - `TeamService.changeLeader`의 첫 줄. `findTeam`이 아니라 `findWithLockById`인 이유. `@Lock`은 트랜잭션 안에서만 동작하고, 커밋할 때 풀림
+  - `findWithLockById`는 이름에서 "WithLock"을 Spring Data가 무시함. `find`와 `By` 사이 글자는 조건이 아님
+  - `LeaderHistory`가 `TeamMember`를 두 번 가리켜서 `@JoinColumn` 이름을 따로 정함
+  - `TeamPage.handleChangeLeader`의 `members.map`. 응답이 한 줄이라도 이전 조장의 표시까지 함께 바뀜
+  - 조장이 조 화면을 열어 둔 채 교체되면 그 화면에는 조장 버튼이 남음. 누르면 서버가 403으로 막고 오류 문구가 보임. 다시 열면 사라짐
+- 내가 채운 가정:
+  - 역할이 없는 조원도 조장이 될 수 있음. 규칙에 역할 조건이 없음
+  - 같은 사람으로 되돌리는 교체도 막지 않음. 되돌린 것도 이력에 남음
+  - 교체 전 확인은 `window.confirm`으로 함. 문구와 "새 조장으로", "조장 교체 이력", 오류 메시지는 내가 씀
+  - 시작 데이터와 `frontend/db.json`에 조장 교체 이력을 넣지 않음

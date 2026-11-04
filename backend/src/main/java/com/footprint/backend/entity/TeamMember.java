@@ -53,6 +53,16 @@ public class TeamMember {
         this.leader = leader;
     }
 
+    // 이 조원을 조장으로 표시합니다. 이전 조장을 내리는 일과 이력은 TeamService.changeLeader가 함께 처리합니다.
+    public void becomeLeader() {
+        this.leader = true;
+    }
+
+    // 조장 표시를 뺍니다. 일반 조원으로 남고 역할은 그대로입니다.
+    public void stepDownAsLeader() {
+        this.leader = false;
+    }
+
     // 역할을 지정하거나 바꿉니다. 지정 시각은 서버의 현재 시각으로 기록합니다. 다른 기록 시각처럼 초 아래는 버립니다.
     public void assignRole(String roleName) {
         this.roleName = roleName;

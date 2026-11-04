@@ -1,6 +1,8 @@
 package com.footprint.backend.controller;
 
 import com.footprint.backend.dto.InviteCodeResponse;
+import com.footprint.backend.dto.LeaderChangeRequest;
+import com.footprint.backend.dto.LeaderHistoryResponse;
 import com.footprint.backend.dto.RoleAssignRequest;
 import com.footprint.backend.dto.RoleChangeRequest;
 import com.footprint.backend.dto.RoleHistoryResponse;
@@ -77,6 +79,21 @@ public class TeamController {
                                                       @PathVariable Long teamMemberId) {
         return teamService.findRoleHistories(teamId, teamMemberId, memberId).stream()
                 .map(RoleHistoryResponse::from)
+                .toList();
+    }
+
+    // 과제를 만든 교수가 조장을 바꾸고, 새 조장을 돌려줍니다.
+    @PutMapping("/{teamId}/leader")
+    public TeamMemberResponse changeLeader(@AuthenticationPrincipal Long memberId, @PathVariable Long teamId,
+                                           @Valid @RequestBody LeaderChangeRequest request) {
+        return TeamMemberResponse.from(teamService.changeLeader(teamId, request.teamMemberId(), memberId));
+    }
+
+    // 한 조의 조장 교체 이력을 최근에 바뀐 것부터 돌려줍니다.
+    @GetMapping("/{teamId}/leader-histories")
+    public List<LeaderHistoryResponse> getLeaderHistories(@AuthenticationPrincipal Long memberId, @PathVariable Long teamId) {
+        return teamService.findLeaderHistories(teamId, memberId).stream()
+                .map(LeaderHistoryResponse::from)
                 .toList();
     }
 

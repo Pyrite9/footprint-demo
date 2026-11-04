@@ -1,5 +1,6 @@
 package com.footprint.backend.service;
 
+import com.footprint.backend.entity.LeaderHistory;
 import com.footprint.backend.entity.Member;
 import com.footprint.backend.entity.MemberType;
 import com.footprint.backend.entity.RoleHistory;
@@ -9,6 +10,7 @@ import com.footprint.backend.exception.DuplicateException;
 import com.footprint.backend.exception.ForbiddenException;
 import com.footprint.backend.exception.InvalidInputException;
 import com.footprint.backend.exception.NotFoundException;
+import com.footprint.backend.repository.LeaderHistoryRepository;
 import com.footprint.backend.repository.RoleHistoryRepository;
 import com.footprint.backend.repository.TeamMemberRepository;
 import com.footprint.backend.repository.TeamRepository;
@@ -20,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-// 조 정보와 조원 목록을 조회하고, 초대 코드 발급, 초대 코드로 합류, 역할 지정·변경, 역할 이력 조회를 처리합니다.
+// 조 정보와 조원 목록을 조회하고, 초대 코드 발급, 초대 코드로 합류, 역할 지정·변경, 역할 이력 조회, 조장 교체를 처리합니다.
 @Service
 public class TeamService {
 
@@ -28,16 +30,19 @@ public class TeamService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final RoleHistoryRepository roleHistoryRepository;
+    private final LeaderHistoryRepository leaderHistoryRepository;
     private final TeamAccessChecker teamAccessChecker;
     private final AssignmentPhaseChecker assignmentPhaseChecker;
 
     public TeamService(MemberService memberService, TeamRepository teamRepository,
                        TeamMemberRepository teamMemberRepository, RoleHistoryRepository roleHistoryRepository,
-                       TeamAccessChecker teamAccessChecker, AssignmentPhaseChecker assignmentPhaseChecker) {
+                       LeaderHistoryRepository leaderHistoryRepository, TeamAccessChecker teamAccessChecker,
+                       AssignmentPhaseChecker assignmentPhaseChecker) {
         this.memberService = memberService;
         this.teamRepository = teamRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.roleHistoryRepository = roleHistoryRepository;
+        this.leaderHistoryRepository = leaderHistoryRepository;
         this.teamAccessChecker = teamAccessChecker;
         this.assignmentPhaseChecker = assignmentPhaseChecker;
     }
@@ -153,6 +158,36 @@ public class TeamService {
         teamAccessChecker.checkTeamAccess(team, memberId);
         TeamMember target = findTeamMember(teamId, teamMemberId);
         return roleHistoryRepository.findByTeamMemberIdOrderByIdDesc(target.getId());
+    }
+
+    // 과제를 만든 교수가 같은 조의 다른 조원을 새 조장으로 바꾸고 이력을 남깁니다. 이전 조장은 일반 조원으로 남고 역할과 기록은 그대로입니다.
+    @Transactional
+    public TeamMember changeLeader(Long teamId, Long newLeaderId, Long memberId) {
+        // 교체 요청 두 개가 겹치면 조장이 둘이 될 수 있습니다. 조 행을 잠가 한 번에 하나씩 처리합니다. 잠금은 트랜잭션이 끝나면 풀립니다.
+        Team team = teamRepository.findWithLockById(teamId)
+                .orElseThrow(() -> new NotFoundException("조가 없습니다. id=" + teamId));
+        if (!teamAccessChecker.isProfessorOf(team.getAssignment(), memberId)) {
+            throw new ForbiddenException("과제를 만든 교수만 조장을 바꿀 수 있습니다");
+        }
+        assignmentPhaseChecker.checkRecording(team.getAssignment());
+
+        TeamMember newLeader = findTeamMember(teamId, newLeaderId);
+        if (newLeader.isLeader()) {
+            throw new InvalidInputException("이미 이 조의 조장입니다");
+        }
+        TeamMember previousLeader = teamMemberRepository.findByTeamIdAndLeaderTrue(teamId)
+                .orElseThrow(() -> new NotFoundException("조장이 없습니다. teamId=" + teamId));
+
+        previousLeader.stepDownAsLeader();
+        newLeader.becomeLeader();
+        leaderHistoryRepository.save(new LeaderHistory(team, previousLeader, newLeader));
+        return newLeader;
+    }
+
+    // 한 조의 조장 교체 이력을 최근에 바뀐 것부터 찾습니다. 그 조의 조원과 그 과제를 만든 교수가 볼 수 있습니다.
+    public List<LeaderHistory> findLeaderHistories(Long teamId, Long memberId) {
+        Team team = findById(teamId, memberId);
+        return leaderHistoryRepository.findByTeamIdOrderByIdDesc(team.getId());
     }
 
     // 그 조의 조원을 찾습니다. 없거나 다른 조의 조원이면 NotFoundException을 던집니다.

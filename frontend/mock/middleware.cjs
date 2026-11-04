@@ -455,6 +455,62 @@ function handleGetRoleHistories(req, res, loginMember, teamId, teamMemberId) {
   return res.json(histories.map(({ id, previousRoleName, changedAt }) => ({ id, previousRoleName, changedAt })))
 }
 
+// PUT /teams/{teamId}/leader: 과제를 만든 교수가 조장을 바꾸고 이력을 남깁니다. 검사 순서는 실제 백엔드와 같습니다.
+function handleChangeLeader(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const { teamMemberId } = req.body
+  // 숫자로 읽을 수 없으면 실제 백엔드는 JSON을 읽는 단계에서, 빠졌으면 @NotNull 검사에서 400입니다. 둘 다 권한 검사보다 먼저입니다.
+  if (teamMemberId != null && !Number.isInteger(teamMemberId)) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
+  }
+  if (teamMemberId == null) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
+  }
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team) return
+  const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
+  if (assignment.professorId !== loginMember.id) {
+    return sendError(res, 403, 'FORBIDDEN', '과제를 만든 교수만 조장을 바꿀 수 있습니다')
+  }
+  if (!checkRecording(db, res, team)) return
+
+  const newLeader = db.get('teamMembers').find({ id: teamMemberId, teamId }).value()
+  if (!newLeader) {
+    return sendError(res, 404, 'NOT_FOUND', '이 조의 조원이 아닙니다. id=' + teamMemberId)
+  }
+  if (newLeader.leader) {
+    return sendError(res, 400, 'INVALID_INPUT', '이미 이 조의 조장입니다')
+  }
+
+  const previousLeader = db.get('teamMembers').find({ teamId, leader: true }).value()
+  db.get('leaderHistories')
+    .push({ id: nextId(db, 'leaderHistories'), teamId, previousLeaderId: previousLeader.id, newLeaderId: newLeader.id, changedAt: nowLocalDateTime() })
+    .write()
+  db.get('teamMembers').find({ id: previousLeader.id }).assign({ leader: false }).write()
+  db.get('teamMembers').find({ id: newLeader.id }).assign({ leader: true }).write()
+  return res.json(toTeamMemberResponse(db, db.get('teamMembers').find({ id: newLeader.id }).value()))
+}
+
+// 조 참여 번호로 회원 이름을 찾습니다. 조장 교체 이력을 이름으로 펼칠 때 씁니다.
+function findTeamMemberName(db, teamMemberId) {
+  const teamMember = db.get('teamMembers').find({ id: teamMemberId }).value()
+  return db.get('members').find({ id: teamMember.memberId }).value().name
+}
+
+// GET /teams/{teamId}/leader-histories: 한 조의 조장 교체 이력을 최근에 바뀐 것부터 돌려줍니다. 실제 LeaderHistoryResponse와 같은 모양입니다.
+function handleGetLeaderHistories(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team || !checkTeamAccess(db, res, team, loginMember)) return
+  const histories = db.get('leaderHistories').filter({ teamId }).sortBy('id').reverse().value()
+  return res.json(histories.map(({ id, previousLeaderId, newLeaderId, changedAt }) => ({
+    id,
+    previousLeaderName: findTeamMemberName(db, previousLeaderId),
+    newLeaderName: findTeamMemberName(db, newLeaderId),
+    changedAt,
+  })))
+}
+
 // 산출물 한 건의 모양 { id, roleName, fileName, fileSize, uploaderName, uploadedAt }입니다. 실제 DeliverableResponse와 같습니다.
 function toDeliverableResponse(db, deliverable) {
   const teamMember = db.get('teamMembers').find({ id: deliverable.teamMemberId }).value()
@@ -768,6 +824,20 @@ function handleRequest(req, res, next) {
     const teamId = parseIdOrSendError(res, evaluationsTeamIdText)
     if (teamId === null) return
     return handleSubmitEvaluations(req, res, loginMember, teamId)
+  }
+
+  const leaderTeamIdText = matchId(/^\/teams\/([^/]+)\/leader$/, req.path)
+  if (req.method === 'PUT' && leaderTeamIdText !== null) {
+    const teamId = parseIdOrSendError(res, leaderTeamIdText)
+    if (teamId === null) return
+    return handleChangeLeader(req, res, loginMember, teamId)
+  }
+
+  const leaderHistoriesTeamIdText = matchId(/^\/teams\/([^/]+)\/leader-histories$/, req.path)
+  if (req.method === 'GET' && leaderHistoriesTeamIdText !== null) {
+    const teamId = parseIdOrSendError(res, leaderHistoriesTeamIdText)
+    if (teamId === null) return
+    return handleGetLeaderHistories(req, res, loginMember, teamId)
   }
 
   const roleMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/role$/)

@@ -337,6 +337,51 @@ token
 - 이미 올린 산출물은 올릴 때의 역할명을 그대로 가짐. 바꾼 뒤에 올리는 산출물부터 새 역할명이 복사됨
 - 조원 목록의 `roleName`은 새 역할명이 됨. `TeamMember.roleAssignedAt`도 바뀐 시각이 됨
 
+### PUT /teams/{teamId}/leader — 조장 교체 (X-3) · 2026.11.04
+
+과제를 만든 교수가 같은 조의 다른 조원을 새 조장으로 바꿈. 바뀐 시각은 서버가 기록함
+
+요청: `teamMemberId`는 새 조장의 조 참여 번호(조원 목록의 `id`)임
+```json
+{ "teamMemberId": 12 }
+```
+
+200: 새 조장. 모양은 조원 목록의 한 줄과 같음
+```json
+{ "id": 12, "memberId": 8, "name": "조은우", "roleName": "백엔드", "leader": true }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `teamMemberId`가 빠졌거나 숫자가 아닐 때, 주소의 번호가 숫자가 아닐 때, 평가 단계일 때, 이미 그 조의 조장일 때(메시지 "이미 이 조의 조장입니다") |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 과제를 만든 교수가 아닐 때(그 조의 조장 포함) |
+| 404 | `NOT_FOUND` | 없는 조이거나, 그 조의 조원이 아닌 `teamMemberId`일 때 |
+
+서버 쪽 규칙
+- 이전 조장은 일반 조원으로 남음. 역할, 올린 산출물, 낸 평가는 그대로임
+- 역할이 없는 조원도 조장이 될 수 있음. 새 조장이 자기 역할을 지정함
+- 조장만 하는 일(초대 코드, 역할 지정·변경)은 바뀐 순간부터 새 조장이 함. 이미 발급한 초대 코드는 그대로 유효함
+- 요청 두 개가 겹쳐도 조장은 한 명임. 조 행을 잠가 차례로 처리함. 먼저 끝난 교체도 이력에 남음
+
+### GET /teams/{teamId}/leader-histories — 조장 교체 이력 (X-3) · 2026.11.04
+
+한 조의 조장 교체를 최근에 바뀐 것부터 돌려줌. 그 조의 조원과 그 과제를 만든 교수가 볼 수 있음. 평가 단계에서도 볼 수 있음
+
+200: 바뀐 적이 없으면 빈 배열
+```json
+[
+  { "id": 1, "previousLeaderName": "김민준", "newLeaderName": "이서연", "changedAt": "2026-11-04T15:10:00" }
+]
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원도, 그 과제를 만든 교수도 아닐 때 |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+
 ### GET /teams/{teamId}/members/{teamMemberId}/role-histories — 역할 이력 (T-2-2) · 2026.11.04
 
 한 조원의 이전 역할을 최근에 바뀐 것부터 돌려줌. 그 조의 조원과 그 과제를 만든 교수가 볼 수 있음. 평가 단계에서도 볼 수 있음
@@ -492,8 +537,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 5 | X-3 | `PUT /teams/{teamId}/leader` | 과제를 만든 교수 |
-| 5 | X-3 | `GET /teams/{teamId}/leader-histories` | 조원, 교수 |
 | 6 | R-1-3 | `DELETE /deliverables/{deliverableId}` | 올린 조원 |
 | 7 | R-2-1 | `POST /teams/{teamId}/contributions` | 조장 |
 | 7 | R-2-2 | `GET /teams/{teamId}/contributions` | 조원 |
