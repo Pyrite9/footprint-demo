@@ -66,7 +66,7 @@ token
 - ID token 검증은 Google 라이브러리(`GoogleIdTokenVerifier`)가 함: 서명(구글 공개키), 만료, 발급자(`accounts.google.com`), 받는 앱(`aud` = `google.client-id`)
 - 그다음 서버가 `email_verified`가 true인지, `hd`가 `google.allowed-domains`에 있는지 봄
 - 같은 이메일의 회원이 있으면 그 회원으로 로그인함. 없으면 새로 만듦. 이름은 구글 이름(공개하지 않은 계정이면 이메일), 비밀번호는 없음(null)
-- 회원 유형: 이메일이 `google.professor-emails`(쉼표로 구분한 목록)에 있으면 `PROFESSOR`, 아니면 `STUDENT`. 대소문자는 가리지 않음. 처음 만들 때만 정하고, 나중에 목록을 바꿔도 이미 있는 회원의 유형은 바뀌지 않음
+- 회원 유형: 이메일이 `google.professor-emails`(쉼표로 구분한 목록)에 있으면 `PROFESSOR`, 아니면 `STUDENT`. 대소문자는 가리지 않음. 처음 만들 때만 정하고, 나중에 목록을 바꿔도 이미 있는 회원의 유형은 바뀌지 않음(X-1에서 바뀜. `TODO.md` 1절)
 - 비밀번호가 없는 회원(구글로 만든 회원)은 `POST /auth/login`으로 로그인할 수 없음(401)
 - 가짜 API는 구글 서명을 확인하지 못함. payload만 풀어 같은 규칙(`email_verified`, `hd`, 교수 목록)을 적용함
 
@@ -416,29 +416,37 @@ token
 
 ## 완성 범위에서 더할 API · 2026.11.04
 
-아직 만들지 않은 API의 주소 추천안임(관리자 결정 2026.11.04 "최대한 완성"). 위 절과 달리 **지금 부르면 404임.** 만들 때 위쪽에 요청·응답·오류 표를 적고 이 표에서 그 줄을 지움. 규칙은 `TODO.md` 1절
+아직 만들지 않은 API의 주소 추천안임(관리자 결정 2026.11.04 "최대한 완성", 추가 기능 필수·권장 포함). 위 절과 달리 **지금 부르면 404임.** 만들 때 위쪽에 요청·응답·오류 표를 적고 이 표에서 그 줄을 지움. 규칙은 `TODO.md` 1절
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 1 | A-3-1 | `POST /assignments/{assignmentId}/start-evaluation` | 과제를 만든 교수 |
-| 2 | T-2-2 | `PUT /teams/{teamId}/members/{teamMemberId}/role` | 조장 |
-| 2 | T-2-2 | `GET /teams/{teamId}/members/{teamMemberId}/role-histories` | 조원, 교수 |
-| 3 | R-1-3 | `DELETE /deliverables/{deliverableId}` | 올린 조원 |
-| 4 | R-2-1 | `POST /teams/{teamId}/contributions` | 조장 |
-| 4 | R-2-2 | `GET /teams/{teamId}/contributions` | 조원 |
-| 4 | R-2-3 | `POST /contributions/{contributionId}/report` | 담당 조원 |
-| 4 | R-2-4 | `POST /contributions/{contributionId}/cancel` | 조장 |
-| 5 | R-3-1 | `POST /deliverables/{deliverableId}/confirmations` | 올린 조원을 뺀 조원 |
-| 5 | R-3-1 | `POST /contributions/{contributionId}/confirmations` | 담당 조원을 뺀 조원 |
-| 5 | R-3-2 | `POST /confirmations/{confirmationId}/cancel` | 확인한 조원 |
-| 5 | R-3-3 | `GET /deliverables/{deliverableId}/confirmations` | 조원, 교수 |
-| 5 | R-3-3 | `GET /contributions/{contributionId}/confirmations` | 조원, 교수 |
-| 6 | E-2-2 | `GET /teams/{teamId}/evaluations/draft` | 조원 |
-| 6 | E-2-2 | `PUT /teams/{teamId}/evaluations/draft` | 조원 |
-| 7 | E-1-1 | `GET /teams/{teamId}/members/{teamMemberId}/evidence` | 조원(평가 단계), 교수 |
-| 8 | V-1-1 | `GET /teams/{teamId}/records` | 교수 |
-| 9 | V-2-1 | `GET /teams/{teamId}/evaluations/status` | 교수 |
-| 9 | V-2-2 | `GET /teams/{teamId}/evaluations` | 교수 |
+| 3 | A-3-1 | `POST /assignments/{assignmentId}/start-evaluation` | 과제를 만든 교수 |
+| 4 | T-2-2 | `PUT /teams/{teamId}/members/{teamMemberId}/role` | 조장 |
+| 4 | T-2-2 | `GET /teams/{teamId}/members/{teamMemberId}/role-histories` | 조원, 교수 |
+| 5 | X-3 | `PUT /teams/{teamId}/leader` | 과제를 만든 교수 |
+| 5 | X-3 | `GET /teams/{teamId}/leader-histories` | 조원, 교수 |
+| 6 | R-1-3 | `DELETE /deliverables/{deliverableId}` | 올린 조원 |
+| 7 | R-2-1 | `POST /teams/{teamId}/contributions` | 조장 |
+| 7 | R-2-2 | `GET /teams/{teamId}/contributions` | 조원 |
+| 7 | R-2-3 | `POST /contributions/{contributionId}/report` | 담당 조원 |
+| 7 | R-2-4 | `POST /contributions/{contributionId}/cancel` | 조장 |
+| 8 | R-3-1 | `POST /deliverables/{deliverableId}/confirmations` | 올린 조원을 뺀 조원 |
+| 8 | R-3-1 | `POST /contributions/{contributionId}/confirmations` | 담당 조원을 뺀 조원 |
+| 8 | R-3-2 | `POST /confirmations/{confirmationId}/cancel` | 확인한 조원 |
+| 8 | R-3-3 | `GET /deliverables/{deliverableId}/confirmations` | 조원, 교수 |
+| 8 | R-3-3 | `GET /contributions/{contributionId}/confirmations` | 조원, 교수 |
+| 9 | E-2-2 | `GET /teams/{teamId}/evaluations/draft` | 조원 |
+| 9 | E-2-2 | `PUT /teams/{teamId}/evaluations/draft` | 조원 |
+| 10 | E-1-1 | `GET /teams/{teamId}/members/{teamMemberId}/evidence` | 조원(평가 단계), 교수 |
+| 11 | V-1-1 | `GET /teams/{teamId}/records` | 교수 |
+| 12 | V-2-1 | `GET /teams/{teamId}/evaluations/status` | 교수 |
+| 12 | V-2-2 | `GET /teams/{teamId}/evaluations` | 교수 |
+| 12 | X-5 | `GET /teams/{teamId}/evaluations/export` | 교수 |
+| 14 | X-6 | `GET /notifications` | 받는 회원 |
+| 14 | X-6 | `POST /notifications/{notificationId}/read` | 받는 회원 |
+| 15 | X-4 | `GET /teams/join/{inviteCode}` | 학생 |
+| 18 | X-2 | `POST /members/me/privacy-consent` | 회원 |
+| 20 | O-8 | `GET /actuator/health` | token 없이 |
 
 이미 있는 API의 응답이 바뀌는 곳
 
@@ -446,4 +454,6 @@ token
 - 조 정보(`GET /teams/{teamId}`)에 과제 기간 `startDate`, `endDate` 추가. 진척 화면(R-4-1)이 씀
 - 산출물 목록에 `deletedAt` 추가. 삭제된 산출물의 다운로드는 404
 - 동료평가 제출은 기록 단계에서 400 `INVALID_INPUT`. 평가 단계의 조 운영·과정 기록 쓰기 요청도 400 `INVALID_INPUT`
+- 내 정보(`GET /members/me`)에 `privacyConsentedAt` 추가(X-2)
+- 400 응답의 `message`에 틀린 칸을 적음. 모양은 그대로임(X-7)
 - 어떤 응답에도 합계, 평균, 순위, 진척률, 근거 패널의 건수를 넣지 않음
