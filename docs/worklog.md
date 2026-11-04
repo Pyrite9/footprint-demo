@@ -1756,3 +1756,28 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 같은 시각 근처의 점은 겹치고 최근 파일이 위에 옴. 가려진 파일은 산출물 목록에서 봄. 시작 데이터처럼 한꺼번에 올리면 점 하나로 보임
   - 역할 줄은 산출물 목록과 같은 가나다순임
   - 메뉴 이름 "진척", 주소 `/teams/{id}/progress`, 페이지 문구, 교수 안내 문구는 내가 씀
+
+### 구조 보드 갱신과 ERD 문서 분리 (관리자 지시 "지금까지 작성된 것을 기반으로 whiteboard 갱신, ERD는 추가문서")
+
+- 결정:
+  - 이 PC(Windows) Whiteboard 앱에 "발자국 구조 뼈대" 보드를 새로 만듦. 기존 보드는 노트북 앱에만 있어 이 PC에서 고칠 수 없음. 선택지: 구글 로그인 보드를 옮김, 새 보드. 구글 로그인 보드는 그 변경의 리뷰 기록이라 그대로 둠
+  - 보드 대상은 commit `8d3156b`(diff 없음). 코드 링크가 그 commit을 가리킴. 코드가 바뀌면 대상 commit을 옮기고 본문을 고침
+  - 섹션: 무엇·왜, 실행 구성, 흐름과 화면 지도, 권한과 과제 단계, 인증 흐름, 데이터 구조, 요청 하나의 길, 기능별 코드 지도, 남은 일
+  - "추가문서"를 저장소 문서로 읽고 ERD를 `docs/architecture.md`에서 `docs/erd.md`로 옮김. 선택지: Whiteboard 하위 보드. GitHub에서 바로 보이고 조원이 읽을 수 있어서 저장소 문서를 고름. 보드에는 링크만 두어 ERD가 두 벌이 되지 않게 함
+- 만든 파일: `docs/erd.md`
+- 고친 파일: `docs/architecture.md`, `README.md`, `CLAUDE.md`, `docs/worklog.md`
+- 문서와 코드가 어긋나 코드에 맞춘 것:
+  - `architecture.md` 업로드 그림에 `AssignmentPhaseChecker`가 빠져 있었음. 더함
+  - `architecture.md`의 "저장이 실패하면 파일만 남음"은 O-7 전의 설명이었음. 저장 오류는 파일을 지우고 커밋 단계 실패 때만 남는다고 고침
+  - ERD 아래 기록 시각 목록에 `evaluationStartedAt`, `previousRoleAssignedAt`, `confirmedAt`, `savedAt`가 빠져 있었음. 더함
+- 확인:
+  - ERD 열과 제약을 Entity 11개의 필드, `@JoinColumn`, `@UniqueConstraint`와 대조함. 어긋난 곳 없음
+  - `architecture.md`와 `erd.md`의 Mermaid 6개를 mermaid 11.4.1 `parse`로 검사함. 모두 통과. GitHub 화면으로는 push 뒤에 확인됨
+  - 보드 전체를 다시 읽어 링크가 가리키는 줄과 표의 내용을 코드와 대조함
+  - 문서 변경뿐이라 빌드와 테스트는 돌리지 않음
+- 읽을 때 볼 곳:
+  - 보드는 앱에 저장되고 저장소에 들어가지 않음. 노트북 보드와 이 보드는 서로 동기화되지 않음
+  - Entity 필드를 바꾸면 `docs/erd.md`를 같은 작업에서 고칠 것
+- 내가 채운 가정:
+  - 노트북의 옛 보드는 그대로 둠. 지우거나 맞추는 일은 노트북에서 해야 함
+  - 기능별 코드 지도의 "로그인 전용 테스트 없음"은 `backend/src/test`에서 `/auth/` 호출이 `TestApi`에만 있는 것을 보고 적음
