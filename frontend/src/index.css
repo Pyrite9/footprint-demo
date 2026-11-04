@@ -8,7 +8,7 @@
   2) 태그 규칙: 브라우저 기본 모양을 지웁니다. 버튼은 class를 붙여야 버튼 모양이 됩니다(.btn).
   3) 틀: 레일, 메뉴, 상단 바, 본문, 오른쪽 상세
   4) 부품: 상자, 버튼, 꼬리표, 목록 줄, 입력 칸
-  5) 화면별: 동료평가, 과제 목록, 로그인, 합류
+  5) 화면별: 동료평가, 진척, 과제 목록, 로그인, 합류
   6) 폰 폭: 820px 이하에서 달라지는 것만 맨 아래에 모읍니다.
 */
 
@@ -1241,7 +1241,7 @@ textarea.input {
   max-width: 720px;
 }
 
-/* 동료평가에 고정하는 문구 2개입니다. */
+/* 동료평가, 평가 결과, 진척 화면에 고정하는 문구 2개입니다. */
 .notices {
   display: flex;
   flex-wrap: wrap;
@@ -1529,6 +1529,102 @@ textarea.input {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+/* 진척 화면입니다. 줄의 왼쪽 끝이 과제 시작일, 오른쪽 끝이 종료일입니다. */
+.timeline {
+  padding: 14px 16px;
+}
+
+.timeline-period {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lane {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.lane-head,
+.lane-last {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.lane-last {
+  font-size: 13px;
+}
+
+.lane-file {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 양 끝의 점이 상자 밖으로 나가지 않게 좌우를 띄웁니다. position: relative: 점의 left가 이 줄을 기준으로 잡힙니다. */
+.lane-track {
+  position: relative;
+  height: 24px;
+  margin: 0 8px;
+}
+
+.lane-track::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: -8px;
+  right: -8px;
+  height: 2px;
+  background: var(--line-strong);
+}
+
+/* left가 점의 왼쪽 끝이 아니라 가운데에 오도록 자기 크기의 절반만큼 되돌립니다. */
+.lane-mark {
+  position: absolute;
+  top: 12px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--rc, var(--muted));
+  box-shadow: 0 0 0 2px var(--surface);
+  transform: translate(-50%, -50%);
+}
+
+/* 눌러지는 자리만 넓힙니다. 폰에서 작은 점을 누르기 쉽게 합니다. */
+.lane-mark::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+.lane-mark:hover,
+.lane-mark:focus-visible {
+  z-index: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.lane-mark.deleted {
+  border: 2px solid var(--rc, var(--muted));
+  background: var(--surface);
+}
+
+.lane-mark.outside {
+  border-radius: 3px;
+}
+
+.timeline-note {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 
 /* ---------- 6) 폰 폭 ---------- */

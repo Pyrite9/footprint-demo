@@ -53,6 +53,15 @@ class TeamRuleTests {
                 .andExpect(jsonPath("$.teams[1].name").value("2조"));
     }
 
+    // 조 정보에 과제 기간이 있습니다. 진척 화면이 이 기간 위에 업로드 시점을 놓습니다.
+    @Test
+    void teamShowsAssignmentPeriod() throws Exception {
+        api.get("/teams/" + seedTeam().getId(), api.login("student01@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.startDate").value("2026-11-02"))
+                .andExpect(jsonPath("$.endDate").value("2026-12-11"));
+    }
+
     // 학생은 과제를 만들 수 없습니다.
     @Test
     void studentCannotCreateAssignment() throws Exception {

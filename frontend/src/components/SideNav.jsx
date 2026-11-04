@@ -28,6 +28,7 @@ function StudentNav({ team }) {
             <NavItem to={`/teams/${team.id}/deliverables`} icon="file" label="산출물" />
             <NavItem to={`/teams/${team.id}/contributions`} icon="list" label="기여 항목" />
             <NavItem to={`/teams/${team.id}/records`} icon="clock" label="전체 기록" />
+            <NavItem to={`/teams/${team.id}/progress`} icon="timeline" label="진척" />
             <div className="side-label">조</div>
             <NavItem to={`/teams/${team.id}/members`} icon="members" label="조원과 역할" />
             <NavItem to={`/teams/${team.id}/evaluation`} icon="evaluation" label="동료평가">

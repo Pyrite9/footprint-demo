@@ -1,6 +1,6 @@
 import { request } from './client'
 
-// 조 정보 { id, name, assignmentId, assignmentTitle }를 가져옵니다.
+// 조 정보 { id, name, assignmentId, assignmentTitle, phase, startDate, endDate }를 가져옵니다.
 export function getTeam(teamId) {
   return request(`/teams/${teamId}`)
 }
@@ -20,7 +20,7 @@ export function issueInviteCode(teamId) {
   return request(`/teams/${teamId}/invite-code`, { method: 'POST' })
 }
 
-// 초대 코드로 조에 합류하고 합류한 조 { id, name, assignmentId, assignmentTitle }를 돌려줍니다.
+// 초대 코드로 조에 합류하고 합류한 조 { id, name, assignmentId, assignmentTitle, phase, startDate, endDate }를 돌려줍니다.
 export function joinTeam(inviteCode) {
   return request('/teams/join', { method: 'POST', body: { inviteCode } })
 }

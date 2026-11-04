@@ -1713,3 +1713,46 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 근거 패널은 평가 단계에서만 띄움. 평가자별 보기(평가자를 고르는 화면)는 두지 않음
   - 메뉴 이름 "평가 결과", 주소 `/teams/{id}/evaluation-results`, 파일 이름 `evaluations-team-{id}.csv`와 화면의 저장 이름, 페이지 문구는 내가 씀
   - CSV 제목 줄의 항목 이름은 `EVALUATION_CRITERIA`의 이름과 같게 씀
+
+## 2026.11.05
+
+### R-4-1 진척 화면
+
+- 결정:
+  - 새 API를 두지 않음. 산출물 목록과 조 정보를 그대로 씀. `docs/api-draft.md`의 예정대로 `GET /teams/{teamId}`에 `startDate`, `endDate`를 더함. 합류 응답도 같은 DTO라 같이 바뀜
+  - 화면은 역할마다 가로줄 하나임. 왼쪽 끝이 과제 시작일 0시, 오른쪽 끝이 종료일 23:59:59임. 선택지: 달력 표, 차트 라이브러리. 의존성 없이 CSS `left`로 충분함
+  - 삭제된 파일도 점으로 남기고 마지막 업로드에도 넣음. 삭제되어도 올린 사실은 기록이라 "기록 보존" 규칙을 따름. 점은 속을 비우고 마지막 업로드에 "삭제됨"을 붙임. 선택지: 삭제된 파일 제외
+  - 기간 밖 업로드는 가까운 쪽 끝에 네모로 놓음. 서버가 기간 밖 기록을 막지 않아서 생길 수 있음. 선택지: 축을 늘림, 제외. 축을 늘리면 과제 기간이 줄마다 달라 보이고, 제외하면 기록이 사라짐
+  - 삭제와 기간 밖은 색이 아니라 모양으로 나눔. 색은 역할 구분에 이미 쓰고 있음
+  - 점을 누르면 산출물 화면에서 그 파일을 엶. 조 홈과 전체 기록이 쓰는 `location.state.selectedId`를 그대로 씀
+  - 역할 이름을 모으는 코드를 `format.js`의 `roleNamesOf`로 옮겨 `DeliverableList`와 같이 씀. 선택지: 복사. 역할 순서 규칙이 두 벌이 되면 어긋날 수 있음
+  - "조장·조원용"은 메뉴와 화면에서 막음. 교수도 볼 수 있는 산출물 목록을 그리는 화면이라 서버 검사를 더하지 않음
+- 만든 파일:
+  - 화면: `pages/ProgressPage.jsx`, `components/ProgressTimeline.jsx`, `components/ProgressLane.jsx`
+- 고친 파일:
+  - 백엔드: `dto/TeamResponse`, 테스트 `TeamRuleTests`
+  - 가짜 API: `frontend/mock/middleware.cjs`
+  - 화면: `App.jsx`, `format.js`, `index.css`, `api/teams.js`, `components/SideNav.jsx`, `components/Icon.jsx`, `components/DeliverableList.jsx`, `components/EvaluationNotice.jsx`
+  - 문서: `docs/api-draft.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`
+- 확인:
+  - `gradlew clean build` 성공. 테스트 131개, 실패 0(`TeamRuleTests`에 1개 더함). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 130개, 확인 294개, 실패 0
+  - 실제 백엔드와 가짜 API에 조 정보와 합류 요청을 보내 응답 7건이 같음을 비교함(저장소에 넣지 않은 일회용 스크립트). 조원, 교수, 다른 조 403, 없는 조 404를 포함함
+  - 브라우저에서 실제 백엔드로 확인: student01이 `/teams/1/progress`에서 역할 5줄을 봄. 올린 파일, 삭제된 파일(속이 빈 점과 "삭제됨"), 파일 없는 역할의 문구가 나옴. 점을 누르면 산출물 화면에서 그 파일이 열림. 건수, 진척률이 나오지 않음. 콘솔 오류 없음
+  - 교수가 같은 주소로 직접 가면 "진척 화면은 조원만 볼 수 있습니다"가 나오고 교수 메뉴에 없음
+  - 브라우저에서 가짜 API로 확인: 기간 밖 파일이 왼쪽 끝 네모로 나옴(시작 데이터의 2026-10-25 파일). 평가 단계 조에서도 보임. 2026.11.04 22:13 업로드의 위치 7.31%가 손으로 계산한 값과 같음. 375px 폭에서 가로로 밀리지 않음
+  - 시험 뒤 `frontend/db.json`과 `frontend/mock/files`를 되돌림
+  - rule-check: 금지 패턴 없음. 건수, 합계, 평균, 진척률 없음(`.length`는 빈 목록 문구를 고를 때만 쓰고, 퍼센트 값은 점의 위치에만 씀)
+- 읽을 때 볼 곳:
+  - `format.js`의 `timelinePercentOf`. `new Date('2026-11-02')`는 UTC로 읽혀서 한국에서 9시간 밀림. 시각을 붙이면 브라우저 시간대로 읽음. 이 값은 점의 위치이고 화면에 글자로 나오지 않음
+  - `ProgressLane`의 `[...deliverables].reverse()`. 뒤에 그린 요소가 위로 올라옴. 원본 배열을 바꾸지 않으려고 복사한 뒤 뒤집음
+  - `ProgressLane`의 `last`. 서버가 최신순으로 줘서 첫 번째가 마지막 업로드임
+  - `index.css`의 `.lane-track`과 `.lane-mark`. 부모의 `position: relative`, 자식의 `position: absolute`와 `left`, `transform`이 함께 움직임
+  - `.lane-mark::after`. 점은 그대로 두고 눌러지는 자리만 넓힘
+- 내가 채운 가정:
+  - 삭제된 파일을 마지막 업로드에 넣음
+  - 기간 밖 업로드를 양 끝 네모로 표시함
+  - 축에 시작일과 종료일만 표시함. 오늘 선과 중간 눈금은 두지 않음. 오늘 선이 진척처럼 읽힐 수 있다고 봄
+  - 같은 시각 근처의 점은 겹치고 최근 파일이 위에 옴. 가려진 파일은 산출물 목록에서 봄. 시작 데이터처럼 한꺼번에 올리면 점 하나로 보임
+  - 역할 줄은 산출물 목록과 같은 가나다순임
+  - 메뉴 이름 "진척", 주소 `/teams/{id}/progress`, 페이지 문구, 교수 안내 문구는 내가 씀

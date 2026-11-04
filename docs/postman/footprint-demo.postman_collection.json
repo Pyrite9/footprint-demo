@@ -457,6 +457,38 @@
           ]
         },
         {
+          "name": "조 정보 - 과제 기간 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}",
+            "description": "조 이름과 과제 단계, 기간을 받습니다. 진척 화면이 이 기간 위에 업로드 시점을 놓습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('과제 시작일', () => pm.expect(pm.response.json().startDate).to.match(/^\\d{4}-\\d{2}-\\d{2}$/));",
+                  "pm.test('과제 종료일', () => pm.expect(pm.response.json().endDate).to.match(/^\\d{4}-\\d{2}-\\d{2}$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "조원 목록 (조장)",
           "request": {
             "method": "GET",

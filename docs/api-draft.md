@@ -209,8 +209,10 @@ token
 
 200
 ```json
-{ "id": 1, "name": "1조", "assignmentId": 1, "assignmentTitle": "발자국 데모 과제", "phase": "RECORDING" }
+{ "id": 1, "name": "1조", "assignmentId": 1, "assignmentTitle": "발자국 데모 과제", "phase": "RECORDING", "startDate": "2026-11-02", "endDate": "2026-12-11" }
 ```
+
+- `startDate`, `endDate`: 과제 기간임. 진척 화면(R-4-1)이 이 기간 위에 업로드 시점을 놓음 · 2026.11.05
 
 | 상태 | code | 언제 |
 |---|---|---|
@@ -268,7 +270,7 @@ token
 
 200: 합류한 조. 모양은 `GET /teams/{teamId}`와 같음
 ```json
-{ "id": 3, "name": "1조", "assignmentId": 2, "assignmentTitle": "새 과제", "phase": "RECORDING" }
+{ "id": 3, "name": "1조", "assignmentId": 2, "assignmentTitle": "새 과제", "phase": "RECORDING", "startDate": "2026-11-02", "endDate": "2026-12-11" }
 ```
 
 | 상태 | code | 언제 |
@@ -963,7 +965,6 @@ token
 
 이미 있는 API의 응답이 바뀌는 곳
 
-- 조 정보(`GET /teams/{teamId}`)에 과제 기간 `startDate`, `endDate` 추가. 진척 화면(R-4-1)이 씀
 - 새로 만드는 조 운영·과정 기록 쓰기 요청도 평가 단계에서 400 `INVALID_INPUT`
 - 내 정보(`GET /members/me`)에 `privacyConsentedAt` 추가(X-2)
 - 400 응답의 `message`에 틀린 칸을 적음. 모양은 그대로임(X-7)

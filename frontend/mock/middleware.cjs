@@ -252,10 +252,10 @@ function toTeamMemberResponse(db, teamMember) {
   return { id: teamMember.id, memberId: member.id, name: member.name, roleName: teamMember.roleName, leader: teamMember.leader }
 }
 
-// 조 정보 모양 { id, name, assignmentId, assignmentTitle, phase }입니다. 실제 TeamResponse와 같습니다.
+// 조 정보 모양 { id, name, assignmentId, assignmentTitle, phase, startDate, endDate }입니다. 실제 TeamResponse와 같습니다.
 function toTeamResponse(db, team) {
   const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
-  return { id: team.id, name: team.name, assignmentId: assignment.id, assignmentTitle: assignment.title, phase: assignment.phase }
+  return { id: team.id, name: team.name, assignmentId: assignment.id, assignmentTitle: assignment.title, phase: assignment.phase, startDate: assignment.startDate, endDate: assignment.endDate }
 }
 
 // 아래 check 함수들은 실제 TeamAccessChecker와 같은 이름, 같은 규칙입니다.

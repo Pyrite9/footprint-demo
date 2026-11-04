@@ -40,6 +40,29 @@ export function roleColorClass(roleName) {
   return `rc${(sum % 5) + 1}`
 }
 
+// 역할 줄의 이름을 모읍니다. 지금 맡은 역할과 올린 파일의 역할을 합칩니다. 파일에는 올릴 때의 역할명이 저장되어서, 지금 맡은 사람이 없어도 그 역할로 올린 파일이 있으면 줄이 남습니다.
+// 순서는 가나다순으로 고정합니다. 많이 올린 순이나 최근 순으로 두면 역할끼리 비교하는 순위처럼 보입니다.
+export function roleNamesOf(members, deliverables) {
+  const currentRoleNames = members.filter((member) => member.roleName !== null).map((member) => member.roleName)
+  const uploadedRoleNames = deliverables.map((deliverable) => deliverable.roleName)
+  return [...new Set([...currentRoleNames, ...uploadedRoleNames])].sort((a, b) => a.localeCompare(b))
+}
+
+// 이 시각이 과제 기간 밖이면 true입니다. 서버는 기간이 지나도 기록을 막지 않아서 기간 밖 업로드가 있을 수 있습니다.
+export function isOutsidePeriod(dateTime, startDate, endDate) {
+  const date = dateTime.slice(0, 10)
+  return date < startDate || date > endDate
+}
+
+// 진척 화면에서 점을 놓을 가로 위치(0~100)입니다. 기간 밖이면 가까운 쪽 끝입니다. 위치에만 쓰고 글자로 보여 주지 않습니다. 진척률이 아닙니다.
+export function timelinePercentOf(dateTime, startDate, endDate) {
+  // 날짜만 쓴 글자는 new Date가 UTC로 읽습니다. 시각을 붙여야 dateTime처럼 브라우저 시간대로 읽습니다.
+  const start = new Date(`${startDate}T00:00:00`).getTime()
+  const end = new Date(`${endDate}T23:59:59`).getTime()
+  const percent = ((new Date(dateTime.slice(0, 19)).getTime() - start) / (end - start)) * 100
+  return Math.min(100, Math.max(0, percent))
+}
+
 // 같은 역할의 산출물 중 이 산출물보다 먼저(또는 같이) 올린 것의 개수가 순번입니다. id가 작을수록 먼저 올린 것입니다.
 // 삭제된 산출물도 세어서 순번이 끊기지 않습니다. 목록에서 계산할 수 있는 값이라 서버에도 state에도 두지 않습니다.
 export function sequenceOf(deliverables, target) {
