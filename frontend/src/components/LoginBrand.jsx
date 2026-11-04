@@ -13,8 +13,8 @@ function LoginBrand() {
                 <span>발자국</span>
             </div>
             <div className="login-copy">
-                <h1>판단은 사람이,<br />시스템은 근거만.</h1>
-                <p>조별과제에서 누가 언제 무엇을 했는지 있는 그대로 남깁니다. 점수를 계산하지 않고, 기록만 보여 줍니다.</p>
+                <h1>당신의 노력이<br />발자국으로 남습니다.</h1>
+                <p>조별과제에서 누가 언제 무엇을 했는지 시각까지 그대로 남습니다. 판단은 사람이, 시스템은 근거만.</p>
             </div>
             <div className="trail" aria-hidden="true">
                 {TRAIL_CELLS.map((cell) => (
