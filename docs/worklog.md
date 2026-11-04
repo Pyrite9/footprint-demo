@@ -1124,3 +1124,37 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - Linux에서 돌아서 `backend/gradlew`의 실행 권한(`100755`)이 필요함. 지금은 맞음
 - 내가 채운 가정:
   - action 버전은 major(`@v4`)로 고정함. 공개 저장소에서 쓰는 GitHub 공식 action이라 commit hash까지 고정하지 않음
+
+### A-3-1 평가 시작
+- 결정:
+  - 단계 검사를 `service/AssignmentPhaseChecker`로 모음. 선택지: `TeamAccessChecker`에 더하기(접근 범위와 업무 규칙이 섞임), Service마다 if 쓰기(문구가 흩어짐), 전용 클래스. 마지막을 고름
+  - 검사 순서는 권한 → 단계임. 권한 없는 사람에게 과제 단계를 알려 줄 이유가 없음
+  - 이미 평가 단계인데 다시 시작하면 400 `INVALID_INPUT`임. 선택지: 409 `DUPLICATE`(이미 있는 것을 또 만드는 요청에 씀), 200(조용히 성공하면 시작 시각이 언제인지 헷갈림), 400(`TODO.md`의 "단계에 맞지 않는 요청"). 마지막을 고름
+  - 이미 그 조의 조원이 합류를 다시 누르면 평가 단계에서도 200임. 아무것도 바꾸지 않는 요청이라 막을 이유가 없고 링크를 두 번 눌러도 결과가 같다는 지금 규칙을 지킴
+  - `GET /teams/{teamId}` 응답에 `phase`를 더함. 조·산출물·평가 화면이 과제 응답을 따로 부르지 않고 단계를 알 수 있음
+  - 시작 데이터에 평가 단계 과제를 더함(`demo-evaluation-1`, 조원 3명, 산출물 1건). 기록 단계 과제 쪽 데이터는 그대로임
+- 만든 파일: `entity/AssignmentPhase`, `service/AssignmentPhaseChecker`, `PhaseRuleTests`, `frontend/src/constants/assignmentPhases.js`, `frontend/src/components/StartEvaluationPanel.jsx`, `frontend/mock/files/seed-3.txt`
+- 고친 파일:
+  - 백엔드: `entity/Assignment`, `dto/AssignmentResponse`, `dto/AssignmentDetailResponse`, `dto/TeamResponse`, `service/AssignmentService`, `service/TeamService`, `service/DeliverableService`, `service/EvaluationService`, `controller/AssignmentController`, `config/DataInitializer`, `EvaluationRuleTests`
+  - 가짜 API: `frontend/mock/middleware.cjs`, `frontend/db.json`
+  - 화면: `api/assignments.js`, `components/AssignmentList.jsx`, `pages/AssignmentDetailPage.jsx`, `pages/TeamPage.jsx`, `pages/DeliverablesPage.jsx`, `pages/EvaluationPage.jsx`
+  - 문서: `docs/api-draft.md`, `docs/architecture.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`, `frontend/README.md`
+- 확인:
+  - `gradlew build` 성공. 테스트 41개, 실패 0. `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 34개, 확인 62개, 실패 0
+  - 실제 백엔드와 가짜 API의 과제·조 응답 필드 이름이 같음을 비교함
+  - 브라우저에서 실제 백엔드로 확인: 교수의 평가 시작 → 단계 꼬리표와 시각 표시, 패널 사라짐. 조장의 기록 단계 조 화면(초대 패널 있음), 평가 단계 조 화면(안내만), 평가 단계 산출물 화면(올리기 없음, 다운로드 있음), 기록 단계 평가 화면(안내만), 평가 단계 평가 화면(입력 폼)
+  - 평가 시작 전 확인 창은 눌러 보지 못함. 시험할 때 `window.confirm`을 바꿔 문구만 확인함
+  - 화면 확인에서 평가 시작 시각이 마이크로초까지 나오는 것을 찾아 고침. 다른 기록 시각처럼 Entity에서 초까지 자르고 테스트를 더함
+  - rule-check: 금지 패턴 없음. 점수 계산 없음. 새 public 메서드에 주석 있음. `.claude/launch.json`에 실제 백엔드 항목을 더함(빌드한 jar를 `java -jar`로 켬)
+- 읽을 때 볼 곳:
+  - `Assignment.startEvaluation`은 단계와 시각만 바꿈. 누가 불러도 되는지와 이미 시작했는지는 `AssignmentService.startEvaluation`이 봄
+  - `TeamService.join`의 단계 검사 위치. 이미 조원인 경우를 돌려보낸 뒤에 있어야 평가 단계의 재합류가 200임
+  - 평가 시작과 업로드가 같은 순간에 오면 먼저 읽은 단계로 처리됨. 잠금을 두지 않음. 교수가 시작하는 순간에 올라온 파일 한 건이 기록으로 남는 정도라 단순함을 고름
+  - 같은 순간의 평가 시작 두 요청은 나중 요청의 시각이 남음. 화면은 시작 중 버튼을 막음
+- 내가 채운 가정:
+  - 평가 시작 전 확인은 브라우저 기본 확인 창(`window.confirm`)으로 함. 문구도 내가 씀
+  - 화면에는 단계 꼬리표와 평가 시작 시각을 보임. 조·산출물·평가 화면의 안내 문구도 내가 씀
+  - 평가 단계에서 조장의 초대 패널은 숨김. 서버의 초대 코드 조회는 열람이라 그대로 됨
+  - 평가 단계 시작 데이터의 과제 이름과 기간, 역할, 파일 내용은 내가 정함
+  - 가짜 API의 평가 시작 시각 시작값은 고정값이고 실제 백엔드는 서버를 켠 시각임

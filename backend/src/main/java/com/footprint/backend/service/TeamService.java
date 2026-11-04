@@ -25,13 +25,16 @@ public class TeamService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final TeamAccessChecker teamAccessChecker;
+    private final AssignmentPhaseChecker assignmentPhaseChecker;
 
     public TeamService(MemberService memberService, TeamRepository teamRepository,
-                       TeamMemberRepository teamMemberRepository, TeamAccessChecker teamAccessChecker) {
+                       TeamMemberRepository teamMemberRepository, TeamAccessChecker teamAccessChecker,
+                       AssignmentPhaseChecker assignmentPhaseChecker) {
         this.memberService = memberService;
         this.teamRepository = teamRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.teamAccessChecker = teamAccessChecker;
+        this.assignmentPhaseChecker = assignmentPhaseChecker;
     }
 
     // 조 하나를 찾습니다. 그 조의 조원이나 그 과제를 만든 교수가 아니면 ForbiddenException을 던집니다.
@@ -60,6 +63,7 @@ public class TeamService {
     public Team issueInviteCode(Long teamId, Long memberId) {
         Team team = findTeam(teamId);
         teamAccessChecker.checkLeader(team, memberId);
+        assignmentPhaseChecker.checkRecording(team.getAssignment());
         // UUID는 겹칠 일이 사실상 없는 무작위 문자열입니다. 짐작해서 다른 조에 들어갈 수 없게 합니다.
         team.changeInviteCode(UUID.randomUUID().toString());
         return team;
@@ -83,6 +87,8 @@ public class TeamService {
             }
             throw new DuplicateException("이미 이 과제의 다른 조에 있습니다");
         }
+        // 위에서 이미 조원인 경우를 돌려보낸 뒤에 검사합니다. 조원이 다시 눌러도 아무것도 바뀌지 않아 막을 이유가 없습니다.
+        assignmentPhaseChecker.checkRecording(team.getAssignment());
 
         // 위 검사를 두 요청(같은 학생, 같은 과제의 두 조)이 거의 동시에 통과하면, 두 번째 요청은 DB의 unique 제약에 걸립니다.
         // saveAndFlush는 INSERT를 지금 바로 보내서 그 오류를 여기서 잡아 409로 바꿀 수 있게 합니다.
@@ -100,6 +106,7 @@ public class TeamService {
     public TeamMember assignRole(Long teamId, Long teamMemberId, String roleName, Long memberId) {
         Team team = findTeam(teamId);
         teamAccessChecker.checkLeader(team, memberId);
+        assignmentPhaseChecker.checkRecording(team.getAssignment());
 
         // 다른 조의 조원 번호를 넣어도 찾지 못하도록 조 번호와 함께 확인합니다.
         TeamMember target = teamMemberRepository.findById(teamMemberId)

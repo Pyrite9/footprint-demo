@@ -170,7 +170,7 @@ function handleCreateAssignment(req, res, loginMember) {
     leaders.push(leader)
   }
 
-  const assignment = { id: nextId(db, 'assignments'), title, startDate, endDate, professorId: loginMember.id }
+  const assignment = { id: nextId(db, 'assignments'), title, startDate, endDate, professorId: loginMember.id, phase: 'RECORDING', evaluationStartedAt: null }
   db.get('assignments').push(assignment).write()
   leaders.forEach((leader, index) => {
     const team = { id: nextId(db, 'teams'), assignmentId: assignment.id, name: index + 1 + '조', inviteCode: null }
@@ -180,13 +180,13 @@ function handleCreateAssignment(req, res, loginMember) {
       .write()
   })
 
-  return res.json({ id: assignment.id, title, startDate, endDate })
+  return res.json(toAssignmentResponse(assignment))
 }
 
-// 과제 목록과 상세에 쓰는 과제 모양 { id, title, startDate, endDate }입니다. 실제 AssignmentResponse와 같습니다.
+// 과제 목록과 상세에 쓰는 과제 모양 { id, title, startDate, endDate, phase, evaluationStartedAt }입니다. 실제 AssignmentResponse와 같습니다.
 function toAssignmentResponse(assignment) {
-  const { id, title, startDate, endDate } = assignment
-  return { id, title, startDate, endDate }
+  const { id, title, startDate, endDate, phase, evaluationStartedAt } = assignment
+  return { id, title, startDate, endDate, phase, evaluationStartedAt }
 }
 
 // GET /assignments: 교수는 만든 과제, 학생은 참여한 과제를 최신순으로 돌려줍니다.
@@ -229,16 +229,33 @@ function handleGetAssignment(req, res, loginMember, assignmentId) {
   return res.json({ ...toAssignmentResponse(assignment), professorName: professor.name, teams: teamSummaries })
 }
 
+// POST /assignments/{assignmentId}/start-evaluation: 과제를 만든 교수가 과제를 평가 단계로 바꿉니다.
+function handleStartEvaluation(req, res, loginMember, assignmentId) {
+  const db = req.app.db
+  const assignment = db.get('assignments').find({ id: assignmentId }).value()
+  if (!assignment) {
+    return sendError(res, 404, 'NOT_FOUND', '과제가 없습니다. id=' + assignmentId)
+  }
+  if (assignment.professorId !== loginMember.id) {
+    return sendError(res, 403, 'FORBIDDEN', '과제를 만든 교수만 평가를 시작할 수 있습니다')
+  }
+  if (assignment.phase === 'EVALUATION') {
+    return sendError(res, 400, 'INVALID_INPUT', '이미 평가 단계입니다')
+  }
+  db.get('assignments').find({ id: assignmentId }).assign({ phase: 'EVALUATION', evaluationStartedAt: nowLocalDateTime() }).write()
+  return res.json(toAssignmentResponse(db.get('assignments').find({ id: assignmentId }).value()))
+}
+
 // 조원 목록의 조원 한 명 모양 { id, memberId, name, roleName, leader }입니다. 실제 TeamMemberResponse와 같습니다.
 function toTeamMemberResponse(db, teamMember) {
   const member = db.get('members').find({ id: teamMember.memberId }).value()
   return { id: teamMember.id, memberId: member.id, name: member.name, roleName: teamMember.roleName, leader: teamMember.leader }
 }
 
-// 조 정보 모양 { id, name, assignmentId, assignmentTitle }입니다. 실제 TeamResponse와 같습니다.
+// 조 정보 모양 { id, name, assignmentId, assignmentTitle, phase }입니다. 실제 TeamResponse와 같습니다.
 function toTeamResponse(db, team) {
   const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
-  return { id: team.id, name: team.name, assignmentId: assignment.id, assignmentTitle: assignment.title }
+  return { id: team.id, name: team.name, assignmentId: assignment.id, assignmentTitle: assignment.title, phase: assignment.phase }
 }
 
 // 아래 check 함수들은 실제 TeamAccessChecker와 같은 이름, 같은 규칙입니다.
@@ -274,6 +291,22 @@ function checkLeader(db, res, team, loginMember) {
     return undefined
   }
   return teamMember
+}
+
+// 실제 AssignmentPhaseChecker.checkRecording과 같습니다. 기록 단계이면 true, 아니면 400을 보내고 false입니다.
+function checkRecording(db, res, team) {
+  const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
+  if (assignment.phase === 'RECORDING') return true
+  sendError(res, 400, 'INVALID_INPUT', '평가 단계에서는 조 운영과 과정 기록을 바꿀 수 없습니다')
+  return false
+}
+
+// 실제 AssignmentPhaseChecker.checkEvaluation과 같습니다. 평가 단계이면 true, 아니면 400을 보내고 false입니다.
+function checkEvaluation(db, res, team) {
+  const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
+  if (assignment.phase === 'EVALUATION') return true
+  sendError(res, 400, 'INVALID_INPUT', '동료평가는 평가 단계에서만 입력할 수 있습니다')
+  return false
 }
 
 // 조를 찾습니다. 없으면 404를 보내고 undefined입니다.
@@ -312,7 +345,7 @@ function handleGetInviteCode(req, res, loginMember, teamId) {
 function handleIssueInviteCode(req, res, loginMember, teamId) {
   const db = req.app.db
   const team = findTeamOrSendError(db, res, teamId)
-  if (!team || !checkLeader(db, res, team, loginMember)) return
+  if (!team || !checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
   // 실제 백엔드처럼 UUID를 만듭니다.
   const inviteCode = crypto.randomUUID()
   db.get('teams').find({ id: teamId }).assign({ inviteCode }).write()
@@ -343,6 +376,7 @@ function handleJoinTeam(req, res, loginMember) {
     if (existing.teamId === team.id) return res.json(toTeamResponse(db, team))
     return sendError(res, 409, 'DUPLICATE', '이미 이 과제의 다른 조에 있습니다')
   }
+  if (!checkRecording(db, res, team)) return
 
   db.get('teamMembers')
     .push({ id: nextId(db, 'teamMembers'), teamId: team.id, memberId: loginMember.id, leader: false, roleName: null, roleAssignedAt: null })
@@ -359,7 +393,7 @@ function handleAssignRole(req, res, loginMember, teamId, teamMemberId) {
     return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
   }
   const team = findTeamOrSendError(db, res, teamId)
-  if (!team || !checkLeader(db, res, team, loginMember)) return
+  if (!team || !checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
 
   const target = db.get('teamMembers').find({ id: teamMemberId, teamId }).value()
   if (!target) {
@@ -462,6 +496,7 @@ function handleUploadDeliverable(req, res, next, loginMember, teamId) {
     if (uploader.roleName === null) {
       return sendError(res, 403, 'FORBIDDEN', '역할이 배정된 조원만 올릴 수 있습니다')
     }
+    if (!checkRecording(db, res, team)) return
 
     // 실제 백엔드처럼 파일 본문을 먼저 저장하고(MinIO 대신 mock/files), 그다음 db.json에 저장합니다.
     const storageKey = crypto.randomUUID()
@@ -542,6 +577,7 @@ function handleSubmitEvaluations(req, res, loginMember, teamId) {
   if (!team) return
   const evaluator = checkTeamMember(db, res, team, loginMember)
   if (!evaluator) return
+  if (!checkEvaluation(db, res, team)) return
   if (db.get('evaluations').filter({ evaluatorId: evaluator.id }).value().length > 0) {
     return sendError(res, 409, 'DUPLICATE', '이미 동료평가를 제출했습니다')
   }
@@ -624,6 +660,13 @@ function handleRequest(req, res, next) {
     const assignmentId = parseIdOrSendError(res, assignmentIdText)
     if (assignmentId === null) return
     return handleGetAssignment(req, res, loginMember, assignmentId)
+  }
+
+  const startEvaluationIdText = matchId(/^\/assignments\/([^/]+)\/start-evaluation$/, req.path)
+  if (req.method === 'POST' && startEvaluationIdText !== null) {
+    const assignmentId = parseIdOrSendError(res, startEvaluationIdText)
+    if (assignmentId === null) return
+    return handleStartEvaluation(req, res, loginMember, assignmentId)
   }
 
   if (req.method === 'POST' && req.path === '/teams/join') {

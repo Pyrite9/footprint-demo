@@ -22,13 +22,16 @@ public class DeliverableService {
     private final DeliverableRepository deliverableRepository;
     private final TeamRepository teamRepository;
     private final TeamAccessChecker teamAccessChecker;
+    private final AssignmentPhaseChecker assignmentPhaseChecker;
     private final StorageService storageService;
 
     public DeliverableService(DeliverableRepository deliverableRepository, TeamRepository teamRepository,
-                              TeamAccessChecker teamAccessChecker, StorageService storageService) {
+                              TeamAccessChecker teamAccessChecker, AssignmentPhaseChecker assignmentPhaseChecker,
+                              StorageService storageService) {
         this.deliverableRepository = deliverableRepository;
         this.teamRepository = teamRepository;
         this.teamAccessChecker = teamAccessChecker;
+        this.assignmentPhaseChecker = assignmentPhaseChecker;
         this.storageService = storageService;
     }
 
@@ -46,6 +49,7 @@ public class DeliverableService {
         if (uploader.getRoleName() == null) {
             throw new ForbiddenException("역할이 배정된 조원만 올릴 수 있습니다");
         }
+        assignmentPhaseChecker.checkRecording(team.getAssignment());
 
         String storageKey = storageService.save(file);
         // 브라우저가 파일 이름을 보내지 않는 경우는 거의 없지만, 비어 있으면 "file"로 둡니다.

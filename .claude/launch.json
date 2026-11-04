@@ -4,14 +4,33 @@
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "frontend"
+      ],
       "port": 5173
     },
     {
       "name": "mock",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "mock", "--prefix", "frontend"],
+      "runtimeArgs": [
+        "run",
+        "mock",
+        "--prefix",
+        "frontend"
+      ],
       "port": 3001
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "java",
+      "runtimeArgs": [
+        "-jar",
+        "backend/build/libs/footprint-backend-0.0.1-SNAPSHOT.jar"
+      ],
+      "port": 8080
     }
   ]
 }

@@ -50,7 +50,7 @@ public class DataInitializer implements CommandLineRunner {
         this.storageService = storageService;
     }
 
-    // MinIO 버킷을 준비하고, 회원 11명과 과제 1개, 조 2개, 산출물 2건을 저장합니다.
+    // MinIO 버킷을 준비하고, 회원 11명과 과제 2개(기록 단계, 평가 단계), 조 3개, 산출물 3건을 저장합니다.
     @Override
     public void run(String... args) {
         // 산출물 파일을 넣을 버킷이 없으면 만듭니다. 이미 있으면 그대로 둡니다(데이터베이스와 달리 서버를 다시 켜도 비워지지 않습니다).
@@ -84,6 +84,15 @@ public class DataInitializer implements CommandLineRunner {
         // MinIO는 서버를 다시 켜도 비워지지 않아서, 켤 때마다 같은 내용의 파일이 새 key로 하나씩 더 쌓입니다(데모 범위에서는 그대로 둡니다).
         saveDeliverable(team1.get(0), "기획서.txt", "발자국 데모 기획서\n1. 과제 생성\n2. 조원 합류와 역할 배정\n");
         saveDeliverable(team1.get(1), "API 명세.txt", "POST /auth/login\nGET /members/me\n");
+
+        // 동료평가를 바로 시험할 수 있게 평가 단계인 과제를 하나 더 둡니다. 저장하기 전에 단계를 바꿔서 save를 한 번만 부릅니다.
+        Assignment evaluationAssignment = new Assignment("발자국 평가 단계 과제", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 10, 30), professor);
+        evaluationAssignment.startEvaluation();
+        assignmentRepository.save(evaluationAssignment);
+        List<TeamMember> evaluationTeam = saveTeam(evaluationAssignment, "1조", "demo-evaluation-1",
+                List.of(student01, student02, student03),
+                List.of("기획", "백엔드", "발표"));
+        saveDeliverable(evaluationTeam.get(1), "최종 보고서.txt", "발자국 최종 보고서\n1. 결과 요약\n");
     }
 
     // 비밀번호를 BCrypt로 바꿔서 회원을 저장합니다.

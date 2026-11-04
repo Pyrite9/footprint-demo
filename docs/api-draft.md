@@ -111,7 +111,7 @@ token
 
 200
 ```json
-{ "id": 2, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11" }
+{ "id": 2, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11", "phase": "RECORDING", "evaluationStartedAt": null }
 ```
 
 | 상태 | code | 언제 |
@@ -128,6 +128,7 @@ token
 - 조장은 그 조의 첫 번째 조원으로 함께 등록됨(`TeamMember.leader = true`). 역할명은 비어 있고 역할 지정(T-2-1)에서 넣음
 - 검사를 모두 통과한 뒤에 저장함. 하나의 트랜잭션이라 저장 중에 실패해도 일부만 남지 않음
 - 응답에 조 목록은 넣지 않음. 조 목록은 과제 상세(A-2-2)에서 받음
+- 과제는 기록 단계(`RECORDING`)로 시작함. `phase`는 `RECORDING`, `EVALUATION` 둘이고, `evaluationStartedAt`은 평가를 시작한 시각임. 기록 단계에서는 `null`임
 
 ### GET /assignments — 과제 목록 (A-2-1) · 2026.10.25
 
@@ -136,7 +137,7 @@ token
 200
 ```json
 [
-  { "id": 1, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11" }
+  { "id": 1, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11", "phase": "RECORDING", "evaluationStartedAt": null }
 ]
 ```
 
@@ -154,6 +155,7 @@ token
 ```json
 {
   "id": 1, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11",
+  "phase": "RECORDING", "evaluationStartedAt": null,
   "professorName": "이교수",
   "teams": [
     { "id": 1, "name": "1조", "leaderName": "김민준" },
@@ -173,6 +175,30 @@ token
 - 접근 검사는 `TeamAccessChecker` 한 곳에서 함(CLAUDE.md "업무 규칙"의 접근 범위)
 - 조 목록은 조 id 순서임
 
+### POST /assignments/{assignmentId}/start-evaluation — 평가 시작 (A-3-1) · 2026.11.04
+
+과제를 만든 교수가 과제를 기록 단계에서 평가 단계로 바꿈. 되돌릴 수 없음. 요청 body는 없음. 시작 시각은 서버가 기록함
+
+200: 모양은 `POST /assignments`의 응답과 같음
+```json
+{ "id": 1, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11", "phase": "EVALUATION", "evaluationStartedAt": "2026-12-12T09:00:00" }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 이미 평가 단계일 때, `assignmentId`가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 과제를 만든 교수가 아닐 때(그 과제의 조장, 다른 교수 포함) |
+| 404 | `NOT_FOUND` | 없는 과제일 때 |
+
+서버 쪽 규칙
+
+- 평가 단계에서는 조 운영(초대 코드 발급, 합류, 역할 지정)과 산출물 업로드가 400 `INVALID_INPUT`임. 열람은 모두 됨
+- 동료평가 제출은 평가 단계에서만 됨. 기록 단계이면 400 `INVALID_INPUT`임
+- 검사 순서는 권한 → 단계임. 권한이 없으면 단계와 상관없이 403임
+- 단계 검사는 `service/AssignmentPhaseChecker` 한 곳에서 함
+- 과제 기간이 지나도 서버는 단계를 바꾸거나 기록을 막지 않음
+
 ---
 
 ## 조
@@ -183,7 +209,7 @@ token
 
 200
 ```json
-{ "id": 1, "name": "1조", "assignmentId": 1, "assignmentTitle": "발자국 데모 과제" }
+{ "id": 1, "name": "1조", "assignmentId": 1, "assignmentTitle": "발자국 데모 과제", "phase": "RECORDING" }
 ```
 
 | 상태 | code | 언제 |
@@ -227,7 +253,7 @@ token
 ### POST /teams/{teamId}/invite-code — 초대 코드 발급 (T-1-1) · 2026.10.25
 
 조장이 초대 코드를 새로 발급함. 다시 발급하면 이전 코드는 더 이상 쓸 수 없음. 요청 body는 없음
-응답과 오류는 `GET /teams/{teamId}/invite-code`와 같음
+응답과 오류는 `GET /teams/{teamId}/invite-code`와 같음. 평가 단계이면 400 `INVALID_INPUT`임
 
 화면의 초대 링크는 `<화면 주소>/join/<inviteCode>`임(예: `http://localhost:5173/join/3f2b7c1e-...`)
 
@@ -242,19 +268,19 @@ token
 
 200: 합류한 조. 모양은 `GET /teams/{teamId}`와 같음
 ```json
-{ "id": 3, "name": "1조", "assignmentId": 2, "assignmentTitle": "새 과제" }
+{ "id": 3, "name": "1조", "assignmentId": 2, "assignmentTitle": "새 과제", "phase": "RECORDING" }
 ```
 
 | 상태 | code | 언제 |
 |---|---|---|
-| 400 | `INVALID_INPUT` | `inviteCode`가 비었을 때 |
+| 400 | `INVALID_INPUT` | `inviteCode`가 비었을 때, 평가 단계인 과제의 조에 새로 합류할 때 |
 | 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
 | 403 | `FORBIDDEN` | 학생이 아닐 때 |
 | 404 | `NOT_FOUND` | 없는 초대 코드일 때(다시 발급되어 무효가 된 코드 포함) |
 | 409 | `DUPLICATE` | 같은 과제의 다른 조에 이미 있을 때. 같은 학생의 합류 요청 두 개가 거의 동시에 와서 unique 제약에 걸린 두 번째 요청도 포함(메시지 "이미 이 과제의 조에 있습니다") |
 
 서버 쪽 규칙
-- 이미 그 조의 조원이면 오류 없이 200으로 그 조를 돌려줌(2026.10.25 추천안으로 결정). 링크를 두 번 눌러도 결과가 같음
+- 이미 그 조의 조원이면 오류 없이 200으로 그 조를 돌려줌(2026.10.25 추천안으로 결정). 링크를 두 번 눌러도 결과가 같음. 아무것도 바꾸지 않으므로 평가 단계에서도 200임
 - 한 학생은 같은 과제에서 한 조에만 있음. Service가 먼저 확인하고, `team_member`의 `(assignment_id, member_id)` unique 제약이 동시 요청을 막음(2026.10.30 결정)
 - 같은 순간에 같은 조로 두 번 보낸 경우도 두 번째는 409임. 이미 실패한 트랜잭션에서는 어느 조인지 다시 조회할 수 없어서 200으로 돌려주지 않음. 화면은 합류 중 버튼을 막음
 
@@ -275,7 +301,7 @@ token
 
 | 상태 | code | 언제 |
 |---|---|---|
-| 400 | `INVALID_INPUT` | `roleName`이 비었거나 255자를 넘을 때, 주소의 번호가 숫자가 아닐 때 |
+| 400 | `INVALID_INPUT` | `roleName`이 비었거나 255자를 넘을 때, 주소의 번호가 숫자가 아닐 때, 평가 단계일 때 |
 | 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
 | 403 | `FORBIDDEN` | 그 조의 조장이 아닐 때(교수 포함) |
 | 404 | `NOT_FOUND` | 없는 조이거나, 그 조의 조원이 아닌 `teamMemberId`일 때 |
@@ -301,7 +327,7 @@ token
 
 | 상태 | code | 언제 |
 |---|---|---|
-| 400 | `INVALID_INPUT` | `file`이 없거나 빈 파일일 때, 요청 전체가 20MB를 넘을 때(파일이 20MB에 가까우면 거절될 수 있음), `multipart/form-data` 요청이 아닐 때, 주소의 번호가 숫자가 아닐 때 |
+| 400 | `INVALID_INPUT` | `file`이 없거나 빈 파일일 때, 요청 전체가 20MB를 넘을 때(파일이 20MB에 가까우면 거절될 수 있음), `multipart/form-data` 요청이 아닐 때, 주소의 번호가 숫자가 아닐 때, 평가 단계일 때 |
 | 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
 | 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함), 역할이 배정되지 않은 조원일 때 |
 | 404 | `NOT_FOUND` | 없는 조일 때 |
@@ -402,6 +428,7 @@ token
 | 400 | `INVALID_INPUT` | `evaluations`가 비었거나, 원소가 null이거나, `targetTeamMemberId`나 점수가 빠졌거나, 점수가 1~5의 정수가 아니거나(`4.5`, `"5"` 포함, 위 "공통"), `comment`가 2000자를 넘을 때 |
 | 400 | `INVALID_INPUT` | 조에 자신만 있어서 평가할 조원이 없을 때. 메시지 "평가할 조원이 없습니다. 조에 자신만 있습니다" |
 | 400 | `INVALID_INPUT` | 대상이 "자신을 뺀 조원 전원 한 번씩"이 아닐 때(빠짐, 중복, 자기 자신, 다른 조 조원) |
+| 400 | `INVALID_INPUT` | 기록 단계일 때. 메시지 "동료평가는 평가 단계에서만 입력할 수 있습니다" |
 | 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
 | 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함) |
 | 404 | `NOT_FOUND` | 없는 조일 때 |
@@ -420,7 +447,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 3 | A-3-1 | `POST /assignments/{assignmentId}/start-evaluation` | 과제를 만든 교수 |
 | 4 | T-2-2 | `PUT /teams/{teamId}/members/{teamMemberId}/role` | 조장 |
 | 4 | T-2-2 | `GET /teams/{teamId}/members/{teamMemberId}/role-histories` | 조원, 교수 |
 | 5 | X-3 | `PUT /teams/{teamId}/leader` | 과제를 만든 교수 |
@@ -450,10 +476,9 @@ token
 
 이미 있는 API의 응답이 바뀌는 곳
 
-- 과제 응답(`GET /assignments`, `GET /assignments/{assignmentId}`, `POST /assignments`)에 `phase` 추가
 - 조 정보(`GET /teams/{teamId}`)에 과제 기간 `startDate`, `endDate` 추가. 진척 화면(R-4-1)이 씀
 - 산출물 목록에 `deletedAt` 추가. 삭제된 산출물의 다운로드는 404
-- 동료평가 제출은 기록 단계에서 400 `INVALID_INPUT`. 평가 단계의 조 운영·과정 기록 쓰기 요청도 400 `INVALID_INPUT`
+- 새로 만드는 조 운영·과정 기록 쓰기 요청도 평가 단계에서 400 `INVALID_INPUT`
 - 내 정보(`GET /members/me`)에 `privacyConsentedAt` 추가(X-2)
 - 400 응답의 `message`에 틀린 칸을 적음. 모양은 그대로임(X-7)
 - 어떤 응답에도 합계, 평균, 순위, 진척률, 근거 패널의 건수를 넣지 않음

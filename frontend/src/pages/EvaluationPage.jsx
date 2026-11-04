@@ -8,7 +8,7 @@ import EvaluationReview from '../components/EvaluationReview'
 import EvaluationTargetForm from '../components/EvaluationTargetForm'
 import { EVALUATION_CRITERIA } from '../constants/peerEvaluation'
 
-// 동료평가 화면입니다. 자신을 뺀 조원 전원을 입력 → 확인 화면에서 한 번에 보고 → 제출합니다. 제출한 평가는 고칠 수 없습니다.
+// 동료평가 화면입니다. 평가 단계에서 자신을 뺀 조원 전원을 입력 → 확인 화면에서 한 번에 보고 → 제출합니다. 제출한 평가는 고칠 수 없습니다.
 function EvaluationPage() {
     const { teamId } = useParams()
     const [me, setMe] = useState(null)
@@ -81,6 +81,8 @@ function EvaluationPage() {
     // 평가 대상(나를 뺀 조원)과 아직 다 고르지 않은 조원은 계산할 수 있는 값이라 state로 두지 않습니다.
     const targets = members.filter((member) => member.memberId !== me.id)
     const notFilledTargets = targets.filter((target) => !isFilled(inputs[target.id]))
+    // 입력은 평가 단계이고 아직 제출하지 않았을 때만 합니다.
+    const canInput = team.phase === 'EVALUATION' && !status.submitted
 
     return (
         <main>
@@ -92,9 +94,11 @@ function EvaluationPage() {
                 <p className="success">동료평가를 제출했습니다. 제출 시각: {status.submittedAt.replace('T', ' ')}. 제출한 평가는 고칠 수 없습니다.</p>
             )}
 
-            {!status.submitted && targets.length === 0 && <p>평가할 조원이 없습니다.</p>}
+            {team.phase === 'RECORDING' && <p className="notice">동료평가는 평가 단계에서 입력합니다. 과제를 만든 교수가 평가를 시작하면 입력할 수 있습니다.</p>}
 
-            {!status.submitted && targets.length > 0 && !reviewing && (
+            {canInput && targets.length === 0 && <p>평가할 조원이 없습니다.</p>}
+
+            {canInput && targets.length > 0 && !reviewing && (
                 <>
                     <p>자신을 뺀 조원 {targets.length}명을 모두 평가해야 제출할 수 있습니다. 평가는 과제를 만든 교수만 봅니다.</p>
                     {targets.map((target) => (
@@ -110,7 +114,7 @@ function EvaluationPage() {
                 </>
             )}
 
-            {!status.submitted && reviewing && (
+            {canInput && reviewing && (
                 <>
                     <p>아래 내용으로 제출합니다. 제출한 평가는 고칠 수 없습니다.</p>
                     <EvaluationReview targets={targets} inputs={inputs} />

@@ -13,11 +13,13 @@
     {"id": 11, "email": "student10@example.com", "password": "pass1234", "name": "임지아", "memberType": "STUDENT"}
   ],
   "assignments": [
-    {"id": 1, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11", "professorId": 1}
+    {"id": 1, "title": "발자국 데모 과제", "startDate": "2026-11-02", "endDate": "2026-12-11", "professorId": 1, "phase": "RECORDING", "evaluationStartedAt": null},
+    {"id": 2, "title": "발자국 평가 단계 과제", "startDate": "2026-09-01", "endDate": "2026-10-30", "professorId": 1, "phase": "EVALUATION", "evaluationStartedAt": "2026-10-31T09:00:00"}
   ],
   "teams": [
     {"id": 1, "assignmentId": 1, "name": "1조", "inviteCode": "demo-team-1"},
-    {"id": 2, "assignmentId": 1, "name": "2조", "inviteCode": "demo-team-2"}
+    {"id": 2, "assignmentId": 1, "name": "2조", "inviteCode": "demo-team-2"},
+    {"id": 3, "assignmentId": 2, "name": "1조", "inviteCode": "demo-evaluation-1"}
   ],
   "teamMembers": [
     {"id": 1, "teamId": 1, "memberId": 2, "leader": true, "roleName": "기획", "roleAssignedAt": "2026-10-25T09:00:00"},
@@ -29,11 +31,15 @@
     {"id": 7, "teamId": 2, "memberId": 8, "leader": false, "roleName": "백엔드", "roleAssignedAt": "2026-10-25T09:00:00"},
     {"id": 8, "teamId": 2, "memberId": 9, "leader": false, "roleName": "백엔드", "roleAssignedAt": "2026-10-25T09:00:00"},
     {"id": 9, "teamId": 2, "memberId": 10, "leader": false, "roleName": "프론트엔드", "roleAssignedAt": "2026-10-25T09:00:00"},
-    {"id": 10, "teamId": 2, "memberId": 11, "leader": false, "roleName": "발표", "roleAssignedAt": "2026-10-25T09:00:00"}
+    {"id": 10, "teamId": 2, "memberId": 11, "leader": false, "roleName": "발표", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 11, "teamId": 3, "memberId": 2, "leader": true, "roleName": "기획", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 12, "teamId": 3, "memberId": 3, "leader": false, "roleName": "백엔드", "roleAssignedAt": "2026-10-25T09:00:00"},
+    {"id": 13, "teamId": 3, "memberId": 4, "leader": false, "roleName": "발표", "roleAssignedAt": "2026-10-25T09:00:00"}
   ],
   "deliverables": [
     {"id": 1, "teamMemberId": 1, "roleName": "기획", "fileName": "기획서.txt", "fileSize": 78, "storageKey": "seed-1.txt", "uploadedAt": "2026-10-25T09:00:00"},
-    {"id": 2, "teamMemberId": 2, "roleName": "백엔드", "fileName": "API 명세.txt", "fileSize": 33, "storageKey": "seed-2.txt", "uploadedAt": "2026-10-25T09:00:00"}
+    {"id": 2, "teamMemberId": 2, "roleName": "백엔드", "fileName": "API 명세.txt", "fileSize": 33, "storageKey": "seed-2.txt", "uploadedAt": "2026-10-25T09:00:00"},
+    {"id": 3, "teamMemberId": 12, "roleName": "백엔드", "fileName": "최종 보고서.txt", "fileSize": 44, "storageKey": "seed-3.txt", "uploadedAt": "2026-10-25T09:00:00"}
   ],
   "evaluations": []
 }

@@ -241,7 +241,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 응답', () => pm.response.to.have.status(200));",
-                  "pm.collectionVariables.set('assignmentId', pm.response.json().id);"
+                  "pm.collectionVariables.set('assignmentId', pm.response.json().id);",
+                  "pm.test('기록 단계로 시작함', () => pm.expect(pm.response.json().phase).to.eql('RECORDING'));"
                 ]
               }
             }
@@ -737,8 +738,8 @@
       ]
     },
     {
-      "name": "4. 동료평가 (E-2)",
-      "description": "조원이 자신을 뺀 조원 전원(여기서는 조장 1명)을 평가해 제출합니다. 점수는 시스템이 계산하지 않고, 응답에도 점수가 없습니다.",
+      "name": "4. 평가 시작과 동료평가 (A-3, E-2)",
+      "description": "교수가 평가를 시작한 뒤 조원이 자신을 뺀 조원 전원(여기서는 조장 1명)을 평가해 제출합니다. 점수는 시스템이 계산하지 않고, 응답에도 점수가 없습니다.",
       "item": [
         {
           "name": "제출 여부 - 제출 전 (조원)",
@@ -766,6 +767,184 @@
                 "exec": [
                   "pm.test('200 응답', () => pm.response.to.have.status(200));",
                   "pm.test('아직 제출 안 함', () => pm.expect(pm.response.json().submitted).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "기록 단계에서 제출하면 400 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations",
+            "description": "동료평가는 평가 단계에서만 입력합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evaluations\": [\n    {\n      \"targetTeamMemberId\": {{leaderTeamMemberId}},\n      \"goalSharing\": 5,\n      \"roleFulfillment\": 4,\n      \"encouragement\": 5,\n      \"onlineCommunication\": 4,\n      \"offlineCommunication\": 3,\n      \"progressCheck\": 4,\n      \"comment\": \"기획서를 먼저 정리해 줌\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code는 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 시작 - 조장은 403 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/assignments/{{assignmentId}}/start-evaluation",
+            "description": "과제를 만든 교수만 평가를 시작합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 시작 (교수)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/assignments/{{assignmentId}}/start-evaluation",
+            "description": "과제를 평가 단계로 바꿉니다. 요청 body는 없고 되돌릴 수 없습니다. 시작 시각은 서버가 기록합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('평가 단계로 바뀜', () => pm.expect(pm.response.json().phase).to.eql('EVALUATION'));",
+                  "pm.test('시작 시각이 있음', () => pm.expect(pm.response.json().evaluationStartedAt).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다시 시작하면 400 (교수)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/assignments/{{assignmentId}}/start-evaluation",
+            "description": "이미 평가 단계입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 단계에서 올리면 400 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/deliverables",
+            "description": "평가 단계에서는 조 운영과 과정 기록을 바꿀 수 없습니다. 열람은 됩니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "sample-upload.txt"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code는 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
                 ]
               }
             }

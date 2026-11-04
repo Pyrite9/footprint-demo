@@ -1,6 +1,7 @@
 package com.footprint.backend.service;
 
 import com.footprint.backend.entity.Assignment;
+import com.footprint.backend.entity.AssignmentPhase;
 import com.footprint.backend.entity.Member;
 import com.footprint.backend.entity.MemberType;
 import com.footprint.backend.entity.Team;
@@ -21,7 +22,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-// 과제를 만들고 조회합니다. 만들 때는 과제, 조, 조장을 한 번에 저장합니다.
+// 과제를 만들고 조회하고, 평가 단계로 바꿉니다. 만들 때는 과제, 조, 조장을 한 번에 저장합니다.
 @Service
 public class AssignmentService {
 
@@ -98,6 +99,22 @@ public class AssignmentService {
         TeamMember leader = teamMemberRepository.findByTeamIdAndLeaderTrue(myTeamId)
                 .orElseThrow(() -> new NotFoundException("조장이 없습니다. teamId=" + myTeamId));
         return List.of(leader);
+    }
+
+    // 과제를 만든 교수가 과제를 평가 단계로 바꿉니다. 되돌릴 수 없습니다. 시작 시각은 서버가 기록합니다.
+    // @Transactional: 메서드가 끝날 때 바뀐 단계와 시각이 DB에 저장됩니다(save를 따로 부르지 않아도 됩니다).
+    @Transactional
+    public Assignment startEvaluation(Long assignmentId, Long memberId) {
+        Assignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new NotFoundException("과제가 없습니다. id=" + assignmentId));
+        if (!teamAccessChecker.isProfessorOf(assignment, memberId)) {
+            throw new ForbiddenException("과제를 만든 교수만 평가를 시작할 수 있습니다");
+        }
+        if (assignment.getPhase() == AssignmentPhase.EVALUATION) {
+            throw new InvalidInputException("이미 평가 단계입니다");
+        }
+        assignment.startEvaluation();
+        return assignment;
     }
 
     // 교수가 아니면 ForbiddenException을 던집니다. 과제는 교수만 만듭니다.

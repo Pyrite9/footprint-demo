@@ -30,13 +30,16 @@ public class EvaluationService {
     private final TeamMemberRepository teamMemberRepository;
     private final EvaluationRepository evaluationRepository;
     private final TeamAccessChecker teamAccessChecker;
+    private final AssignmentPhaseChecker assignmentPhaseChecker;
 
     public EvaluationService(TeamRepository teamRepository, TeamMemberRepository teamMemberRepository,
-                             EvaluationRepository evaluationRepository, TeamAccessChecker teamAccessChecker) {
+                             EvaluationRepository evaluationRepository, TeamAccessChecker teamAccessChecker,
+                             AssignmentPhaseChecker assignmentPhaseChecker) {
         this.teamRepository = teamRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.evaluationRepository = evaluationRepository;
         this.teamAccessChecker = teamAccessChecker;
+        this.assignmentPhaseChecker = assignmentPhaseChecker;
     }
 
     // 내가 이 조에서 제출한 평가를 찾습니다. 제출 여부를 알려 줄 때만 씁니다. 그 조의 조원만 부를 수 있습니다.
@@ -53,6 +56,7 @@ public class EvaluationService {
     public List<Evaluation> submit(Long teamId, List<EvaluationSubmitRequest.Item> items, Long memberId) {
         Team team = findTeam(teamId);
         TeamMember evaluator = teamAccessChecker.checkTeamMember(team, memberId);
+        assignmentPhaseChecker.checkEvaluation(team.getAssignment());
         if (!evaluationRepository.findByEvaluatorId(evaluator.getId()).isEmpty()) {
             throw new DuplicateException("이미 동료평가를 제출했습니다");
         }

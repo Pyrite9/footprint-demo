@@ -6,7 +6,7 @@ import { getTeam, getTeamMembers } from '../api/teams'
 import DeliverableList from '../components/DeliverableList'
 import DeliverableUploadForm from '../components/DeliverableUploadForm'
 
-// 조의 산출물 화면입니다. 목록과 다운로드는 조원과 교수가, 올리기는 역할이 배정된 조원만 합니다(서버가 확인합니다).
+// 조의 산출물 화면입니다. 목록과 다운로드는 조원과 교수가, 올리기는 기록 단계에서 역할이 배정된 조원만 합니다(서버가 확인합니다).
 function DeliverablesPage() {
     const { teamId } = useParams()
     const [me, setMe] = useState(null)
@@ -72,9 +72,10 @@ function DeliverablesPage() {
         )
     }
 
-    // 내 조 참여 기록입니다. 교수는 조원이 아니라서 없습니다(undefined). 내 역할이 있을 때만 올리기 form을 보여 줍니다.
+    // 내 조 참여 기록입니다. 교수는 조원이 아니라서 없습니다(undefined). 기록 단계이고 내 역할이 있을 때만 올리기 form을 보여 줍니다.
     const myTeamMember = members.find((member) => member.memberId === me.id)
-    const canUpload = myTeamMember !== undefined && myTeamMember.roleName !== null
+    const isRecording = team.phase === 'RECORDING'
+    const canUpload = isRecording && myTeamMember !== undefined && myTeamMember.roleName !== null
 
     return (
         <main>
@@ -90,7 +91,8 @@ function DeliverablesPage() {
                     inputKey={fileInputKey}
                 />
             )}
-            {myTeamMember && myTeamMember.roleName === null && <p className="notice">역할이 배정되면 산출물을 올릴 수 있습니다.</p>}
+            {isRecording && myTeamMember && myTeamMember.roleName === null && <p className="notice">역할이 배정되면 산출물을 올릴 수 있습니다.</p>}
+            {!isRecording && <p className="notice">평가 단계입니다. 산출물을 더 올릴 수 없습니다.</p>}
             {actionError && <p className="error">{actionError}</p>}
 
             <h2>올린 산출물 (최신순)</h2>

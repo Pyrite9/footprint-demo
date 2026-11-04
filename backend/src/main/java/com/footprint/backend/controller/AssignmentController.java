@@ -53,4 +53,10 @@ public class AssignmentController {
         List<TeamMember> leaders = assignmentService.findVisibleTeamLeaders(assignment, memberId);
         return AssignmentDetailResponse.from(assignment, leaders);
     }
+
+    // 과제를 평가 단계로 바꿉니다. 요청 body는 없습니다. 과제를 만든 교수인지는 Service가 확인합니다.
+    @PostMapping("/{assignmentId}/start-evaluation")
+    public AssignmentResponse startEvaluation(@AuthenticationPrincipal Long memberId, @PathVariable Long assignmentId) {
+        return AssignmentResponse.from(assignmentService.startEvaluation(assignmentId, memberId));
+    }
 }

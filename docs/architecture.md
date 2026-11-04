@@ -221,6 +221,8 @@ erDiagram
         LocalDate startDate "과제 시작일"
         LocalDate endDate "과제 종료일 · 시작일보다 앞이면 400"
         Long professor_id FK "과제를 만든 교수 · 교수 열람 권한 기준"
+        AssignmentPhase phase "RECORDING 기록 단계 · EVALUATION 평가 단계 · 되돌릴 수 없음"
+        LocalDateTime evaluationStartedAt "평가 시작 시각 · 서버가 기록 · 기록 단계에서는 null"
     }
     TEAM {
         Long id PK "조 번호"

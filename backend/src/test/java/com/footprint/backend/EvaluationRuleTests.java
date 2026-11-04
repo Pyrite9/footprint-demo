@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // 동료평가 제출 규칙을 실제 요청으로 확인합니다. PostgreSQL과 MinIO가 켜져 있어야 합니다.
-// 시작 데이터의 1조(student01~05)에서 student01이 나머지 4명을 평가합니다.
+// 시작 데이터의 평가 단계 과제 1조(student01~03)에서 student01이 나머지 2명을 평가합니다.
 // @Transactional: 테스트가 끝나면 데이터베이스 변경을 되돌립니다. 그래서 테스트끼리 서로 영향을 주지 않습니다.
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -53,10 +53,10 @@ class EvaluationRuleTests {
         this.evaluationRepository = evaluationRepository;
     }
 
-    // 1조의 평가자(조장 student01)와 평가 대상 4명을 찾아 둡니다.
+    // 평가 단계 조의 평가자(조장 student01)와 평가 대상 2명을 찾아 둡니다.
     @BeforeEach
     void findSeedTeam() {
-        Team team = teamRepository.findByInviteCode("demo-team-1").orElseThrow();
+        Team team = teamRepository.findByInviteCode("demo-evaluation-1").orElseThrow();
         evaluationsPath = "/teams/" + team.getId() + "/evaluations";
         List<TeamMember> members = teamMemberRepository.findByTeamIdOrderByIdAsc(team.getId());
         evaluator = members.get(0);
@@ -77,6 +77,20 @@ class EvaluationRuleTests {
 
         api.get(evaluationsPath + "/mine", token).andExpect(jsonPath("$.submitted").value(true));
         TestApi.expectError(api.post(evaluationsPath, token, body), 409, "DUPLICATE");
+    }
+
+    // 기록 단계에서는 제출할 수 없습니다. 제출 여부를 보는 것은 됩니다.
+    @Test
+    void submitIsRejectedInRecording() throws Exception {
+        Team recordingTeam = teamRepository.findByInviteCode("demo-team-1").orElseThrow();
+        String path = "/teams/" + recordingTeam.getId() + "/evaluations";
+        String token = api.login("student01@example.com");
+
+        var result = api.post(path, token, evaluationsBody(allTargetItems("3")));
+
+        TestApi.expectError(result, 400, "INVALID_INPUT");
+        result.andExpect(jsonPath("$.message").value("동료평가는 평가 단계에서만 입력할 수 있습니다"));
+        api.get(path + "/mine", token).andExpect(jsonPath("$.submitted").value(false));
     }
 
     // 대상이 "자신을 뺀 전원 한 번씩"이 아니면 400이고 아무것도 저장되지 않습니다.
@@ -145,6 +159,7 @@ class EvaluationRuleTests {
         int assignmentId = JsonPath.read(created, "$.id");
         String detail = api.get("/assignments/" + assignmentId, professor).andReturn().getResponse().getContentAsString();
         int teamId = JsonPath.read(detail, "$.teams[0].id");
+        api.post("/assignments/" + assignmentId + "/start-evaluation", professor, "").andExpect(status().isOk());
 
         TestApi.expectError(api.post("/teams/" + teamId + "/evaluations", api.login("student01@example.com"),
                 evaluationsBody(allTargetItems("3"))), 400, "INVALID_INPUT");
@@ -165,7 +180,7 @@ class EvaluationRuleTests {
         return new Evaluation(evaluator, target, 3, 3, 3, 3, 3, 3, null, LocalDateTime.now());
     }
 
-    // 평가 대상 4명의 평가 JSON 목록을 만듭니다. 모든 항목에 같은 점수를 넣습니다.
+    // 평가 대상 2명의 평가 JSON 목록을 만듭니다. 모든 항목에 같은 점수를 넣습니다.
     private List<String> allTargetItems(String score) {
         List<String> items = new ArrayList<>();
         for (TeamMember target : targets) {

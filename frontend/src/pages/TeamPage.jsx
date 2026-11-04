@@ -5,7 +5,7 @@ import { assignRole, getInviteCode, getTeam, getTeamMembers, issueInviteCode } f
 import InviteLinkPanel from '../components/InviteLinkPanel'
 import TeamMemberList from '../components/TeamMemberList'
 
-// 조 화면입니다. 조원 목록을 보여 주고, 조장에게는 초대 링크 발급과 역할 지정을 보여 줍니다.
+// 조 화면입니다. 조원 목록을 보여 주고, 기록 단계이면 조장에게 초대 링크 발급과 역할 지정을 보여 줍니다.
 // 이 조의 조원과 그 과제를 만든 교수만 볼 수 있습니다(서버가 확인합니다).
 function TeamPage() {
     const { teamId } = useParams()
@@ -81,28 +81,31 @@ function TeamPage() {
     const isLeader = members.some((member) => member.memberId === me.id && member.leader)
     // 동료평가는 조원만 합니다. 교수에게는 링크를 보여 주지 않습니다.
     const isMember = members.some((member) => member.memberId === me.id)
+    // 평가 단계에서는 조 운영을 바꿀 수 없습니다.
+    const isRecording = team.phase === 'RECORDING'
 
     return (
         <main>
             <p className="links"><Link to={`/assignments/${team.assignmentId}`}>← {team.assignmentTitle}</Link></p>
             <h1>{team.name}</h1>
             <nav className="links">
-                {/* 산출물은 조원만 올립니다. 교수에게는 "보기"만 보여 줍니다. */}
-                <Link to={`/teams/${team.id}/deliverables`}>{isMember ? '산출물 보기·올리기' : '산출물 보기'}</Link>
+                {/* 산출물은 기록 단계에서 조원만 올립니다. 그 밖에는 "보기"만 보여 줍니다. */}
+                <Link to={`/teams/${team.id}/deliverables`}>{isMember && isRecording ? '산출물 보기·올리기' : '산출물 보기'}</Link>
                 {isMember && <Link to={`/teams/${team.id}/evaluation`}>동료평가</Link>}
             </nav>
 
             <h2>조원</h2>
             <TeamMemberList
                 members={members}
-                canAssignRole={isLeader}
+                canAssignRole={isLeader && isRecording}
                 roleNameInputs={roleNameInputs}
                 onRoleNameChange={handleRoleNameChange}
                 onAssignRole={handleAssignRole}
                 assigningId={assigningId}
             />
 
-            {isLeader && <InviteLinkPanel inviteCode={inviteCode} onIssue={handleIssueInviteCode} issuing={issuing} />}
+            {isLeader && isRecording && <InviteLinkPanel inviteCode={inviteCode} onIssue={handleIssueInviteCode} issuing={issuing} />}
+            {!isRecording && <p className="notice">평가 단계입니다. 초대와 역할 지정은 더 할 수 없습니다.</p>}
             {actionError && <p className="error">{actionError}</p>}
         </main>
     )
