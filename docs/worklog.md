@@ -1559,3 +1559,52 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 교수의 조원 줄 버튼 이름은 "조장 교체"임
   - 조 홈의 할 일에서 완료확인은 뺌. 항목마다 API를 불러야 해서 요청이 많아짐
   - 입력 칩 상태(입력함, 입력 중, 미입력)는 고른 항목 수로 정함. 점수를 더하지 않음
+
+### E-1-1 근거 패널
+
+- 결정:
+  - `GET /teams/{teamId}/members/{teamMemberId}/evidence`를 둠. `docs/api-draft.md` 예정 표의 주소 그대로임
+  - 응답은 `deliverables`, `contributions`, `receivedConfirmations`, `givenConfirmations` 네 목록이고 모두 최근 것부터임. 건수 필드는 두지 않음
+  - 삭제된 산출물과 취소된 기여 항목·완료확인도 빼지 않음. 기존 목록과 같게 "삭제됨", "취소됨"으로 보여 줌
+  - 같은 조 조원은 평가 단계에서만 봄. 기록 단계는 400임. 과제를 만든 교수는 모든 단계에서 봄. 선택지: 교수도 평가 단계만. `TODO.md`는 "평가 단계에서"라고 적었지만 교수 쪽은 평가 결과 화면을 말함. 교수는 기록 단계에도 다른 기록을 모두 볼 수 있어 막을 이유가 없음
+  - 자기 자신의 근거도 API로 볼 수 있음. 화면은 평가 대상만 고르므로 자기 기록을 열지 않음. 선택지: 자기 자신은 400. 막아서 지킬 정보가 없어 검사를 더하지 않음
+  - 완료확인 한 줄에 산출물 또는 기여 항목 전체를 담음. 화면이 추가 요청 없이 바로 기록을 열기 위함임. 선택지: 기록 번호만 담고 다시 부르기. 줄마다 요청이 늘어서 고르지 않음
+  - Service는 Entity 네 목록을 묶은 `TeamMemberEvidence`를 돌려주고 Controller가 DTO로 바꿈. "Entity → DTO 변환은 Controller" 규칙을 그대로 지키려는 것임
+  - 기록을 눌렀을 때의 완료확인 이력과 파일 내려받기는 기존 API를 그대로 씀
+  - 화면은 `DeliverableDetail`, `ContributionDetail`을 `isRecording={false}`로 다시 씀. 평가 단계라 쓰기 버튼이 나오지 않음
+  - 패널은 평가 입력 중에만 띄움. 확인 화면과 제출 뒤에는 띄우지 않음. 제출 뒤에는 점수를 고칠 수 없어 볼 이유가 적음
+  - 1261px 이상은 처음부터 열고 그보다 좁으면 "근거 기록 보기" 버튼으로 엶. 좁은 폭에서는 패널이 입력 form을 가림
+  - 조 전체 산출물을 한 번 더 불러옴(`getDeliverables`). "백엔드 1번째" 같은 역할별 순번은 조 전체 목록이 있어야 계산됨
+  - `saveBlob`을 `DeliverablesPage`에서 `src/saveBlob.js`로 옮김. 두 화면이 씀
+  - 교수 화면은 만들지 않음. 교수의 평가 결과 화면이 V-2에서 생기므로 그때 `EvidencePanel`을 붙임. API와 권한은 이번에 끝냄
+- 만든 파일:
+  - 백엔드: `controller/EvidenceController`, `service/EvidenceService`, `service/TeamMemberEvidence`, `dto/EvidenceResponse`, `dto/EvidenceConfirmationResponse`, 테스트 `EvidenceRuleTests`
+  - 화면: `api/evidence.js`, `saveBlob.js`, `components/EvidencePanel.jsx`, `components/EvidenceConfirmationList.jsx`
+- 고친 파일:
+  - 백엔드: `service/AssignmentPhaseChecker`, `repository/DeliverableRepository`, `repository/ContributionRepository`, `repository/ConfirmationRepository`
+  - 가짜 API: `frontend/mock/middleware.cjs`
+  - 화면: `pages/EvaluationPage.jsx`, `pages/DeliverablesPage.jsx`
+  - 문서: `docs/api-draft.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`, `frontend/README.md`
+- 확인:
+  - `gradlew clean build` 성공. 테스트 115개, 실패 0(`EvidenceRuleTests` 7개 더함). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 113개, 확인 239개, 실패 0
+  - 실제 백엔드와 가짜 API에 같은 요청 28개를 보내 응답과 오류 메시지가 같음을 비교함(저장소에 넣지 않은 임시 스크립트). 권한, 없는 번호, 잘못된 번호, 기록 단계, 확인 취소, 항목 취소, 산출물 삭제 뒤를 포함함
+  - 브라우저에서 실제 백엔드로 확인(student01, `/teams/3/evaluation`): 폭 1400px에서 패널이 처음부터 열리고 네 구역이 나옴. 건수는 없음. 조원을 바꾸면 그 조원의 기록을 다시 불러옴. 산출물을 누르면 역할 순번, 파일 정보, 내려받기, 완료확인 이력이 나오고 내려받기는 파일 이름으로 저장을 시작함(저장 동작은 가로채서 이름만 확인함). 기여 항목을 누르면 보고 메모와 이력이 나옴. 쓰기 버튼 없음
+  - 닫으면 "근거 기록 보기" 버튼이 나오고 다시 열림. 폭 1000px, 375px에서는 처음에 닫혀 있음. 375px에서 열면 form이 숨고 가로 스크롤 없음. 닫으면 form이 돌아옴. 확인 화면에서는 패널이 사라지고 "돌아가서 고치기"로 돌아오면 다시 열림. 제출 뒤에는 패널이 없고 근거 요청도 가지 않음. 콘솔 오류 없음
+  - 시험 뒤 `frontend/db.json`과 `frontend/mock/files`를 되돌림. 비교 스크립트의 삭제 시험이 시작 파일 `seed-2.txt`를 지워서 git에서 복원함
+  - rule-check: 금지 패턴 없음. 건수, 합계, 평균 없음(`.length`는 빈 목록 문구를 고를 때만 씀). 새 public 메서드에 주석 있음. 읽기 전용이라 `@Transactional` 없음. 접근 범위와 단계 검사가 Service에 메서드 호출로 보임. 수정 필요 없음
+  - 확인 중 고친 것: 패널을 닫았다가 다시 열어 성공해도 전에 난 오류 문구가 남을 수 있어 성공할 때 지우게 함
+- 읽을 때 볼 곳:
+  - `EvidenceService.find`의 검사 순서. 교수가 아닐 때만 조원 검사와 단계 검사를 함
+  - `EvidenceService`에서 받은 확인을 두 쿼리로 합친 뒤 다시 정렬하는 곳. 산출물의 확인과 기여 항목의 확인이 다른 연결을 타서 한 쿼리로 묶지 않음
+  - `EvaluationPage`에서 `targets`, `selectedTarget`, `canInput`이 "불러오는 중" return보다 위로 올라온 이유. useEffect도 이 값을 쓰는데 Hook은 return 뒤에 둘 수 없음. 그래서 `me?.id`처럼 불러오기 전의 null을 견딤
+  - 근거 useEffect의 `ignore`. 조원을 빠르게 바꿨을 때 늦은 응답이 덮어쓰지 않게 함
+  - `EvidencePanel`의 `sequenceOf(teamDeliverables, ...)`. 순번은 조원별이 아니라 역할별이라 이 조원의 목록만으로는 계산되지 않음
+- 내가 채운 가정:
+  - 교수는 모든 단계에서 볼 수 있고 조원은 기록 단계에 400임
+  - 자기 자신의 근거도 API로 볼 수 있음
+  - 삭제·취소된 기록을 근거에 포함함
+  - 패널은 입력 중에만 띄우고 제출 뒤에는 띄우지 않음
+  - 1261px 이상에서 처음부터 열고 좁으면 버튼으로 엶
+  - 남긴 완료확인 줄의 이름은 기록의 주인임
+  - 구역 제목, 빈 목록 문구, 버튼 문구, 오류 메시지 "근거 패널은 평가 단계에서 볼 수 있습니다"는 내가 씀

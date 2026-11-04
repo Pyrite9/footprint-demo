@@ -17,6 +17,15 @@ public interface ConfirmationRepository extends JpaRepository<Confirmation, Long
     // 한 기여 항목의 완료확인을 최근 것부터 찾습니다. 취소된 확인도 빼지 않습니다.
     List<Confirmation> findByContributionIdOrderByIdDesc(Long contributionId);
 
+    // 한 조원이 올린 산출물에 남은 완료확인을 최근 것부터 찾습니다. DeliverableTeamMemberId는 deliverable.teamMember.id입니다.
+    List<Confirmation> findByDeliverableTeamMemberIdOrderByIdDesc(Long teamMemberId);
+
+    // 한 조원이 맡은 기여 항목에 남은 완료확인을 최근 것부터 찾습니다. ContributionAssigneeId는 contribution.assignee.id입니다.
+    List<Confirmation> findByContributionAssigneeIdOrderByIdDesc(Long teamMemberId);
+
+    // 한 조원이 남긴 완료확인을 최근 것부터 찾습니다.
+    List<Confirmation> findByConfirmerIdOrderByIdDesc(Long confirmerId);
+
     // 이 조원의 유효한(취소하지 않은) 확인이 이 산출물에 있으면 true입니다.
     boolean existsByDeliverableIdAndConfirmerIdAndCanceledAtIsNull(Long deliverableId, Long confirmerId);
 

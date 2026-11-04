@@ -23,4 +23,11 @@ public class AssignmentPhaseChecker {
             throw new InvalidInputException("동료평가는 평가 단계에서만 입력할 수 있습니다");
         }
     }
+
+    // 평가 단계인지 확인합니다. 조원이 근거 패널을 볼 때 씁니다. 교수는 이 검사를 거치지 않습니다.
+    public void checkEvidenceOpen(Assignment assignment) {
+        if (assignment.getPhase() != AssignmentPhase.EVALUATION) {
+            throw new InvalidInputException("근거 패널은 평가 단계에서 볼 수 있습니다");
+        }
+    }
 }

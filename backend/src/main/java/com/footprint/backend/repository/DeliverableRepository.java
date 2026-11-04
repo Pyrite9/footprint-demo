@@ -14,6 +14,9 @@ public interface DeliverableRepository extends JpaRepository<Deliverable, Long> 
     // 한 조의 산출물을 최신순(id 큰 순)으로 찾습니다. TeamMemberTeamId는 teamMember.team.id입니다.
     List<Deliverable> findByTeamMemberTeamIdOrderByIdDesc(Long teamId);
 
+    // 한 조원이 올린 산출물을 최신순으로 찾습니다. 삭제된 산출물도 빼지 않습니다. TeamMemberId는 teamMember.id입니다.
+    List<Deliverable> findByTeamMemberIdOrderByIdDesc(Long teamMemberId);
+
     // 산출물을 찾으면서 그 행을 잠급니다. 완료확인 요청이 겹쳐도 한 번에 하나씩 처리하려고 씁니다.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Deliverable> findWithLockById(Long id);

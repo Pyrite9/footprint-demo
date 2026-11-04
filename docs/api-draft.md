@@ -793,6 +793,52 @@ token
 - 교수가 임시 저장을 볼 수 있는 API는 없음
 - `comment`는 앞뒤 공백을 지우고, 비었으면 null로 저장함
 
+## 근거 패널
+
+### GET /teams/{teamId}/members/{teamMemberId}/evidence — 조원의 근거 기록 (E-1-1) · 2026.11.04
+
+한 조원의 기록을 종류별로 받음. 과제를 만든 교수는 단계와 상관없이, 같은 조 조원은 평가 단계에서만 부를 수 있음. 자기 기록도 볼 수 있음
+`teamMemberId`는 조원 목록(`GET /teams/{teamId}/members`)의 `id`임
+
+200
+```json
+{
+  "deliverables": [
+    { "id": 3, "roleName": "백엔드", "fileName": "최종 보고서.txt", "fileSize": 44, "uploaderMemberId": 3,
+      "uploaderName": "이서연", "uploadedAt": "2026-11-13T21:00:00", "deletedAt": null }
+  ],
+  "contributions": [
+    { "id": 2, "title": "자료 취합", "assigneeMemberId": 3, "assigneeName": "이서연", "createdAt": "2026-11-13T21:00:00",
+      "reportMemo": "자료를 모아 조 공유 폴더에 올렸습니다.", "reportedAt": "2026-11-13T21:00:00", "canceledAt": null }
+  ],
+  "receivedConfirmations": [
+    { "id": 1, "deliverable": { "id": 3, "fileName": "최종 보고서.txt" }, "contribution": null, "confirmerMemberId": 2,
+      "confirmerName": "김민준", "confirmedAt": "2026-11-13T21:00:00", "canceledAt": null }
+  ],
+  "givenConfirmations": []
+}
+```
+
+- `deliverables`: 이 조원이 올린 산출물. 모양은 산출물 목록과 같음. 삭제된 산출물도 `deletedAt`과 함께 나옴
+- `contributions`: 이 조원이 맡은 기여 항목과 보고 메모. 모양은 기여 항목 목록과 같음. 취소된 항목도 `canceledAt`과 함께 나옴
+- `receivedConfirmations`: 이 조원의 기록에 다른 조원이 남긴 완료확인
+- `givenConfirmations`: 이 조원이 다른 조원의 기록에 남긴 완료확인
+- 완료확인의 `deliverable`, `contribution`은 위 두 목록과 같은 모양의 기록 전체임(위 예시는 줄임). 둘 중 하나만 값이 있고 나머지는 null임. 취소된 확인도 `canceledAt`과 함께 나옴
+- 네 목록 모두 최근 것부터임. 기록이 없으면 `[]`임
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `teamId`나 `teamMemberId`가 숫자가 아닐 때 |
+| 400 | `INVALID_INPUT` | 조원이 기록 단계에서 부를 때. 메시지 "근거 패널은 평가 단계에서 볼 수 있습니다" |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원도, 과제를 만든 교수도 아닐 때 |
+| 404 | `NOT_FOUND` | 없는 조이거나, 그 조의 조원이 아닐 때 |
+
+서버 쪽 규칙
+- 건수, 합계, 점수를 담지 않음. 기록을 있는 그대로 돌려줌
+- 동료평가와 임시 저장은 담지 않음
+- 파일 내려받기와 기록별 완료확인 이력은 기존 API를 씀
+
 ---
 
 ## 완성 범위에서 더할 API · 2026.11.04
@@ -801,7 +847,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 10 | E-1-1 | `GET /teams/{teamId}/members/{teamMemberId}/evidence` | 조원(평가 단계), 교수 |
 | 11 | V-1-1 | `GET /teams/{teamId}/records` | 조원, 교수 |
 | 12 | V-2-1 | `GET /teams/{teamId}/evaluations/status` | 교수 |
 | 12 | V-2-2 | `GET /teams/{teamId}/evaluations` | 교수 |

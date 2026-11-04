@@ -14,6 +14,9 @@ public interface ContributionRepository extends JpaRepository<Contribution, Long
     // 한 조의 기여 항목을 최근에 등록한 것부터 찾습니다. id가 클수록 나중에 저장한 줄입니다.
     List<Contribution> findByTeamIdOrderByIdDesc(Long teamId);
 
+    // 한 조원이 맡은 기여 항목을 최근에 등록한 것부터 찾습니다. 취소된 항목도 빼지 않습니다. AssigneeId는 assignee.id입니다.
+    List<Contribution> findByAssigneeIdOrderByIdDesc(Long assigneeId);
+
     // 기여 항목을 찾으면서 그 행을 잠급니다. 다른 요청이 같은 항목을 잠그려면 이 트랜잭션이 끝날 때까지 기다립니다.
     // 메서드 이름의 "WithLock"은 읽기 쉽게 붙인 말이고, 실제 잠금은 @Lock이 합니다.
     @Lock(LockModeType.PESSIMISTIC_WRITE)

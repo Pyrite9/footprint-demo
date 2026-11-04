@@ -2603,7 +2603,7 @@
       ]
     },
     {
-      "name": "5. 평가 시작과 동료평가 (A-3, E-2)",
+      "name": "5. 평가 시작과 동료평가 (A-3, E-1, E-2)",
       "description": "교수가 평가를 시작한 뒤 조원이 자신을 뺀 조원 전원(여기서는 조장 1명)을 평가해 제출합니다. 점수는 시스템이 계산하지 않고, 응답에도 점수가 없습니다.",
       "item": [
         {
@@ -2722,6 +2722,67 @@
                 "exec": [
                   "pm.test('400 응답', () => pm.response.to.have.status(400));",
                   "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "근거 패널 - 기록 단계면 400 (조장)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/evidence",
+            "description": "조원은 평가 단계에서만 근거 패널을 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "근거 패널 - 교수는 기록 단계에도 봄 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/evidence",
+            "description": "과제를 만든 교수는 단계와 상관없이 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));"
                 ]
               }
             }
@@ -3528,6 +3589,134 @@
                 "exec": [
                   "pm.test('200 응답', () => pm.response.to.have.status(200));",
                   "pm.test('미제출', () => pm.expect(pm.response.json().submitted).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "근거 패널 - 올린 기록 (조장)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/evidence",
+            "description": "조원의 기록을 종류별로 받습니다. 삭제된 산출물도 빼지 않습니다. 건수는 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('올린 산출물이 있음', () => pm.expect(pm.response.json().deliverables.map((row) => row.id)).to.include(Number(pm.collectionVariables.get('deliverableId'))));",
+                  "pm.test('삭제 시각이 남음', () => pm.expect(pm.response.json().deliverables.find((row) => row.id === Number(pm.collectionVariables.get('deliverableId'))).deletedAt).to.be.a('string'));",
+                  "pm.test('맡은 기여 항목이 있음', () => pm.expect(pm.response.json().contributions.map((row) => row.id)).to.include(Number(pm.collectionVariables.get('contributionId'))));",
+                  "pm.test('받은 확인에 기록이 담김', () => pm.expect(pm.response.json().receivedConfirmations[0].contribution.id).to.eql(Number(pm.collectionVariables.get('contributionId'))));",
+                  "pm.test('건수가 없음', () => pm.expect(Object.keys(pm.response.json())).to.eql(['deliverables', 'contributions', 'receivedConfirmations', 'givenConfirmations']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "근거 패널 - 남긴 확인 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{leaderTeamMemberId}}/evidence",
+            "description": "이 조원이 다른 조원의 기록에 남긴 완료확인도 받습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('남긴 확인이 있음', () => pm.expect(pm.response.json().givenConfirmations.length).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "근거 패널 - 다른 조 학생은 403 (다른 조)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/{{memberTeamMemberId}}/evidence",
+            "description": "그 조의 조원과 과제를 만든 교수만 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "근거 패널 - 없는 조원이면 404 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/members/999999/evidence",
+            "description": "그 조의 조원이 아니면 404입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 응답', () => pm.response.to.have.status(404));",
+                  "pm.test('code가 NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));"
                 ]
               }
             }

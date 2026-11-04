@@ -1052,6 +1052,47 @@ function handleSubmitEvaluations(req, res, loginMember, teamId) {
   return res.json(toEvaluationStatusResponse(myEvaluations))
 }
 
+// 근거 패널의 완료확인 한 건입니다. 실제 EvidenceConfirmationResponse와 같습니다. 어떤 기록의 확인인지 기록 전체를 함께 담습니다.
+function toEvidenceConfirmationResponse(db, confirmation) {
+  const { id, deliverableId, contributionId, confirmerMemberId, confirmerName, confirmedAt, canceledAt } = toConfirmationResponse(db, confirmation)
+  const deliverable = deliverableId === null ? null : toDeliverableResponse(db, db.get('deliverables').find({ id: deliverableId }).value())
+  const contribution = contributionId === null ? null : toContributionResponse(db, db.get('contributions').find({ id: contributionId }).value())
+  return { id, deliverable, contribution, confirmerMemberId, confirmerName, confirmedAt, canceledAt }
+}
+
+// GET /teams/{teamId}/members/{teamMemberId}/evidence: 한 조원의 기록을 종류별로 돌려줍니다. 건수는 담지 않습니다. 검사 순서는 실제 백엔드와 같습니다.
+function handleGetEvidence(req, res, loginMember, teamId, teamMemberId) {
+  const db = req.app.db
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team) return
+  // 과제를 만든 교수는 단계와 상관없이, 같은 조 조원은 평가 단계에서만 봅니다.
+  const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
+  if (assignment.professorId !== loginMember.id) {
+    if (!checkTeamMember(db, res, team, loginMember)) return
+    if (assignment.phase !== 'EVALUATION') {
+      return sendError(res, 400, 'INVALID_INPUT', '근거 패널은 평가 단계에서 볼 수 있습니다')
+    }
+  }
+  const target = db.get('teamMembers').find({ id: teamMemberId, teamId }).value()
+  if (!target) {
+    return sendError(res, 404, 'NOT_FOUND', '이 조의 조원이 아닙니다. id=' + teamMemberId)
+  }
+
+  const deliverables = db.get('deliverables').filter({ teamMemberId }).sortBy('id').reverse().value()
+  const contributions = db.get('contributions').filter({ assigneeId: teamMemberId }).sortBy('id').reverse().value()
+  const myDeliverableIds = deliverables.map((deliverable) => deliverable.id)
+  const myContributionIds = contributions.map((contribution) => contribution.id)
+  const confirmations = db.get('confirmations').sortBy('id').reverse().value()
+  const received = confirmations.filter((confirmation) => myDeliverableIds.includes(confirmation.deliverableId) || myContributionIds.includes(confirmation.contributionId))
+  const given = confirmations.filter((confirmation) => confirmation.confirmerId === teamMemberId)
+  return res.json({
+    deliverables: deliverables.map((deliverable) => toDeliverableResponse(db, deliverable)),
+    contributions: contributions.map((contribution) => toContributionResponse(db, contribution)),
+    receivedConfirmations: received.map((confirmation) => toEvidenceConfirmationResponse(db, confirmation)),
+    givenConfirmations: given.map((confirmation) => toEvidenceConfirmationResponse(db, confirmation)),
+  })
+}
+
 // 주소가 pattern과 맞으면 {id} 자리의 글자를 돌려줍니다. 맞지 않으면 null입니다.
 // 예: matchId(/^\/assignments\/([^/]+)$/, '/assignments/3') → '3'(글자). 숫자 검사는 parseIdOrSendError가 합니다.
 function matchId(pattern, path) {
@@ -1252,6 +1293,15 @@ function handleRequest(req, res, next) {
       return handleChangeRole(req, res, loginMember, teamId, teamMemberId)
     }
     return handleAssignRole(req, res, loginMember, teamId, teamMemberId)
+  }
+
+  const evidenceMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/evidence$/)
+  if (req.method === 'GET' && evidenceMatch) {
+    const teamId = parseIdOrSendError(res, evidenceMatch[1])
+    if (teamId === null) return
+    const teamMemberId = parseIdOrSendError(res, evidenceMatch[2])
+    if (teamMemberId === null) return
+    return handleGetEvidence(req, res, loginMember, teamId, teamMemberId)
   }
 
   const roleHistoriesMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/role-histories$/)
