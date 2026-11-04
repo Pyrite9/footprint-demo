@@ -1333,7 +1333,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 ### R-2-3 기여 항목 완료 보고
 
 - 결정:
-  - `POST /contributions/{contributionId}/report`를 둠. `TODO.md`의 주소 그대로임
+  - `POST /contributions/{contributionId}/report`를 둠. `docs/api-draft.md` 예정 표의 주소 그대로임
   - 검사 순서는 입력 400 → 없음 404 → 담당 아니면 403 → 평가 단계 400 → 취소됨 400 → 이미 보고 409임
   - 다시 보고하면 409 `DUPLICATE`임. 선택지: 400. "역할 다시 지정", "동료평가 다시 제출"이 409라서 같은 일은 같은 code로 둠
   - 항목 행을 잠금(`findWithLockById`). 선택지: 잠그지 않음. 겹치는 두 요청이 모두 보고 전으로 읽으면 뒤의 메모가 앞의 메모를 덮어써 "보고한 뒤 고칠 수 없음"이 깨짐. 조장 교체와 같은 패턴임
@@ -1366,7 +1366,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 ### R-2-4 기여 항목 취소
 
 - 결정:
-  - `POST /contributions/{contributionId}/cancel`을 둠. `TODO.md`의 주소 그대로임. body는 없음. 선택지: `DELETE`. 산출물 삭제는 파일 본문이 실제로 지워지지만 여기는 상태만 바뀌어서 `TODO.md`의 추천대로 둠
+  - `POST /contributions/{contributionId}/cancel`을 둠. `docs/api-draft.md` 예정 표의 주소 그대로임. body는 없음. 선택지: `DELETE`. 산출물 삭제는 파일 본문이 실제로 지워지지만 여기는 상태만 바뀌어서 `POST`로 둠
   - 검사 순서는 없음 404 → 조장 아니면 403 → 평가 단계 400 → 이미 취소 400 → 이미 보고 400임
   - 다시 취소하면 400임. 산출물을 다시 삭제할 때와 같음. 보고만 "두 번 제출"과 같은 일이라 409임
   - 완료 보고와 같은 행 잠금을 씀. 보고와 취소가 겹쳐도 둘 다 성공하지 않음
