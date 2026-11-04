@@ -1216,6 +1216,84 @@ function handleGetRecords(req, res, loginMember, teamId) {
   return res.json(rows)
 }
 
+// 조를 찾고 과제를 만든 교수인지 확인합니다. 아니면 오류를 보내고 undefined를 돌려줍니다. 실제 TeamAccessChecker.checkProfessor와 같습니다.
+function findTeamForProfessorOrSendError(db, res, teamId, loginMember) {
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team) return undefined
+  const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
+  if (assignment.professorId !== loginMember.id) {
+    sendError(res, 403, 'FORBIDDEN', '과제를 만든 교수만 볼 수 있습니다')
+    return undefined
+  }
+  return team
+}
+
+// 한 조에서 제출된 평가를 제출한 순서대로 찾습니다. 평가자가 그 조의 조원인 줄만 고릅니다. 임시 저장은 evaluations에 없습니다.
+function findTeamEvaluations(db, teamId) {
+  const teamMemberIds = db.get('teamMembers').filter({ teamId }).map('id').value()
+  return db.get('evaluations').sortBy('id').value().filter((evaluation) => teamMemberIds.includes(evaluation.evaluatorId))
+}
+
+// GET /teams/{teamId}/evaluations/status: 조원별 제출 여부를 돌려줍니다. 몇 명이 제출했는지는 세지 않습니다.
+function handleGetEvaluationSubmissions(req, res, loginMember, teamId) {
+  const db = req.app.db
+  if (!findTeamForProfessorOrSendError(db, res, teamId, loginMember)) return
+  const evaluations = findTeamEvaluations(db, teamId)
+  const teamMembers = db.get('teamMembers').filter({ teamId }).sortBy('id').value()
+  return res.json(teamMembers.map((teamMember) => {
+    const mine = evaluations.find((evaluation) => evaluation.evaluatorId === teamMember.id)
+    return { teamMemberId: teamMember.id, name: findTeamMemberName(db, teamMember.id), submitted: mine !== undefined, submittedAt: mine ? mine.submittedAt : null }
+  }))
+}
+
+// GET /teams/{teamId}/evaluations: 평가자별 점수와 의견을 입력된 그대로 돌려줍니다. 합계, 평균, 순위는 없습니다.
+function handleGetTeamEvaluations(req, res, loginMember, teamId) {
+  const db = req.app.db
+  if (!findTeamForProfessorOrSendError(db, res, teamId, loginMember)) return
+  return res.json(findTeamEvaluations(db, teamId).map((evaluation) => ({
+    id: evaluation.id,
+    evaluatorTeamMemberId: evaluation.evaluatorId,
+    evaluatorName: findTeamMemberName(db, evaluation.evaluatorId),
+    targetTeamMemberId: evaluation.targetId,
+    targetName: findTeamMemberName(db, evaluation.targetId),
+    goalSharing: evaluation.goalSharing,
+    roleFulfillment: evaluation.roleFulfillment,
+    encouragement: evaluation.encouragement,
+    onlineCommunication: evaluation.onlineCommunication,
+    offlineCommunication: evaluation.offlineCommunication,
+    progressCheck: evaluation.progressCheck,
+    comment: evaluation.comment,
+    submittedAt: evaluation.submittedAt,
+  })))
+}
+
+// 사람이 쓴 글자를 CSV 칸 하나로 바꿉니다. 실제 EvaluationCsv.textCell과 같습니다.
+function toCsvTextCell(text) {
+  if (text === null) return ''
+  // =, +, -, @로 시작하면 Excel이 수식으로 실행합니다. 앞에 '를 붙이면 글자로 읽습니다.
+  const cell = /^[=+\-@]/.test(text) ? "'" + text : text
+  // 쉼표, 큰따옴표, 줄바꿈이 있으면 칸이 나뉘지 않게 큰따옴표로 감쌉니다. 안의 큰따옴표는 두 번 씁니다.
+  return /[",\n\r]/.test(cell) ? '"' + cell.replace(/"/g, '""') + '"' : cell
+}
+
+// GET /teams/{teamId}/evaluations/export: 평가 결과를 CSV 파일로 내려줍니다. 맨 앞의 BOM이 있어야 Excel이 한글을 읽습니다. 합계, 평균, 순위 열은 없습니다.
+function handleExportEvaluations(req, res, loginMember, teamId) {
+  const db = req.app.db
+  if (!findTeamForProfessorOrSendError(db, res, teamId, loginMember)) return
+  const lines = ['평가자,대상,목표 공유·협업,역할 수행,격려·도움,온라인 소통,대면 소통,진행 점검·보충,의견,제출 시각']
+  findTeamEvaluations(db, teamId).forEach((evaluation) => {
+    lines.push([
+      toCsvTextCell(findTeamMemberName(db, evaluation.evaluatorId)),
+      toCsvTextCell(findTeamMemberName(db, evaluation.targetId)),
+      ...SCORE_FIELDS.map((field) => evaluation[field]),
+      toCsvTextCell(evaluation.comment),
+      evaluation.submittedAt.replace('T', ' '),
+    ].join(','))
+  })
+  res.attachment('evaluations-team-' + teamId + '.csv')
+  return res.send(Buffer.from('\uFEFF' + lines.map((line) => line + '\r\n').join(''), 'utf8'))
+}
+
 // 주소가 pattern과 맞으면 {id} 자리의 글자를 돌려줍니다. 맞지 않으면 null입니다.
 // 예: matchId(/^\/assignments\/([^/]+)$/, '/assignments/3') → '3'(글자). 숫자 검사는 parseIdOrSendError가 합니다.
 function matchId(pattern, path) {
@@ -1416,6 +1494,15 @@ function handleRequest(req, res, next) {
       return handleChangeRole(req, res, loginMember, teamId, teamMemberId)
     }
     return handleAssignRole(req, res, loginMember, teamId, teamMemberId)
+  }
+
+  const evaluationResultMatch = req.path.match(/^\/teams\/([^/]+)\/evaluations(\/status|\/export)?$/)
+  if (req.method === 'GET' && evaluationResultMatch) {
+    const teamId = parseIdOrSendError(res, evaluationResultMatch[1])
+    if (teamId === null) return
+    if (evaluationResultMatch[2] === '/status') return handleGetEvaluationSubmissions(req, res, loginMember, teamId)
+    if (evaluationResultMatch[2] === '/export') return handleExportEvaluations(req, res, loginMember, teamId)
+    return handleGetTeamEvaluations(req, res, loginMember, teamId)
   }
 
   const recordsMatch = req.path.match(/^\/teams\/([^/]+)\/records$/)

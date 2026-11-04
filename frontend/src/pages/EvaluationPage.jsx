@@ -6,14 +6,11 @@ import { downloadDeliverable, getDeliverables } from '../api/deliverables'
 import { getMyEvaluationDrafts, getMyEvaluationStatus, saveEvaluationDrafts, submitEvaluations } from '../api/evaluations'
 import { getMemberEvidence } from '../api/evidence'
 import { getTeam, getTeamMembers } from '../api/teams'
-import ContributionDetail from '../components/ContributionDetail'
-import DeliverableDetail from '../components/DeliverableDetail'
-import DetailPanel from '../components/DetailPanel'
 import EvaluationNotice from '../components/EvaluationNotice'
 import EvaluationReview from '../components/EvaluationReview'
 import EvaluationTargetForm from '../components/EvaluationTargetForm'
 import EvaluationTargets from '../components/EvaluationTargets'
-import EvidencePanel from '../components/EvidencePanel'
+import EvidenceSidePanel from '../components/EvidenceSidePanel'
 import PageError from '../components/PageError'
 import PageLoading from '../components/PageLoading'
 import TopBar from '../components/TopBar'
@@ -273,47 +270,22 @@ function EvaluationPage() {
                         </section>
                     )}
                 </main>
-                {showEvidence && selectedRecord === null && (
-                    <DetailPanel title={`${selectedTarget.name}의 근거 기록`} onClose={handleCloseEvidence}>
-                        {evidenceError && <p className="sub">{evidenceError}</p>}
-                        {!evidenceError && evidence === null && <p className="sub">불러오는 중...</p>}
-                        {evidence !== null && (
-                            <EvidencePanel
-                                evidence={evidence}
-                                teamDeliverables={teamDeliverables}
-                                onSelectDeliverable={(deliverable) => handleSelectRecord('deliverable', deliverable)}
-                                onSelectContribution={(contribution) => handleSelectRecord('contribution', contribution)}
-                            />
-                        )}
-                    </DetailPanel>
-                )}
-                {showEvidence && selectedRecord !== null && selectedRecord.type === 'deliverable' && (
-                    <DetailPanel title={selectedRecord.record.fileName} onClose={handleCloseEvidence}>
-                        <div><button type="button" className="btn" onClick={() => setSelectedRecord(null)}>← 근거 기록으로</button></div>
-                        <DeliverableDetail
-                            deliverable={selectedRecord.record}
-                            deliverables={teamDeliverables}
-                            currentMemberId={me.id}
-                            isMember
-                            isRecording={false}
-                            onDownload={handleDownload}
-                            downloading={downloading}
-                            confirmations={recordConfirmations}
-                        />
-                    </DetailPanel>
-                )}
-                {showEvidence && selectedRecord !== null && selectedRecord.type === 'contribution' && (
-                    <DetailPanel title={selectedRecord.record.title} onClose={handleCloseEvidence}>
-                        <div><button type="button" className="btn" onClick={() => setSelectedRecord(null)}>← 근거 기록으로</button></div>
-                        <ContributionDetail
-                            contribution={selectedRecord.record}
-                            currentMemberId={me.id}
-                            isMember
-                            isRecording={false}
-                            isRecordingLeader={false}
-                            confirmations={recordConfirmations}
-                        />
-                    </DetailPanel>
+                {showEvidence && (
+                    <EvidenceSidePanel
+                        targetName={selectedTarget.name}
+                        evidence={evidence}
+                        evidenceError={evidenceError}
+                        teamDeliverables={teamDeliverables}
+                        selectedRecord={selectedRecord}
+                        recordConfirmations={recordConfirmations}
+                        currentMemberId={me.id}
+                        isMember
+                        onClose={handleCloseEvidence}
+                        onSelectRecord={handleSelectRecord}
+                        onBack={() => setSelectedRecord(null)}
+                        onDownload={handleDownload}
+                        downloading={downloading}
+                    />
                 )}
             </div>
         </>

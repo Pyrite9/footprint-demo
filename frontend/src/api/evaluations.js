@@ -1,4 +1,19 @@
-import { request } from './client'
+import { request, requestBlob } from './client'
+
+// 조원별 제출 여부를 가져옵니다. 과제를 만든 교수만 부를 수 있습니다.
+export function getEvaluationSubmissions(teamId) {
+  return request(`/teams/${teamId}/evaluations/status`)
+}
+
+// 평가자별 점수와 의견을 입력된 그대로 가져옵니다. 과제를 만든 교수만 부를 수 있습니다.
+export function getTeamEvaluations(teamId) {
+  return request(`/teams/${teamId}/evaluations`)
+}
+
+// 평가 결과 CSV를 Blob으로 받습니다. 과제를 만든 교수만 부를 수 있습니다.
+export function downloadEvaluationCsv(teamId) {
+  return requestBlob(`/teams/${teamId}/evaluations/export`)
+}
 
 // 내가 이 조에서 동료평가를 제출했는지 { submitted, submittedAt }를 가져옵니다. 점수는 오지 않습니다.
 export function getMyEvaluationStatus(teamId) {

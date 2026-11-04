@@ -27,6 +27,14 @@ public class TeamAccessChecker {
         return assignment.getProfessor().getId().equals(memberId);
     }
 
+    // 이 과제를 만든 교수인지 확인합니다. 아니면 ForbiddenException을 던집니다. 조원도 여기서는 막힙니다.
+    // 평가 결과처럼 교수만 볼 수 있는 기록에 씁니다.
+    public void checkProfessor(Assignment assignment, Long memberId) {
+        if (!isProfessorOf(assignment, memberId)) {
+            throw new ForbiddenException("과제를 만든 교수만 볼 수 있습니다");
+        }
+    }
+
     // 이 과제를 만든 교수이거나 이 과제의 조원인지 확인합니다. 둘 다 아니면 ForbiddenException을 던집니다.
     public void checkAssignmentAccess(Assignment assignment, Long memberId) {
         if (isProfessorOf(assignment, memberId)) {

@@ -733,7 +733,7 @@ token
 서버 쪽 규칙
 - 조에 자신만 있으면 평가할 대상이 없어서 제출할 것이 없음. 제출 여부는 계속 `submitted: false`임. 화면은 입력 폼 대신 "평가할 조원이 없습니다."를 보여 주고 이 요청을 보내지 않음(2026.10.30 결정)
 - 평가는 회원이 아니라 조 참여(`TeamMember`)를 평가자·대상으로 참조함. (평가자, 대상)에 데이터베이스 unique 제약이 있음
-- 평가와 의견은 과제를 만든 교수만 열람함. 교수 열람 화면·API(V-2)는 아직 없고 지금은 저장까지임. 조원끼리는 서로의 평가를 볼 수 없음(조회 API 없음)
+- 평가와 의견은 과제를 만든 교수만 열람함(아래 "평가 결과"). 조원끼리는 서로의 평가를 볼 수 없음(조원용 조회 API 없음)
 - 제출에 성공하면 그 평가자의 임시 저장을 같은 트랜잭션에서 지움. 제출에 실패하면 임시 저장은 그대로임
 - 제출과 임시 저장은 조 행을 잠가 한 번에 하나씩 처리함
 
@@ -792,6 +792,61 @@ token
 - 임시 저장만 있으면 제출 여부는 계속 `submitted: false`임
 - 교수가 임시 저장을 볼 수 있는 API는 없음
 - `comment`는 앞뒤 공백을 지우고, 비었으면 null로 저장함
+
+## 평가 결과
+
+세 API 모두 과제를 만든 교수만 부를 수 있음. 조원은 제출한 본인과 평가받은 대상도 403임. 기록 단계에도 부를 수 있고 제출이 없으니 미제출과 빈 결과가 옴
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | `teamId`가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 과제를 만든 교수가 아닐 때. 메시지 "과제를 만든 교수만 볼 수 있습니다" |
+| 404 | `NOT_FOUND` | 없는 조일 때 |
+
+### GET /teams/{teamId}/evaluations/status — 조원별 제출 여부 (V-2-1) · 2026.11.04
+
+조원 전원을 조원 번호 순으로 돌려줌. 몇 명이 제출했는지는 담지 않음. 임시 저장만 했으면 미제출임
+
+200
+```json
+[
+  { "teamMemberId": 11, "name": "김민준", "submitted": true, "submittedAt": "2026-11-13T21:10:05" },
+  { "teamMemberId": 12, "name": "이서연", "submitted": false, "submittedAt": null }
+]
+```
+
+### GET /teams/{teamId}/evaluations — 평가 결과 (V-2-2) · 2026.11.04
+
+평가자별 점수와 의견을 입력된 그대로 제출 순으로 돌려줌. 평가자 한 명이 대상 한 명에게 준 평가가 한 줄임. 합계, 평균, 순위는 없음. 임시 저장은 나오지 않음
+
+200
+```json
+[
+  { "id": 1, "evaluatorTeamMemberId": 11, "evaluatorName": "김민준", "targetTeamMemberId": 12, "targetName": "이서연",
+    "goalSharing": 5, "roleFulfillment": 4, "encouragement": 5, "onlineCommunication": 3, "offlineCommunication": 4,
+    "progressCheck": 5, "comment": "자료를 잘 정리해 줬습니다.", "submittedAt": "2026-11-13T21:10:05" }
+]
+```
+
+- `comment`: 쓰지 않았으면 null임
+- 제출이 없으면 `[]`임
+
+### GET /teams/{teamId}/evaluations/export — 평가 결과 CSV (X-5) · 2026.11.04
+
+평가 결과를 조 단위 CSV 파일로 내려줌. header는 `Content-Type: text/csv;charset=UTF-8`, `Content-Disposition: attachment; filename="evaluations-team-3.csv"`
+
+200
+```
+평가자,대상,목표 공유·협업,역할 수행,격려·도움,온라인 소통,대면 소통,진행 점검·보충,의견,제출 시각
+김민준,이서연,5,4,5,3,4,5,자료를 잘 정리해 줬습니다.,2026-11-13 21:10:05
+```
+
+- 맨 앞에 UTF-8 BOM이 있음. Excel이 한글을 읽는 데 필요함
+- 줄 끝은 CRLF임. 제출이 없으면 제목 줄만 있음
+- 합계, 평균, 순위 열은 없음
+- 이름과 의견이 `=`, `+`, `-`, `@`로 시작하면 수식으로 실행되지 않게 앞에 `'`를 붙임
+- 쉼표, 큰따옴표, 줄바꿈이 있는 칸은 큰따옴표로 감싸고 안의 큰따옴표는 두 번 씀
 
 ## 근거 패널
 
@@ -900,9 +955,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 12 | V-2-1 | `GET /teams/{teamId}/evaluations/status` | 교수 |
-| 12 | V-2-2 | `GET /teams/{teamId}/evaluations` | 교수 |
-| 12 | X-5 | `GET /teams/{teamId}/evaluations/export` | 교수 |
 | 14 | X-6 | `GET /notifications` | 받는 회원 |
 | 14 | X-6 | `POST /notifications/{notificationId}/read` | 받는 회원 |
 | 15 | X-4 | `GET /teams/join/{inviteCode}` | 학생 |

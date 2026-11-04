@@ -6,6 +6,7 @@ import AssignmentDetailPage from './pages/AssignmentDetailPage'
 import ContributionsPage from './pages/ContributionsPage'
 import DeliverablesPage from './pages/DeliverablesPage'
 import EvaluationPage from './pages/EvaluationPage'
+import EvaluationResultsPage from './pages/EvaluationResultsPage'
 import HomePage from './pages/HomePage'
 import JoinPage from './pages/JoinPage'
 import LoginPage from './pages/LoginPage'
@@ -37,6 +38,7 @@ function App() {
                         <Route path="/teams/:teamId/contributions" element={<ContributionsPage />} />
                         <Route path="/teams/:teamId/records" element={<RecordsPage />} />
                         <Route path="/teams/:teamId/evaluation" element={<EvaluationPage />} />
+                        <Route path="/teams/:teamId/evaluation-results" element={<EvaluationResultsPage />} />
                     </Route>
                 </Route>
 

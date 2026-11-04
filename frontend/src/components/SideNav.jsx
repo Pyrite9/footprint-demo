@@ -52,6 +52,7 @@ function ProfessorNav({ assignment, currentTeamId }) {
                             <NavItem to={`/teams/${team.id}/contributions`} label="기여 항목" />
                             <NavItem to={`/teams/${team.id}/records`} label="전체 기록" />
                             <NavItem to={`/teams/${team.id}/members`} label="조원과 조장" />
+                            <NavItem to={`/teams/${team.id}/evaluation-results`} label="평가 결과" />
                         </div>
                     )}
                 </div>

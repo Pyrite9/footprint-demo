@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-// 동료평가 제출, 내 제출 여부 조회, 임시 저장을 처리합니다. 점수를 합치거나 평균 내는 일은 하지 않습니다.
+// 동료평가 제출, 내 제출 여부 조회, 임시 저장, 교수의 평가 결과 조회를 처리합니다. 점수를 합치거나 평균 내는 일은 하지 않습니다.
 @Service
 public class EvaluationService {
 
@@ -52,6 +52,19 @@ public class EvaluationService {
         Team team = findTeam(teamId);
         TeamMember evaluator = teamAccessChecker.checkTeamMember(team, memberId);
         return evaluationRepository.findByEvaluatorId(evaluator.getId());
+    }
+
+    // 조원별 제출 여부에 쓸 조원과 제출된 평가를 찾습니다. 과제를 만든 교수만 부를 수 있습니다.
+    public TeamEvaluations findSubmissions(Long teamId, Long memberId) {
+        List<Evaluation> evaluations = findTeamEvaluations(teamId, memberId);
+        return new TeamEvaluations(teamMemberRepository.findByTeamIdOrderByIdAsc(teamId), evaluations);
+    }
+
+    // 한 조에서 제출된 평가를 찾습니다. 임시 저장은 나오지 않습니다. 과제를 만든 교수만 부를 수 있습니다.
+    public List<Evaluation> findTeamEvaluations(Long teamId, Long memberId) {
+        Team team = findTeam(teamId);
+        teamAccessChecker.checkProfessor(team.getAssignment(), memberId);
+        return evaluationRepository.findByEvaluatorTeamIdOrderByIdAsc(teamId);
     }
 
     // 내가 이 조에서 임시 저장한 내용을 찾습니다. 그 조의 조원만 부를 수 있어서 교수는 볼 수 없습니다.

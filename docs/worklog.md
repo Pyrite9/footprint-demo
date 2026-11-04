@@ -1665,3 +1665,51 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 조원별 보기에 받은 확인과 넘겨준 조장 교체도 보여 줌
   - 메뉴 이름 "전체 기록", 줄 문구, 페이지 설명은 내가 씀
   - 페이지 나누기는 두지 않음
+
+### V-2-1, V-2-2, X-5 평가 결과 열람과 CSV
+
+- 결정:
+  - `GET /teams/{teamId}/evaluations/status`, `GET /teams/{teamId}/evaluations`, `GET /teams/{teamId}/evaluations/export`를 둠. `docs/api-draft.md` 예정 표의 주소 그대로임
+  - 세 API 모두 과제를 만든 교수만 부름. `TeamAccessChecker`에 `checkProfessor`를 더함. 선택지: `isProfessorOf`를 Service에서 직접 씀. 메시지가 흩어지지 않고 접근 검사가 한 클래스에 모이게 함
+  - 기록 단계에도 200으로 답함. 제출이 없으니 미제출과 빈 결과임. 선택지: 400. 교수의 다른 열람이 두 단계 모두 되는 것과 같게 함
+  - 평가 결과는 납작한 목록이고 제출 순임. 선택지: 대상별로 묶음. 조원 목록과 같은 "펼친 모양" 규칙을 따르고, 묶기는 화면의 `filter`로 함
+  - 제출 현황은 조원 전원을 한 줄씩 돌려줌. 제출 건수는 담지 않음
+  - CSV는 `dto/EvaluationCsv`에서 직접 만듦. 선택지: CSV 라이브러리. 칸 규칙이 짧아서 의존성을 더하지 않음
+  - CSV 줄 끝은 CRLF이고 칸은 RFC 4180의 큰따옴표 규칙을 따름. 제출 시각은 `yyyy-MM-dd HH:mm:ss`임
+  - 근거 패널의 JSX를 `components/EvidenceSidePanel`로 뺌. `EvaluationPage`와 `EvaluationResultsPage`가 같이 씀. 데이터와 effect는 규칙대로 page에 둠. 선택지: 복사. 같은 JSX를 두 벌 두지 않음
+  - 화면은 대상 조원을 고르면 그 조원이 받은 평가를 평가자별로 보여 주고 옆에 그 조원의 근거 패널을 띄움. `TODO.md`의 "대상 조원의 근거 패널을 함께 띄움"을 이렇게 읽음
+- 만든 파일:
+  - 백엔드: `dto/EvaluationSubmissionResponse`, `dto/EvaluationResultResponse`, `dto/EvaluationCsv`, `service/TeamEvaluations`, 테스트 `EvaluationResultRuleTests`
+  - 화면: `pages/EvaluationResultsPage.jsx`, `components/EvaluationSubmissionList.jsx`, `components/EvaluationResultList.jsx`, `components/EvidenceSidePanel.jsx`
+- 고친 파일:
+  - 백엔드: `controller/EvaluationController`, `service/EvaluationService`, `service/TeamAccessChecker`, `repository/EvaluationRepository`
+  - 가짜 API: `frontend/mock/middleware.cjs`
+  - 화면: `App.jsx`, `api/evaluations.js`, `components/SideNav.jsx`, `pages/EvaluationPage.jsx`
+  - 문서: `docs/api-draft.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`, `frontend/README.md`
+- 확인:
+  - `gradlew clean build` 성공. 테스트 130개, 실패 0(`EvaluationResultRuleTests` 7개 더함). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 129개, 확인 291개, 실패 0
+  - 실제 백엔드와 가짜 API에 같은 요청을 보내 응답 32건이 같음을 비교함(저장소에 넣지 않은 일회용 스크립트). 시각은 지우고 JSON은 파싱해서 비교하고, CSV는 BOM과 글자를 그대로 비교함. 권한 403, 없는 조 404, 잘못된 주소 400, 임시 저장, 제출 전후를 포함함
+  - 브라우저에서 실제 백엔드로 확인: 교수가 `/teams/3/evaluation-results`에서 제출 현황, 대상 조원 바꾸기, 평가자별 점수와 의견을 봄. 합계, 평균, 순위가 나오지 않음
+  - 같은 화면의 근거 패널: 1440px 폭에서 처음부터 열리고 800px 폭에서는 닫혀 있음. 조원을 바꾸면 그 조원의 근거로 바뀜. 산출물과 기여 항목 상세를 열고 돌아오고 닫았다가 다시 염. 상세에 "교수는 이력만 봅니다."가 나오고 완료확인 버튼이 없음
+  - CSV 버튼: 저장 동작을 가로채 내용을 확인함. 파일 이름 `발자국 평가 단계 과제-1조-동료평가.csv`, BOM `efbbbf`, 제목 줄이 맞음. 실제 파일을 Excel로 열어 보지는 않음
+  - 기록 단계 `/teams/1/evaluation-results`는 안내만 나오고 CSV 버튼과 패널이 없음. student01이 `/teams/3/evaluation-results`로 직접 가면 "과제를 만든 교수만 볼 수 있습니다"가 나옴
+  - `EvaluationPage` 회귀: student01이 패널을 빼낸 뒤에도 근거 목록, 산출물과 기여 항목 상세, 돌아가기가 그대로 동작함. 안내는 "평가 단계에서는 완료확인을 남길 수 없습니다."임
+  - 시험 뒤 `frontend/db.json`과 `frontend/mock/files`를 되돌림
+  - rule-check: 금지 패턴 없음. 건수, 합계, 평균 없음(`.length`는 빈 목록 문구를 고를 때만 씀)
+- 읽을 때 볼 곳:
+  - `EvaluationCsv.textCell`. 수식 방지 `'`를 먼저 붙이고 그다음 큰따옴표로 감쌈. 순서를 바꾸면 `'`가 따옴표 밖으로 나가서 CSV가 깨짐
+  - `EvaluationCsv`의 `BOM`. 글자 하나이고 UTF-8로 바꾸면 3바이트 `EF BB BF`가 됨
+  - `EvaluationController.export`. JSON이 아니라 파일 내용을 보내서 `ResponseEntity<byte[]>`를 씀. `DeliverableController.download`와 같은 모양임
+  - `EvaluationRepository.findByEvaluatorTeamIdOrderByIdAsc`. 메서드 이름이 evaluator.team.id로 읽힘
+  - `EvaluationSubmissionResponse.from`. 한 번에 제출해서 한 조원의 시각이 모두 같으므로 처음 찾은 평가의 시각을 씀
+  - `EvaluationResultsPage`의 `selectedTarget`. 고르기 전에는 첫 조원이고 `??`가 그 처리임
+  - 가짜 API의 `evaluationResultMatch`. 정규식 하나로 세 주소를 나누고 두 번째 칸으로 handler를 고름
+- 내가 채운 가정:
+  - 수식 방지를 의견뿐 아니라 이름 칸에도 적용함. `TODO.md`는 의견만 말하지만 이름도 사람이 쓴 글자임
+  - 조원은 제출한 본인과 평가받은 대상도 403임
+  - 기록 단계 화면은 제출 현황을 빼고 안내만 보여 줌. 모두 미제출인 목록은 정보가 없다고 봄. API는 그대로 답함
+  - CSV 버튼은 평가 단계에서만 보여 줌. 제출이 없으면 제목 줄만 받음
+  - 근거 패널은 평가 단계에서만 띄움. 평가자별 보기(평가자를 고르는 화면)는 두지 않음
+  - 메뉴 이름 "평가 결과", 주소 `/teams/{id}/evaluation-results`, 파일 이름 `evaluations-team-{id}.csv`와 화면의 저장 이름, 페이지 문구는 내가 씀
+  - CSV 제목 줄의 항목 이름은 `EVALUATION_CRITERIA`의 이름과 같게 씀

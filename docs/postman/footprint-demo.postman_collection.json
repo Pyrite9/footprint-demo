@@ -2635,7 +2635,7 @@
       ]
     },
     {
-      "name": "5. 평가 시작과 동료평가 (A-3, E-1, E-2, V-1)",
+      "name": "5. 평가 시작과 동료평가 (A-3, E-1, E-2, V-1, V-2, X-5)",
       "description": "교수가 평가를 시작한 뒤 조원이 자신을 뺀 조원 전원(여기서는 조장 1명)을 평가해 제출합니다. 점수는 시스템이 계산하지 않고, 응답에도 점수가 없습니다.",
       "item": [
         {
@@ -2846,6 +2846,68 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 응답', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "제출 현황 - 기록 단계면 모두 미제출 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations/status",
+            "description": "기록 단계에도 부를 수 있습니다. 제출이 없어서 모두 미제출입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('모두 미제출', () => pm.expect(pm.response.json().every((row) => row.submitted === false)).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 결과 - 기록 단계면 빈 목록 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations",
+            "description": "제출이 없어서 빈 목록입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('빈 목록', () => pm.expect(pm.response.json()).to.eql([]));"
                 ]
               }
             }
@@ -4074,6 +4136,260 @@
                 "exec": [
                   "pm.test('409 응답', () => pm.response.to.have.status(409));",
                   "pm.test('code가 DUPLICATE', () => pm.expect(pm.response.json().code).to.eql('DUPLICATE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "제출 현황 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations/status",
+            "description": "조원별 제출 여부입니다. 제출한 조원만 시각이 있습니다. 몇 명이 제출했는지는 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('제출한 조원', () => pm.expect(pm.response.json().find((row) => row.teamMemberId === Number(pm.collectionVariables.get('memberTeamMemberId'))).submitted).to.eql(true));",
+                  "pm.test('제출하지 않은 조원', () => { const row = pm.response.json().find((row) => row.teamMemberId === Number(pm.collectionVariables.get('leaderTeamMemberId'))); pm.expect(row.submitted).to.eql(false); pm.expect(row.submittedAt).to.eql(null); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "제출 현황 - 조원은 403 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations/status",
+            "description": "조원은 제출한 본인도 볼 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 결과 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations",
+            "description": "평가자별 점수와 의견을 입력된 그대로 받습니다. 합계, 평균, 순위는 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('평가자가 제출한 조원', () => pm.expect(pm.response.json()[0].evaluatorTeamMemberId).to.eql(Number(pm.collectionVariables.get('memberTeamMemberId'))));",
+                  "pm.test('점수가 입력 그대로', () => pm.expect(pm.response.json()[0].goalSharing).to.be.within(1, 5));",
+                  "pm.test('합계, 평균, 순위가 없음', () => ['total', 'sum', 'average', 'rank'].forEach((key) => pm.expect(pm.response.json()[0]).to.not.have.property(key)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 결과 - 조원은 403 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations",
+            "description": "조원끼리는 서로의 평가를 볼 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 결과 - 다른 조 학생은 403 (다른 조)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations",
+            "description": "과제를 만든 교수만 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 결과 - 없는 조면 404 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/999999/evaluations",
+            "description": "없는 조면 404입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 응답', () => pm.response.to.have.status(404));",
+                  "pm.test('code가 NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 결과 CSV (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations/export",
+            "description": "조 단위 CSV 파일입니다. 합계, 평균, 순위 열은 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('CSV 파일', () => pm.expect(pm.response.headers.get('Content-Type')).to.match(/^text\\/csv/i));",
+                  "pm.test('첨부 파일', () => pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment'));",
+                  "pm.test('제목 줄', () => pm.expect(pm.response.text()).to.include('평가자,대상,목표 공유·협업,역할 수행,격려·도움,온라인 소통,대면 소통,진행 점검·보충,의견,제출 시각'));",
+                  "pm.test('합계, 평균, 순위 열이 없음', () => ['합계', '평균', '순위'].forEach((word) => pm.expect(pm.response.text().split('\\r\\n')[0]).to.not.include(word)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 결과 CSV - 조원은 403 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/evaluations/export",
+            "description": "과제를 만든 교수만 받습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
                 ]
               }
             }
