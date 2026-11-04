@@ -4,6 +4,7 @@ import com.footprint.backend.entity.Team;
 import com.footprint.backend.entity.TeamMember;
 import com.footprint.backend.repository.TeamMemberRepository;
 import com.footprint.backend.repository.TeamRepository;
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -149,6 +150,92 @@ class ContributionRuleTests {
         api.get(path, api.login("student02@example.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)));
+    }
+
+    // 담당 조원이 보고하면 메모와 시각이 저장되고, 목록에도 나옵니다. 보낸 시각은 무시합니다.
+    @Test
+    void assigneeReports() throws Exception {
+        String member = api.login("student02@example.com");
+        int id = createAssignedToStudent02();
+        String body = "{ \"memo\": \"  회의를 진행했습니다  \", \"reportedAt\": \"2000-01-01T00:00:00\" }";
+
+        api.post("/contributions/" + id + "/report", member, body)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.reportMemo").value("회의를 진행했습니다"))
+                .andExpect(jsonPath("$.reportedAt").value(matchesPattern("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}")))
+                .andExpect(jsonPath("$.reportedAt").value(not(startsWith("2000"))))
+                .andExpect(jsonPath("$.canceledAt").isEmpty());
+
+        api.get(contributionsPath, api.login("professor@example.com"))
+                .andExpect(jsonPath("$[0].reportMemo").value("회의를 진행했습니다"));
+    }
+
+    // 담당 조원 본인만 보고합니다. 조장, 다른 조원, 다른 조 학생, 교수는 403이고 항목은 그대로입니다.
+    @Test
+    void onlyAssigneeReports() throws Exception {
+        int id = createAssignedToStudent02();
+
+        for (String email : List.of("student01@example.com", "student03@example.com", "student06@example.com", "professor@example.com")) {
+            TestApi.expectError(api.post("/contributions/" + id + "/report", api.login(email), reportBody("끝냈습니다")), 403, "FORBIDDEN");
+        }
+        api.get(contributionsPath, api.login("student01@example.com")).andExpect(jsonPath("$[0].reportedAt").isEmpty());
+    }
+
+    // 한 번만 보고합니다. 다시 보고하면 409이고 처음 메모는 그대로입니다.
+    @Test
+    void reportOnlyOnce() throws Exception {
+        String member = api.login("student02@example.com");
+        int id = createAssignedToStudent02();
+        api.post("/contributions/" + id + "/report", member, reportBody("처음 메모")).andExpect(status().isOk());
+
+        ResultActions again = api.post("/contributions/" + id + "/report", member, reportBody("고친 메모"));
+
+        TestApi.expectError(again, 409, "DUPLICATE");
+        again.andExpect(jsonPath("$.message").value("이미 완료 보고한 항목입니다"));
+        api.get(contributionsPath, member).andExpect(jsonPath("$[0].reportMemo").value("처음 메모"));
+    }
+
+    // 메모는 필수이고 2000자까지입니다. 없는 항목은 404, 번호가 숫자가 아니면 400입니다.
+    @Test
+    void wrongReportIsRejected() throws Exception {
+        String member = api.login("student02@example.com");
+        int id = createAssignedToStudent02();
+        String path = "/contributions/" + id + "/report";
+
+        TestApi.expectError(api.post(path, member, reportBody("   ")), 400, "INVALID_INPUT");
+        TestApi.expectError(api.post(path, member, "{}"), 400, "INVALID_INPUT");
+        TestApi.expectError(api.post(path, member, reportBody("가".repeat(2001))), 400, "INVALID_INPUT");
+        TestApi.expectError(api.post("/contributions/999999/report", member, reportBody("끝냈습니다")), 404, "NOT_FOUND");
+        TestApi.expectError(api.post("/contributions/abc/report", member, reportBody("끝냈습니다")), 400, "INVALID_INPUT");
+    }
+
+    // 평가 단계에서는 담당 조원도 보고할 수 없습니다. 권한 검사가 먼저입니다. 시작 데이터의 평가 단계 항목은 이미 보고됐지만 단계 검사가 먼저라 400입니다.
+    @Test
+    void evaluationPhaseBlocksReport() throws Exception {
+        Team evaluationTeam = teamRepository.findByInviteCode("demo-evaluation-1").orElseThrow();
+        String list = api.get("/teams/" + evaluationTeam.getId() + "/contributions", api.login("student02@example.com"))
+                .andReturn().getResponse().getContentAsString();
+        int id = JsonPath.read(list, "$[0].id");
+        String path = "/contributions/" + id + "/report";
+
+        ResultActions blocked = api.post(path, api.login("student02@example.com"), reportBody("끝냈습니다"));
+        TestApi.expectError(blocked, 400, "INVALID_INPUT");
+        blocked.andExpect(jsonPath("$.message").value("평가 단계에서는 조 운영과 과정 기록을 바꿀 수 없습니다"));
+        TestApi.expectError(api.post(path, api.login("student01@example.com"), reportBody("끝냈습니다")), 403, "FORBIDDEN");
+    }
+
+    // 조장이 student02에게 맡긴 항목을 등록하고 번호를 돌려줍니다.
+    private int createAssignedToStudent02() throws Exception {
+        String response = api.post(contributionsPath, api.login("student01@example.com"), createBody("회의 진행", members.get(1).getId()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return JsonPath.read(response, "$.id");
+    }
+
+    // 완료 보고 요청 body를 만듭니다.
+    private String reportBody(String memo) {
+        return "{ \"memo\": \"" + memo + "\" }";
     }
 
     // 등록 요청 body를 만듭니다.

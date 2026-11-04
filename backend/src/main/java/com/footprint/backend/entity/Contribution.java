@@ -53,4 +53,20 @@ public class Contribution {
         this.title = title;
         this.createdAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
     }
+
+    // 완료 보고했으면 true입니다.
+    public boolean isReported() {
+        return reportedAt != null;
+    }
+
+    // 취소했으면 true입니다.
+    public boolean isCanceled() {
+        return canceledAt != null;
+    }
+
+    // 완료 보고 메모와 시각을 기록합니다. 시각은 서버가 넣습니다.
+    public void report(String memo) {
+        this.reportMemo = memo;
+        this.reportedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+    }
 }

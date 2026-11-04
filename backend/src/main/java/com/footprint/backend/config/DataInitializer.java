@@ -100,7 +100,10 @@ public class DataInitializer implements CommandLineRunner {
                 List.of(student01, student02, student03),
                 List.of("기획", "백엔드", "발표"));
         saveDeliverable(evaluationTeam.get(1), "최종 보고서.txt", "발자국 최종 보고서\n1. 결과 요약\n");
-        contributionRepository.save(new Contribution(evaluationTeam.get(1).getTeam(), evaluationTeam.get(1), "자료 취합"));
+        // 평가 단계에서는 보고할 수 없어서, 보고까지 끝난 항목으로 넣습니다.
+        Contribution reportedContribution = new Contribution(evaluationTeam.get(1).getTeam(), evaluationTeam.get(1), "자료 취합");
+        reportedContribution.report("자료를 모아 조 공유 폴더에 올렸습니다.");
+        contributionRepository.save(reportedContribution);
     }
 
     // 비밀번호를 BCrypt로 바꿔서 회원을 저장합니다.

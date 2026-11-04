@@ -12,3 +12,8 @@ export function createContribution(teamId, title, teamMemberId) {
     body: { title, teamMemberId },
   })
 }
+
+// 담당 조원이 완료 보고하고, 메모와 보고 시각이 담긴 항목을 돌려줍니다.
+export function reportContribution(contributionId, memo) {
+  return request(`/contributions/${contributionId}/report`, { method: 'POST', body: { memo } })
+}

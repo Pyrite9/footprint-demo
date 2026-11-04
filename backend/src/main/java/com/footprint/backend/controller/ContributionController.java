@@ -1,6 +1,7 @@
 package com.footprint.backend.controller;
 
 import com.footprint.backend.dto.ContributionCreateRequest;
+import com.footprint.backend.dto.ContributionReportRequest;
 import com.footprint.backend.dto.ContributionResponse;
 import com.footprint.backend.service.ContributionService;
 import jakarta.validation.Valid;
@@ -36,5 +37,12 @@ public class ContributionController {
         return contributionService.findAll(teamId, memberId).stream()
                 .map(ContributionResponse::from)
                 .toList();
+    }
+
+    // 담당 조원이 완료 보고하고, 메모와 보고 시각이 담긴 항목을 돌려줍니다.
+    @PostMapping("/contributions/{contributionId}/report")
+    public ContributionResponse report(@AuthenticationPrincipal Long memberId, @PathVariable Long contributionId,
+                                       @Valid @RequestBody ContributionReportRequest request) {
+        return ContributionResponse.from(contributionService.report(contributionId, request.memo(), memberId));
     }
 }

@@ -714,6 +714,35 @@ function handleGetContributions(req, res, loginMember, teamId) {
   return res.json(contributions.map((contribution) => toContributionResponse(db, contribution)))
 }
 
+// POST /contributions/{contributionId}/report: 담당 조원이 완료 보고합니다. 한 번만 할 수 있습니다.
+function handleReportContribution(req, res, loginMember, contributionId) {
+  const db = req.app.db
+  const { memo } = req.body
+  // @NotBlank @Size(max = 2000) 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다.
+  if (isBlank(memo) || memo.length > 2000) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
+  }
+  const contribution = db.get('contributions').find({ id: contributionId }).value()
+  if (!contribution) {
+    return sendError(res, 404, 'NOT_FOUND', '기여 항목이 없습니다. id=' + contributionId)
+  }
+  const assignee = db.get('teamMembers').find({ id: contribution.assigneeId }).value()
+  if (assignee.memberId !== loginMember.id) {
+    return sendError(res, 403, 'FORBIDDEN', '담당 조원만 완료 보고할 수 있습니다')
+  }
+  const team = db.get('teams').find({ id: contribution.teamId }).value()
+  if (!checkRecording(db, res, team)) return
+  if (contribution.canceledAt !== null) {
+    return sendError(res, 400, 'INVALID_INPUT', '취소된 항목은 보고할 수 없습니다')
+  }
+  if (contribution.reportedAt !== null) {
+    return sendError(res, 409, 'DUPLICATE', '이미 완료 보고한 항목입니다')
+  }
+
+  db.get('contributions').find({ id: contributionId }).assign({ reportMemo: memo.trim(), reportedAt: nowLocalDateTime() }).write()
+  return res.json(toContributionResponse(db, db.get('contributions').find({ id: contributionId }).value()))
+}
+
 // 동료평가 6개 항목의 이름입니다. 실제 EvaluationSubmitRequest.Item의 점수 필드와 같습니다.
 const SCORE_FIELDS = ['goalSharing', 'roleFulfillment', 'encouragement', 'onlineCommunication', 'offlineCommunication', 'progressCheck']
 
@@ -918,6 +947,13 @@ function handleRequest(req, res, next) {
       return handleCreateContribution(req, res, loginMember, teamId)
     }
     return handleGetContributions(req, res, loginMember, teamId)
+  }
+
+  const reportIdText = matchId(/^\/contributions\/([^/]+)\/report$/, req.path)
+  if (req.method === 'POST' && reportIdText !== null) {
+    const contributionId = parseIdOrSendError(res, reportIdText)
+    if (contributionId === null) return
+    return handleReportContribution(req, res, loginMember, contributionId)
   }
 
   const leaderTeamIdText = matchId(/^\/teams\/([^/]+)\/leader$/, req.path)

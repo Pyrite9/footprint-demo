@@ -1,6 +1,7 @@
 package com.footprint.backend.service;
 
 import com.footprint.backend.entity.Assignment;
+import com.footprint.backend.entity.Contribution;
 import com.footprint.backend.entity.Deliverable;
 import com.footprint.backend.entity.Team;
 import com.footprint.backend.entity.TeamMember;
@@ -59,6 +60,13 @@ public class TeamAccessChecker {
     public void checkUploader(Deliverable deliverable, Long memberId) {
         if (!deliverable.getTeamMember().getMember().getId().equals(memberId)) {
             throw new ForbiddenException("올린 조원만 삭제할 수 있습니다");
+        }
+    }
+
+    // 이 기여 항목의 담당 조원인지 확인합니다. 아니면 ForbiddenException을 던집니다. 조장과 교수도 여기서는 막힙니다.
+    public void checkAssignee(Contribution contribution, Long memberId) {
+        if (!contribution.getAssignee().getMember().getId().equals(memberId)) {
+            throw new ForbiddenException("담당 조원만 완료 보고할 수 있습니다");
         }
     }
 

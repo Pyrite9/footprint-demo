@@ -1329,3 +1329,36 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 담당이 이 조의 조원이 아니면 404임. 조장 교체와 같음
   - 시작 기여 항목의 이름(`회의록 정리`, `자료 취합`)과 담당
   - 화면 문구, "기여 항목 (최근 등록순)" 제목, 등록 form의 안내 문구는 내가 씀
+
+### R-2-3 기여 항목 완료 보고
+
+- 결정:
+  - `POST /contributions/{contributionId}/report`를 둠. `TODO.md`의 주소 그대로임
+  - 검사 순서는 입력 400 → 없음 404 → 담당 아니면 403 → 평가 단계 400 → 취소됨 400 → 이미 보고 409임
+  - 다시 보고하면 409 `DUPLICATE`임. 선택지: 400. "역할 다시 지정", "동료평가 다시 제출"이 409라서 같은 일은 같은 code로 둠
+  - 항목 행을 잠금(`findWithLockById`). 선택지: 잠그지 않음. 겹치는 두 요청이 모두 보고 전으로 읽으면 뒤의 메모가 앞의 메모를 덮어써 "보고한 뒤 고칠 수 없음"이 깨짐. 조장 교체와 같은 패턴임
+  - 메모는 2000자까지임. 동료평가 의견과 같음
+  - 보고 form은 그 줄 안에 열림. 선택지: 별도 화면. 줄이 몇 개 안 되고 입력 칸 하나뿐임
+  - 보고 전 확인 창을 두지 않음. form을 여는 단계와 "고칠 수 없습니다" 문구가 이미 있음. 삭제와 달리 잃는 것이 없음
+- 만든 파일: `dto/ContributionReportRequest`, `components/ContributionReportForm.jsx`
+- 고친 파일:
+  - 백엔드: `entity/Contribution`, `repository/ContributionRepository`, `service/ContributionService`, `service/TeamAccessChecker`, `controller/ContributionController`, `config/DataInitializer`, 테스트 `ContributionRuleTests`
+  - 가짜 API: `frontend/mock/middleware.cjs`, `frontend/db.json`
+  - 화면: `api/contributions.js`, `pages/ContributionsPage.jsx`, `components/ContributionList.jsx`, `components/StartEvaluationPanel.jsx`, `index.css`(`.item-full`)
+  - 문서: `docs/api-draft.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`
+- 확인:
+  - `gradlew build` 성공. 테스트 79개, 실패 0(`ContributionRuleTests`에 5개 더함). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 65개, 확인 129개, 실패 0
+  - 실제 백엔드와 가짜 API에 같은 요청 26개를 보내 응답과 오류 메시지가 같음을 비교함(저장소에 넣지 않은 임시 스크립트)
+  - 겹치는 요청 시험: 같은 항목에 보고 두 개를 동시에 보내기를 20번 함. 매번 하나만 200이고 나머지는 409임(저장소에 넣지 않은 임시 스크립트). 잠금을 뺀 코드와 비교하지는 않음
+  - 브라우저에서 실제 백엔드로 확인: 담당 조원(박도윤)에게 "완료 보고" 버튼이 보이고, 조장이 아니라서 등록 form은 없음. 메모가 비면 문구가 나옴. 보고하면 그 줄이 "보고됨"과 보고 시각으로 바뀌고 메모 줄바꿈이 그대로 보임
+  - rule-check: 금지 패턴 없음. 점수 계산 없음. 새 클래스와 public 메서드에 주석 있음. 값을 바꾸는 `report`에 `@Transactional` 있음. 수정 필요 없음
+- 읽을 때 볼 곳:
+  - `ContributionService.report`에 `save`가 없는 이유. `@Transactional` 안에서 찾은 Entity는 값만 바꿔도 커밋할 때 저장됨
+  - `ContributionService.report`의 첫 줄과 `findWithLockById`. `TeamService.changeLeader`와 같은 잠금임
+  - `DataInitializer`의 `reportedContribution`. 평가 단계 과제에는 API로 보고할 수 없어서 저장 전에 `report`를 부름
+  - `ContributionList`의 `reportTargetId`. 어느 줄의 form을 열지 page가 정함
+- 내가 채운 가정:
+  - 취소된 항목에 보고하면 400 `INVALID_INPUT`임
+  - 시작 데이터의 평가 단계 항목을 "보고됨"으로 둠. 메모 문구는 내가 씀
+  - "완료 보고", "보고", "닫기", 메모 안내 문구와 오류 메시지는 내가 씀

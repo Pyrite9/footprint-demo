@@ -535,6 +535,31 @@ token
 서버 쪽 규칙
 - 취소된 항목도 목록에서 빼지 않음
 
+### POST /contributions/{contributionId}/report — 완료 보고 (R-2-3) · 2026.11.04
+
+담당 조원 본인이 기록 단계에서 한 번만 보고함. 보고 시각은 서버가 기록함
+
+요청
+```json
+{ "memo": "회의록을 정리해 조 공유 폴더에 올렸습니다." }
+```
+
+- `memo`: 필수. 2000자까지. 앞뒤 공백은 지우고 저장함
+
+200: 메모와 보고 시각이 담긴 항목. 모양은 목록의 한 줄과 같음
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 입력값이 틀렸을 때, 주소의 번호가 숫자가 아닐 때, 평가 단계일 때, 취소된 항목일 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 담당 조원이 아닐 때(조장, 교수 포함) |
+| 404 | `NOT_FOUND` | 없는 항목일 때 |
+| 409 | `DUPLICATE` | 이미 보고했을 때 |
+
+서버 쪽 규칙
+- 메모는 보고한 뒤 고칠 수 없음
+- 보고 요청이 겹쳐도 항목 행을 잠가 하나만 저장됨. 나머지는 409임
+
 ---
 
 ## 동료평가
@@ -613,7 +638,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 7 | R-2-3 | `POST /contributions/{contributionId}/report` | 담당 조원 |
 | 7 | R-2-4 | `POST /contributions/{contributionId}/cancel` | 조장 |
 | 8 | R-3-1 | `POST /deliverables/{deliverableId}/confirmations` | 올린 조원을 뺀 조원 |
 | 8 | R-3-1 | `POST /contributions/{contributionId}/confirmations` | 담당 조원을 뺀 조원 |

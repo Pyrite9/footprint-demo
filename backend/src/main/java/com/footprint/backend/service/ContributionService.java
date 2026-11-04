@@ -3,6 +3,8 @@ package com.footprint.backend.service;
 import com.footprint.backend.entity.Contribution;
 import com.footprint.backend.entity.Team;
 import com.footprint.backend.entity.TeamMember;
+import com.footprint.backend.exception.DuplicateException;
+import com.footprint.backend.exception.InvalidInputException;
 import com.footprint.backend.exception.NotFoundException;
 import com.footprint.backend.repository.ContributionRepository;
 import com.footprint.backend.repository.TeamMemberRepository;
@@ -12,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-// 기여 항목을 등록하고 목록을 찾습니다. 파일이 남지 않는 일의 기록입니다.
+// 기여 항목을 등록하고, 목록을 찾고, 완료 보고를 받습니다. 파일이 남지 않는 일의 기록입니다.
 @Service
 public class ContributionService {
 
@@ -51,6 +53,30 @@ public class ContributionService {
         Team team = findTeam(teamId);
         teamAccessChecker.checkTeamAccess(team, memberId);
         return contributionRepository.findByTeamIdOrderByIdDesc(teamId);
+    }
+
+    // 담당 조원이 완료 보고합니다. 한 번만 할 수 있고, 메모는 보고한 뒤 고칠 수 없습니다.
+    @Transactional
+    public Contribution report(Long contributionId, String memo, Long memberId) {
+        // 보고 요청 두 개가 겹치면 먼저 쓴 메모가 덮어써질 수 있습니다. 행을 잠가 한 번에 하나씩 처리합니다. 잠금은 트랜잭션이 끝나면 풀립니다.
+        Contribution contribution = findContributionWithLock(contributionId);
+        teamAccessChecker.checkAssignee(contribution, memberId);
+        assignmentPhaseChecker.checkRecording(contribution.getTeam().getAssignment());
+        if (contribution.isCanceled()) {
+            throw new InvalidInputException("취소된 항목은 보고할 수 없습니다");
+        }
+        if (contribution.isReported()) {
+            throw new DuplicateException("이미 완료 보고한 항목입니다");
+        }
+
+        contribution.report(memo.trim());
+        return contribution;
+    }
+
+    // 기여 항목을 찾으면서 그 행을 잠급니다. 없으면 NotFoundException을 던집니다.
+    private Contribution findContributionWithLock(Long contributionId) {
+        return contributionRepository.findWithLockById(contributionId)
+                .orElseThrow(() -> new NotFoundException("기여 항목이 없습니다. id=" + contributionId));
     }
 
     // 조를 찾습니다. 없으면 NotFoundException을 던집니다.

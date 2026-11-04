@@ -1294,7 +1294,7 @@
     },
     {
       "name": "4. 기여 항목 (R-2)",
-      "description": "파일이 남지 않는 일의 기록입니다. 조장이 등록하고, 조원과 교수가 목록을 봅니다.",
+      "description": "파일이 남지 않는 일의 기록입니다. 조장이 등록하고, 담당 조원이 완료 보고하고, 조원과 교수가 목록을 봅니다.",
       "item": [
         {
           "name": "기여 항목 등록 - 조원은 403 (조원)",
@@ -1535,6 +1535,218 @@
                 "exec": [
                   "pm.test('403 응답', () => pm.response.to.have.status(403));",
                   "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "완료 보고 - 조장은 403 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/report",
+            "description": "담당 조원 본인만 보고합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memo\": \"회의록을 정리해 올렸습니다.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "메모가 없으면 400 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/report",
+            "description": "메모는 필수입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memo\": \" \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "완료 보고 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/report",
+            "description": "메모와 보고 시각이 저장됩니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memo\": \"회의록을 정리해 올렸습니다.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('메모가 저장됨', () => pm.expect(pm.response.json().reportMemo).to.eql('회의록을 정리해 올렸습니다.'));",
+                  "pm.test('보고 시각이 있음', () => pm.expect(pm.response.json().reportedAt).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다시 보고하면 409 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/report",
+            "description": "한 번만 보고합니다. 메모를 고칠 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memo\": \"고친 메모\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 응답', () => pm.response.to.have.status(409));",
+                  "pm.test('code가 DUPLICATE', () => pm.expect(pm.response.json().code).to.eql('DUPLICATE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "보고한 메모가 목록에 있음 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/contributions",
+            "description": "처음 메모가 그대로입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('처음 메모 그대로', () => pm.expect(pm.response.json()[0].reportMemo).to.eql('회의록을 정리해 올렸습니다.'));"
                 ]
               }
             }
@@ -1811,6 +2023,51 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"회의록 정리\",\n  \"teamMemberId\": {{memberTeamMemberId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 단계에서 완료 보고하면 400 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/report",
+            "description": "단계 검사가 이미 보고했는지 보는 검사보다 먼저입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memo\": \"회의록을 정리해 올렸습니다.\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
