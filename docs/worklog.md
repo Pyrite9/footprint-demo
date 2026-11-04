@@ -1456,11 +1456,11 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 화면: `api/confirmations.js`, `components/ConfirmationPanel.jsx`, `components/DeliverableList.jsx`, `components/ContributionList.jsx`, `pages/DeliverablesPage.jsx`, `pages/ContributionsPage.jsx`
   - 문서: `docs/api-draft.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`
 - 확인:
-  - `gradlew clean build` 성공. 테스트 99개, 실패 0(`ConfirmationRuleTests`에 5개 더함). `npm run build`, `npm run lint` 성공
+  - `gradlew clean build` 성공. 테스트 100개, 실패 0(`ConfirmationRuleTests`에 6개 더함). `npm run build`, `npm run lint` 성공
   - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 95개, 확인 197개, 실패 0
   - 실제 백엔드와 가짜 API에 같은 요청 66개를 보내 응답과 오류 메시지가 같음을 비교함(저장소에 넣지 않은 임시 스크립트)
   - 겹치는 요청 시험(저장소에 넣지 않은 임시 스크립트): 같은 확인에 취소 두 개를 동시에 보내기 20번, 매번 하나만 200이고 나머지는 400임. 같은 산출물에 확인 두 개를 동시에 보내기 20번, 항목에 보내기 20번, 매번 하나만 200이고 유효한 확인은 하나임. 취소 쪽은 잠금을 뺀 코드와 비교하지 않음
-  - 브라우저에서 실제 백엔드로 확인: 내 유효한 확인 줄에만 "확인 취소"가 보임. 취소하면 그 줄이 "취소됨"과 취소 시각으로 바뀌고 "완료확인" 버튼이 다시 보임. 다시 확인하면 새 줄이 맨 위에 생기고 취소한 줄은 남음. 기여 항목 화면도 같음. 삭제된 산출물은 확인 취소만 되고 다시 확인 버튼은 없음. 보고 전 항목에는 이력 버튼이 없음. 평가 단계에서는 자기 확인에도 취소 버튼이 없음. 교수에게는 버튼 없이 취소된 줄까지 보임. 폭 375px에서 가로 스크롤 없음. 서버 오류 로그 없음
+  - 브라우저에서 실제 백엔드로 확인: 내 유효한 확인 줄에만 "확인 취소"가 보임. 취소하면 그 줄이 "취소됨"과 취소 시각으로 바뀌고 "완료확인" 버튼이 다시 보임. 다시 확인하면 새 줄이 맨 위에 생기고 취소한 줄은 남음. 기여 항목 화면은 취소와 버튼이 다시 보이는 것까지 눌러 봄. 다시 확인은 규칙 테스트로 봄. 삭제된 산출물은 확인 취소만 되고 다시 확인 버튼은 없음. 보고 전 항목에는 이력 버튼이 없음. 평가 단계에서는 자기 확인에도 취소 버튼이 없음. 교수에게는 버튼 없이 취소된 줄까지 보임. 폭 375px에서 가로 스크롤 없음. 서버 오류 로그 없음
   - rule-check: 금지 패턴 없음. 점수 계산, 건수 표시 없음. 새 public 메서드에 주석 있음. 값을 바꾸는 `cancel`에 `@Transactional` 있음. 수정 필요 없음
 - 읽을 때 볼 곳:
   - `ConfirmationService.cancel`에 `save`가 없는 이유. `@Transactional` 안에서 찾은 Entity는 값만 바꿔도 커밋할 때 저장됨

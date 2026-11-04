@@ -224,6 +224,24 @@ class ConfirmationRuleTests {
                 .andExpect(jsonPath("$[1].canceledAt").isNotEmpty());
     }
 
+    // 기여 항목도 취소한 뒤 다시 확인하면 새 기록입니다. 산출물과 조회 메서드가 달라서 따로 확인합니다.
+    @Test
+    void contributionCanBeConfirmedAgainAfterCancel() throws Exception {
+        String path = "/contributions/" + reportedContributionId() + "/confirmations";
+        String leader = api.login("student01@example.com");
+        int first = confirmationId(api.post(path, leader, ""));
+        api.post("/confirmations/" + first + "/cancel", leader, "").andExpect(status().isOk());
+
+        int second = confirmationId(api.post(path, leader, ""));
+        TestApi.expectError(api.post(path, leader, ""), 409, "DUPLICATE");
+
+        api.get(path, leader)
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].id").value(second))
+                .andExpect(jsonPath("$[0].canceledAt").isEmpty())
+                .andExpect(jsonPath("$[1].canceledAt").isNotEmpty());
+    }
+
     // 확인한 조원만 취소합니다. 올린 조원, 다른 조원, 다른 조 학생, 교수는 403이고 확인은 그대로입니다.
     @Test
     void onlyConfirmerCancels() throws Exception {
