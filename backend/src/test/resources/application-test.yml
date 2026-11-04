@@ -1,0 +1,17 @@
+# 테스트에서만 켜는 설정입니다(@ActiveProfiles("test")). application.yml 위에 덮어씁니다.
+spring:
+  jpa:
+    # 테스트 로그에 SQL이 쏟아지면 실패 원인을 찾기 어려워서 끕니다.
+    show-sql: false
+    properties:
+      hibernate:
+        # 테스트의 테이블을 public이 아니라 footprint_test 스키마에 만듭니다.
+        # ddl-auto: create가 이 스키마만 지우고 만들므로, 빌드해도 개발 데이터(public)가 지워지지 않습니다.
+        default_schema: footprint_test
+        # 스키마가 없으면 Hibernate가 먼저 만듭니다. 그래서 infra를 처음 켠 컴퓨터에서도 준비 작업이 없습니다.
+        hbm2ddl:
+          create_namespaces: true
+
+storage:
+  # 시험 파일이 데모용 버킷에 쌓이지 않도록 시험 전용 버킷을 씁니다.
+  bucket: footprint-test

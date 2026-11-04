@@ -94,7 +94,7 @@ docker compose up -d --build
 - 백엔드: http://127.0.0.1:8080
 - MinIO 콘솔: http://localhost:9001 — 계정은 `infra/.env`(없으면 `infra/.env.example`의 기본값)
 - 시작 계정과 시작 데이터: `backend/README.md`의 "시작 계정"부터. 비밀번호는 모두 `pass1234`
-- 올린 산출물과 제출한 평가는 `docker compose restart backend`로 지워짐
+- 올린 산출물과 제출한 평가는 `docker compose restart backend`로 지워짐. `gradlew build`로는 지워지지 않음
 
 끄기.
 

@@ -143,6 +143,7 @@ docs/       architecture.md, api-draft.md, worklog.md, laptop-setup.md, postman/
 - 한 번에 **단위 업무 하나**(예: T-1-2 링크로 합류)를 백엔드 → 가짜 API → 화면 순서로 끝까지. 여러 기능을 한 번에 생성하지 않는다. 일정을 보지 않아도 이 기준은 그대로다. 다음 단위는 `TODO.md` 1절 구현 순서에서 고른다.
 - 시작 전에 무엇을 만들지, 만들 파일 목록, 걸리는 `TODO.md` "아직 정하지 않은 것" 항목을 3~6줄로 말하고 묻지 않고 시작한다.
 - 끝나면 확인한다: `backend`에서 빌드(`gradlew.bat build` 또는 `./gradlew build`), `frontend`에서 `npm run build`, `npm run lint`. 실패한 채로 끝내지 않는다.
+- 업무 규칙이 있는 단위는 그 규칙의 통합 테스트(`backend/src/test`의 `XxxRuleTests`)를 같은 commit에 넣는다(2026.11.04 O-5).
 - 끝나면 스스로 규칙 검사(rule-check 기준)를 하고 걸린 것은 고친다.
 - 끝나면 `docs/worklog.md`에 오늘 날짜로 적는다: 결정, 만든·고친 파일, 관리자가 읽을 때 볼 곳(초심자가 막힐 곳), 내가 채운 가정.
 - 단위 업무 하나가 확인까지 끝나면 commit 한다. commit 메시지는 영어 conventional 스타일(`feat: add team join by invite code`).

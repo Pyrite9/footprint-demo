@@ -1084,3 +1084,27 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 내가 채운 가정:
   - 각 추가 기능의 세부 규칙과 API 주소(`TODO.md` 1절 "추가 기능의 규칙")는 전부 추천안임
   - 개인정보 고지 문구와 보관 기간은 추천안으로 정하지 않고 3절로 보냄. 학교·담당 교수 확인이 필요한 일임
+
+### O-5 테스트 분리와 보강
+- 결정:
+  - 테스트 데이터베이스를 같은 PostgreSQL의 `footprint_test` 스키마로 분리함. 선택지: H2(Docker 없이 돌지만 PostgreSQL과 동작이 달라 unique 제약·타입 차이를 놓침), Testcontainers(깨끗하지만 새 의존성과 컨테이너 기동 시간), 별도 데이터베이스(이미 있는 volume에는 init 스크립트가 돌지 않아 조원마다 준비 작업이 생김), 전용 스키마(의존성·준비 작업 없음). 마지막을 고름
+  - 새 의존성 없음. `spring-boot-starter-test`에 MockMvc, JsonPath가 들어 있음
+  - 규칙 테스트는 시작 데이터로 실제 요청을 보내는 통합 테스트로 함. 로그인도 `POST /auth/login`을 거침. 필터, 권한 검사, 오류 응답이 모두 지나가게 하려는 것임
+  - 테스트 클래스에 `@Transactional`을 붙여 끝나면 되돌림. 선택지: 테스트마다 데이터 새로 넣기(느리고 길어짐), 롤백(짧음). 뒤를 고름
+  - 공통 부모 클래스 금지 규칙에 맞춰 도우미 `TestApi`를 상속 없이 필드로 씀
+- 만든 파일: `backend/src/test/resources/application-test.yml`, `TestApi`, `AccessRuleTests`, `TeamRuleTests`, `DeliverableRuleTests`, `EvaluationRuleTests`
+- 고친 파일: `BackendApplicationTests`, `StorageServiceTests`, `backend/README.md`, `README.md`, `TODO.md`, `CLAUDE.md`
+- 확인:
+  - `gradlew build` 성공. 테스트 3개 → 33개, 실패 0
+  - 개발 데이터: `public.member`에 표시용 행을 넣고 빌드한 뒤에도 남아 있음을 확인하고 지움. `public`과 `footprint_test`에 테이블이 6개씩 있음
+  - 테스트가 규칙을 실제로 잡는지: `checkTeamAccess`와 평가 대상 검사를 일부러 깨면 3개가 실패함. 되돌린 뒤 다시 통과함
+  - 화면과 가짜 API는 바꾸지 않아 `npm run build`, `lint`는 돌리지 않음
+  - rule-check: 테스트 폴더에서 금지 패턴 없음. `@Autowired`는 테스트 생성자 주입에만 있음
+- 읽을 때 볼 곳:
+  - `application-test.yml`의 `default_schema`, `create_namespaces`. 이 두 줄이 분리의 전부임
+  - `@Transactional` 테스트는 요청과 테스트가 한 트랜잭션임. 실제 서버처럼 요청마다 commit 되지 않으므로 동시 요청이나 commit 시점 오류는 잡지 못함
+  - `BackendApplicationTests`, `StorageServiceTests`의 `@AutoConfigureMockMvc`는 쓰려는 게 아니라 설정을 맞추려는 것임. 설정이 다르면 서버가 두 번 올라가 시작 데이터가 다시 들어감
+  - A-3-1을 만들면 `EvaluationRuleTests`의 제출 테스트가 평가 단계 전제로 바뀜
+- 내가 채운 가정:
+  - 지금 규칙 중 무엇을 테스트할지는 내가 고름. CLAUDE.md "업무 규칙"의 접근 범위, 합류, 역할, 업로드, 평가 규칙을 기준으로 함
+  - 20MB 제한과 동시 요청은 뺌(`TODO.md` 5절)

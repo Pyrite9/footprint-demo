@@ -4,8 +4,10 @@ import com.footprint.backend.exception.NotFoundException;
 import com.footprint.backend.service.StorageService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,8 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 // StorageService가 MinIO에 파일을 올리고 같은 내용으로 꺼내는지 확인합니다. PostgreSQL과 MinIO가 켜져 있어야 합니다.
-// 시험 파일이 데모용 버킷에 쌓이지 않도록 시험 전용 버킷(footprint-test)을 씁니다.
-@SpringBootTest(properties = "storage.bucket=footprint-test")
+// test 프로필: 시험 파일이 데모용 버킷에 쌓이지 않도록 시험 전용 버킷(footprint-test)을 씁니다.
+// @AutoConfigureMockMvc: 규칙 테스트와 설정을 똑같이 맞춥니다. 같으면 서버 설정 하나를 같이 써서 시작 데이터가 한 번만 들어갑니다.
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
 class StorageServiceTests {
 
     private final StorageService storageService;

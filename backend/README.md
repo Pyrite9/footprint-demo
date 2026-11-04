@@ -74,8 +74,10 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 
 - `.\gradlew.bat build`(macOS는 `./gradlew build`)는 테스트도 함께 실행함
 - 테스트가 실제 PostgreSQL과 MinIO에 접속하므로 **빌드 전에 `infra`의 `docker compose up -d`가 켜져 있어야 함.** 꺼져 있으면 테스트가 실패함
-- 테스트는 데모용 버킷이 아니라 `footprint-test` 버킷을 씀. 빌드할 때마다 이 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓임
-- **빌드(테스트)도 서버를 켤 때처럼 데이터베이스를 지우고 시작 데이터를 다시 넣음.** 화면에서 만든 과제·산출물·평가가 사라지므로 데모·리허설 중에는 빌드하지 않을 것
+- 테스트는 `src/test/resources/application-test.yml`의 설정으로 돌아감. 데이터베이스는 `footprint_test` 스키마, 파일은 `footprint-test` 버킷을 씀
+- **빌드해도 개발 데이터(`public` 스키마, `footprint` 버킷)는 지워지지 않음.** 빌드할 때마다 시험 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓임
+- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할), `DeliverableRuleTests`(업로드), `EvaluationRuleTests`(동료평가)
+- 테스트가 끝나면 데이터베이스 변경을 되돌림(`@Transactional`). 그래서 어떤 순서로 돌아도 시작 데이터가 그대로임
 - 실행 로그의 `Using generated security password: ...`는 Spring Security가 기본으로 만드는 계정. 이 프로젝트는 쓰지 않으므로 무시할 것
 
 ## 시작 계정
