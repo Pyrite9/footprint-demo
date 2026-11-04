@@ -260,7 +260,7 @@ token
 
 ### POST /teams/{teamId}/members/{teamMemberId}/role — 역할 지정 (T-2-1) · 2026.10.25
 
-조장이 조원 한 명(조장 자신 포함)에게 역할을 지정함. 역할이 없는 조원에게만 지정할 수 있음. 역할 변경(T-2-2)은 2단계임
+조장이 조원 한 명(조장 자신 포함)에게 역할을 지정함. 역할이 없는 조원에게만 지정할 수 있음. 역할 변경(T-2-2)은 아래 "완성 범위에서 더할 API"의 `PUT`으로 따로 둠
 `teamMemberId`는 조원 목록의 `id`(조 참여 번호)임. 지정 시각은 서버가 기록함
 
 요청
@@ -283,7 +283,7 @@ token
 
 서버 쪽 규칙
 - 역할명 앞뒤 공백은 지우고 저장함. 같은 역할을 여러 조원이 맡을 수 있음
-- 메서드는 POST임. 한 번 지정하면 바꾸지 않으므로 "새로 만든다"에 가깝고, CORS 허용 목록(GET, POST, PUT, DELETE)을 바꾸지 않아도 됨
+- 메서드는 POST임. 첫 지정은 "새로 만든다"에 가깝고, CORS 허용 목록(GET, POST, PUT, DELETE)을 바꾸지 않아도 됨
 
 ---
 
@@ -340,7 +340,7 @@ token
 
 서버 쪽 규칙
 - 파일 본문은 MinIO에, 데이터베이스에는 저장 위치(key), 파일 이름, 크기만 둠(+ 올린 조원, 역할명, 시각)
-- 업로드는 "MinIO 저장 → 데이터베이스 저장" 순서임. 데이터베이스 저장이 실패하면 MinIO에 주인 없는 파일이 남음(데모 범위에서는 지우지 않음)
+- 업로드는 "MinIO 저장 → 데이터베이스 저장" 순서임. 데이터베이스 저장이 실패하면 MinIO에 주인 없는 파일이 남음(지금은 지우지 않음. `TODO.md` O-7)
 - 크기 제한은 `spring.servlet.multipart.max-file-size`, `max-request-size` 20MB
 
 ---
@@ -410,4 +410,40 @@ token
 서버 쪽 규칙
 - 조에 자신만 있으면 평가할 대상이 없어서 제출할 것이 없음. 제출 여부는 계속 `submitted: false`임. 화면은 입력 폼 대신 "평가할 조원이 없습니다."를 보여 주고 이 요청을 보내지 않음(2026.10.30 결정)
 - 평가는 회원이 아니라 조 참여(`TeamMember`)를 평가자·대상으로 참조함. (평가자, 대상)에 데이터베이스 unique 제약이 있음
-- 평가와 의견은 과제를 만든 교수만 열람함. 교수 열람 화면·API는 2단계라 1단계는 저장까지임. 조원끼리는 서로의 평가를 볼 수 없음(조회 API 없음)
+- 평가와 의견은 과제를 만든 교수만 열람함. 교수 열람 화면·API(V-2)는 아직 없고 지금은 저장까지임. 조원끼리는 서로의 평가를 볼 수 없음(조회 API 없음)
+
+---
+
+## 완성 범위에서 더할 API · 2026.11.04
+
+아직 만들지 않은 API의 주소 추천안임(관리자 결정 2026.11.04 "최대한 완성"). 위 절과 달리 **지금 부르면 404임.** 만들 때 위쪽에 요청·응답·오류 표를 적고 이 표에서 그 줄을 지움. 규칙은 `TODO.md` 1절
+
+| 순서 | ID | method 주소 | 누가 |
+|---|---|---|---|
+| 1 | A-3-1 | `POST /assignments/{assignmentId}/start-evaluation` | 과제를 만든 교수 |
+| 2 | T-2-2 | `PUT /teams/{teamId}/members/{teamMemberId}/role` | 조장 |
+| 2 | T-2-2 | `GET /teams/{teamId}/members/{teamMemberId}/role-histories` | 조원, 교수 |
+| 3 | R-1-3 | `DELETE /deliverables/{deliverableId}` | 올린 조원 |
+| 4 | R-2-1 | `POST /teams/{teamId}/contributions` | 조장 |
+| 4 | R-2-2 | `GET /teams/{teamId}/contributions` | 조원 |
+| 4 | R-2-3 | `POST /contributions/{contributionId}/report` | 담당 조원 |
+| 4 | R-2-4 | `POST /contributions/{contributionId}/cancel` | 조장 |
+| 5 | R-3-1 | `POST /deliverables/{deliverableId}/confirmations` | 올린 조원을 뺀 조원 |
+| 5 | R-3-1 | `POST /contributions/{contributionId}/confirmations` | 담당 조원을 뺀 조원 |
+| 5 | R-3-2 | `POST /confirmations/{confirmationId}/cancel` | 확인한 조원 |
+| 5 | R-3-3 | `GET /deliverables/{deliverableId}/confirmations` | 조원, 교수 |
+| 5 | R-3-3 | `GET /contributions/{contributionId}/confirmations` | 조원, 교수 |
+| 6 | E-2-2 | `GET /teams/{teamId}/evaluations/draft` | 조원 |
+| 6 | E-2-2 | `PUT /teams/{teamId}/evaluations/draft` | 조원 |
+| 7 | E-1-1 | `GET /teams/{teamId}/members/{teamMemberId}/evidence` | 조원(평가 단계), 교수 |
+| 8 | V-1-1 | `GET /teams/{teamId}/records` | 교수 |
+| 9 | V-2-1 | `GET /teams/{teamId}/evaluations/status` | 교수 |
+| 9 | V-2-2 | `GET /teams/{teamId}/evaluations` | 교수 |
+
+이미 있는 API의 응답이 바뀌는 곳
+
+- 과제 응답(`GET /assignments`, `GET /assignments/{assignmentId}`, `POST /assignments`)에 `phase` 추가
+- 조 정보(`GET /teams/{teamId}`)에 과제 기간 `startDate`, `endDate` 추가. 진척 화면(R-4-1)이 씀
+- 산출물 목록에 `deletedAt` 추가. 삭제된 산출물의 다운로드는 404
+- 동료평가 제출은 기록 단계에서 400 `INVALID_INPUT`. 평가 단계의 조 운영·과정 기록 쓰기 요청도 400 `INVALID_INPUT`
+- 어떤 응답에도 합계, 평균, 순위, 진척률, 근거 패널의 건수를 넣지 않음

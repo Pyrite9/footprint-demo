@@ -8,7 +8,7 @@ argument-hint: "[단위 업무 ID, 예: T-1-2 — 비우면 다음 순서]"
 다음 작업 단위를 정한다. 아직 코드를 쓰지 않는다.
 
 1. `docs/worklog.md`와 `git log --oneline -15`로 어디까지 됐는지 확인한다.
-2. `$ARGUMENTS`가 있으면 그 단위 업무를, 없으면 `TODO.md` 1절("미룬 단위 업무") 순서에서 다음 것을 고른다.
+2. `$ARGUMENTS`가 있으면 그 단위 업무를, 없으면 `TODO.md` 1절("완성 범위")의 구현 순서에서 다음 것을 고른다.
 3. `../footprint-study/docs/api.md`가 있으면 해당 API 항목을, 없으면 `docs/api-draft.md`를 읽는다. 해당 API가 어디에도 없으면 api-draft에 추가할 초안부터 제시한다.
 4. 아래 형식으로 답하고, 묻지 않고 바로 시작한다(CLAUDE.md "묻지 않고 추천안으로 진행하고 기록할 것", 2026.10.25 관리자 결정).
 
