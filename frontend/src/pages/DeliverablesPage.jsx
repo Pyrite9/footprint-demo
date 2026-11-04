@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getMe } from '../api/auth'
+import { confirmDeliverable, getDeliverableConfirmations } from '../api/confirmations'
 import { deleteDeliverable, downloadDeliverable, getDeliverables, uploadDeliverable } from '../api/deliverables'
 import { getTeam, getTeamMembers } from '../api/teams'
 import DeliverableList from '../components/DeliverableList'
 import DeliverableUploadForm from '../components/DeliverableUploadForm'
 
-// 조의 산출물 화면입니다. 목록과 다운로드는 조원과 교수가, 올리기는 기록 단계에서 역할이 배정된 조원만, 삭제는 기록 단계에서 올린 조원만 합니다(서버가 확인합니다).
+// 조의 산출물 화면입니다. 목록과 다운로드, 완료확인 이력은 조원과 교수가, 올리기는 기록 단계에서 역할이 배정된 조원만, 삭제는 기록 단계에서 올린 조원만, 완료확인은 기록 단계에서 올린 조원을 뺀 조원이 합니다(서버가 확인합니다).
 function DeliverablesPage() {
     const { teamId } = useParams()
     const [me, setMe] = useState(null)
@@ -23,6 +24,11 @@ function DeliverablesPage() {
     const [downloadingId, setDownloadingId] = useState(null)
     // 삭제와 올리기는 서로 끝날 때까지 막습니다. 동시에 끝나면 나중에 끝난 쪽이 옛 deliverables로 덮어써 먼저 끝난 결과가 사라지기 때문입니다.
     const [deleting, setDeleting] = useState(false)
+    // 완료확인 이력을 열어 둔 산출물의 번호입니다. 한 번에 하나만 열립니다.
+    const [confirmationTargetId, setConfirmationTargetId] = useState(null)
+    const [confirmations, setConfirmations] = useState([])
+    // 이력 불러오기와 완료확인은 서로 끝날 때까지 막습니다. 다른 줄의 이력이 열어 둔 줄에 섞이지 않게 합니다.
+    const [confirmationBusy, setConfirmationBusy] = useState(false)
 
     useEffect(() => {
         Promise.all([getMe(), getTeam(teamId), getTeamMembers(teamId), getDeliverables(teamId)])
@@ -67,6 +73,35 @@ function DeliverablesPage() {
             .finally(() => setDeleting(false))
     }
 
+    // 완료확인 이력을 불러와 그 줄에 엽니다. 다른 줄의 이력이 열려 있었으면 바꿉니다.
+    function handleOpenConfirmations(target) {
+        setActionError(null)
+        setConfirmationBusy(true)
+        getDeliverableConfirmations(target.id)
+            .then((data) => {
+                setConfirmations(data)
+                setConfirmationTargetId(target.id)
+            })
+            .catch((err) => setActionError(err.message))
+            .finally(() => setConfirmationBusy(false))
+    }
+
+    // 완료확인 이력을 닫습니다.
+    function handleCloseConfirmations() {
+        setConfirmationTargetId(null)
+        setConfirmations([])
+    }
+
+    // 열어 둔 산출물을 확인합니다. 성공하면 새 확인을 이력 맨 위(최근)에 더합니다.
+    function handleConfirm() {
+        setActionError(null)
+        setConfirmationBusy(true)
+        confirmDeliverable(confirmationTargetId)
+            .then((created) => setConfirmations([created, ...confirmations]))
+            .catch((err) => setActionError(err.message))
+            .finally(() => setConfirmationBusy(false))
+    }
+
     // 파일을 받아 브라우저의 "다운로드"로 저장합니다.
     function handleDownload(deliverable) {
         setActionError(null)
@@ -107,7 +142,7 @@ function DeliverablesPage() {
                 />
             )}
             {isRecording && myTeamMember && myTeamMember.roleName === null && <p className="notice">역할이 배정되면 산출물을 올릴 수 있습니다.</p>}
-            {!isRecording && <p className="notice">평가 단계입니다. 산출물을 더 올리거나 삭제할 수 없습니다.</p>}
+            {!isRecording && <p className="notice">평가 단계입니다. 산출물을 더 올리거나 삭제하거나 완료확인할 수 없습니다.</p>}
             {actionError && <p className="error">{actionError}</p>}
 
             <h2>올린 산출물 (역할별 최신순)</h2>
@@ -119,6 +154,13 @@ function DeliverablesPage() {
                 onDelete={handleDelete}
                 downloadingId={downloadingId}
                 deleteDisabled={uploading || deleting}
+                canConfirm={isRecording && myTeamMember !== undefined}
+                confirmationTargetId={confirmationTargetId}
+                confirmations={confirmations}
+                onOpenConfirmations={handleOpenConfirmations}
+                onCloseConfirmations={handleCloseConfirmations}
+                onConfirm={handleConfirm}
+                confirmationBusy={confirmationBusy}
             />
         </main>
     )

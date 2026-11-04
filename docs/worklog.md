@@ -1396,3 +1396,46 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 보고한 항목을 취소하면 400, 이미 취소한 항목을 취소하면 400임
   - 등록한 조장이 아니라 지금 조장이 취소함
   - 확인 창 문구, "취소" 버튼, 오류 메시지, 등록 form의 "보고 전이면 취소하고 다시 등록합니다"는 내가 씀
+
+### R-3-1, R-3-3 완료확인 등록과 이력
+
+- 결정:
+  - 등록과 이력을 한 commit으로 묶음. 이력이 보여야 확인이 저장됐는지 화면에서 알 수 있음
+  - `Confirmation` 엔티티를 새로 둠. 대상 열을 `deliverable`, `contribution` 둘로 나눔. `TODO.md`의 추천안대로이고 외래 키 제약이 유지됨. 선택지: 대상 종류와 번호를 한 열씩 두기. 제약을 걸 수 없음
+  - 둘 중 하나만 채우는 것은 생성자 둘로 지킴. 선택지: 데이터베이스 check 제약. `ddl-auto`로 만들려면 `@Check`가 필요해 숨은 동작이 늘어남
+  - 한 조원의 유효한 확인 하나는 대상 행 잠금(`findWithLockById`)과 검사로 지킴. 선택지: 부분 unique 인덱스. `ddl-auto`로 만들 수 없어서 O-1에서 더함. `TODO.md` "알려진 한계"에 적음
+  - 검사 순서는 없음 404 → 조원 아니면 403 → 자기 기록 403 → 평가 단계 400 → 삭제·취소·보고 전 400 → 이미 확인 409임
+  - 자기 기록은 403임. `docs/api-draft.md` 표의 "올린 조원을 뺀 조원"이 권한 조건이라서 400으로 두지 않음
+  - 이력을 줄마다 미리 불러오지 않고 "완료확인 이력" 버튼으로 엶. 목록 응답을 바꾸지 않고 API 5개로 끝남. 건수가 목록에 드러나지 않음. 선택지: 목록 응답에 확인을 넣기. 줄이 늘수록 응답이 커지고 숫자처럼 비교하게 됨
+  - 이력 state는 두 화면이 각각 가짐. 같은 코드 약 30줄이 두 page에 있음. "state는 page가 갖는다" 규칙을 지키고 조원이 따라 읽게 둠. 선택지: custom hook. 초심자에게 추상 계층이 하나 늘어남
+  - 확인 전 확인 창은 두지 않음. 확인은 취소할 수 있음(R-3-2)
+  - 산출물 삭제에는 잠금을 더하지 않음. 삭제가 flush로 행을 잠그므로 겹치는 확인은 삭제를 기다린 뒤 삭제 시각을 봄. 확인이 먼저 끝나면 "확인 뒤 삭제"와 결과가 같음
+- 만든 파일:
+  - 백엔드: `entity/Confirmation`, `repository/ConfirmationRepository`, `dto/ConfirmationResponse`, `service/ConfirmationService`, `controller/ConfirmationController`, 테스트 `ConfirmationRuleTests`
+  - 화면: `api/confirmations.js`, `components/ConfirmationPanel.jsx`
+- 고친 파일:
+  - 백엔드: `repository/DeliverableRepository`, `config/DataInitializer`
+  - 가짜 API: `frontend/mock/middleware.cjs`, `frontend/db.json`
+  - 화면: `pages/DeliverablesPage.jsx`, `pages/ContributionsPage.jsx`, `components/DeliverableList.jsx`, `components/ContributionList.jsx`, `components/StartEvaluationPanel.jsx`
+  - 문서: `docs/api-draft.md`, `docs/architecture.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`
+- 확인:
+  - `gradlew clean build` 성공. 테스트 94개, 실패 0(`ConfirmationRuleTests` 9개). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 88개, 확인 180개, 실패 0
+  - 실제 백엔드와 가짜 API에 같은 요청 47개를 보내 응답과 오류 메시지가 같음을 비교함(저장소에 넣지 않은 임시 스크립트)
+  - 겹치는 요청 시험: 같은 조원이 같은 항목에 확인 두 개를 동시에 보내기를 20번 함. 매번 하나만 200이고 나머지는 409이며 유효한 확인은 하나임. 항목 쪽 잠금을 잠시 뺀 코드로 같은 시험을 하면 20번 모두 둘 다 200이고 유효한 확인이 둘 생김. 산출물 쪽은 같은 코드 모양이고 따로 겹침 시험을 하지 않음
+  - 브라우저에서 실제 백엔드로 확인: 조원이 산출물과 보고된 항목의 이력을 열어 확인하면 맨 위에 더해지고 버튼이 사라짐. 올린 조원과 담당 조원, 교수에게는 완료확인 버튼이 없음. 다른 줄을 열면 이력이 바뀌고 패널은 하나만 열림. 삭제된 산출물은 이력만 보임. 취소된 항목과 보고 전 항목에는 이력 버튼이 없음. 평가 단계 조는 안내 문구와 시작 이력만 보임. 폭 375px에서 가로 스크롤 없음
+  - `json-server --watch`는 `db.json`이 바뀌면 열린 연결을 끊음. 임시 비교 스크립트가 이 때문에 `ECONNRESET`으로 멈춰서 끊긴 요청만 다시 보내게 함. 앱 문제는 아님
+  - rule-check: 금지 패턴 없음. 점수 계산, 건수 표시 없음. 새 클래스와 public 메서드에 주석 있음. 값을 바꾸는 `confirmDeliverable`, `confirmContribution`에 `@Transactional` 있음. 수정 필요 없음
+- 읽을 때 볼 곳:
+  - `ConfirmationService.confirmDeliverable`의 잠금. 확인 행이 아니라 대상 행을 잠그는 이유는 아직 확인 행이 없을 수 있기 때문임
+  - `Confirmation`의 생성자 둘. 같은 이름이고 인자 종류로 고름(오버로딩)
+  - `ConfirmationResponse.from`의 null 검사. 대상 열 중 하나는 항상 null임
+  - `ConfirmationRepository`의 긴 메서드 이름. `CanceledAtIsNull`이 "유효한 확인"을 뜻함
+  - `ConfirmationPanel`의 `myConfirmation`. 버튼을 보일지 이력에서 계산해 state로 두지 않음
+  - `ContributionList`의 `showConfirmations`. 열린 줄에서는 버튼을 숨김
+- 내가 채운 가정:
+  - 응답에 `deliverableId`, `contributionId`를 둘 다 둠. 값이 없는 쪽은 null임
+  - 이력은 최근 것부터임
+  - 삭제된 산출물은 이력을 볼 수 있음. 취소된 항목에 확인할 수 없음은 `TODO.md`의 "보고된 기여 항목"에서 따름
+  - 시작 데이터로 평가 단계 조에 완료확인 2건을 넣음
+  - 화면 문구("완료확인 이력", "완료확인", "아직 완료확인이 없습니다.")와 오류 메시지는 내가 씀

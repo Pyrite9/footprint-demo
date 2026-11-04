@@ -47,5 +47,9 @@
   "contributions": [
     {"id": 1, "teamId": 1, "assigneeId": 3, "title": "회의록 정리", "createdAt": "2026-10-25T09:00:00", "reportMemo": null, "reportedAt": null, "canceledAt": null},
     {"id": 2, "teamId": 3, "assigneeId": 12, "title": "자료 취합", "createdAt": "2026-10-25T09:00:00", "reportMemo": "자료를 모아 조 공유 폴더에 올렸습니다.", "reportedAt": "2026-10-25T09:00:00", "canceledAt": null}
+  ],
+  "confirmations": [
+    {"id": 1, "confirmerId": 11, "deliverableId": 3, "contributionId": null, "confirmedAt": "2026-10-25T09:00:00", "canceledAt": null},
+    {"id": 2, "confirmerId": 13, "deliverableId": null, "contributionId": 2, "confirmedAt": "2026-10-25T09:00:00", "canceledAt": null}
   ]
 }

@@ -76,7 +76,7 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 - 테스트가 실제 PostgreSQL과 MinIO에 접속하므로 **빌드 전에 `infra`의 `docker compose up -d`가 켜져 있어야 함.** 꺼져 있으면 테스트가 실패함
 - 테스트는 `src/test/resources/application-test.yml`의 설정으로 돌아감. 데이터베이스는 `footprint_test` 스키마, 파일은 `footprint-test` 버킷을 씀
 - **빌드해도 개발 데이터(`public` 스키마, `footprint` 버킷)는 지워지지 않음.** 빌드할 때마다 시험 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓임
-- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `EvaluationRuleTests`(동료평가), `PhaseRuleTests`(과제 단계)
+- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `PhaseRuleTests`(과제 단계)
 - 테스트가 끝나면 데이터베이스 변경을 되돌림(`@Transactional`). 그래서 어떤 순서로 돌아도 시작 데이터가 그대로임
 - 실행 로그의 `Using generated security password: ...`는 Spring Security가 기본으로 만드는 계정. 이 프로젝트는 쓰지 않으므로 무시할 것
 
@@ -152,4 +152,5 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 - 초대 코드: 데모 과제 1조 `demo-team-1`, 2조 `demo-team-2`, 평가 단계 과제 1조 `demo-evaluation-1`. 초대 링크는 `http://localhost:5173/join/demo-team-1` 모양. 조장이 다시 발급하면 무작위 값으로 바뀌고 이전 코드는 404가 됨
 - 시작 학생 10명은 모두 이미 시작 과제의 조에 있음. 합류를 시험하려면 교수로 새 과제를 만들고, 그 과제의 조장이 발급한 링크로 다른 학생이 합류할 것
 - 시작 기여 항목: 데모 과제 1조 `회의록 정리`(박도윤, 보고 전), 평가 단계 과제 1조 `자료 취합`(이서연, 보고됨)
+- 시작 완료확인: 평가 단계 과제 1조의 `최종 보고서.txt`(김민준이 확인), `자료 취합`(박도윤이 확인). 평가 단계에서는 새로 확인할 수 없어서 넣어 둠
 - 동료평가는 시작 데이터에 없음. 아무 학생으로 로그인해 `http://localhost:5173/teams/1/evaluation`(2조는 `/teams/2/evaluation`)에서 제출해 볼 것. 한 학생은 한 번만 제출할 수 있고, 서버를 다시 켜면 데이터베이스가 새로 만들어져 다시 제출할 수 있음

@@ -197,7 +197,7 @@ flowchart TB
 
 ### 데이터 구조
 
-엔티티 9개. 산출물과 평가, 기여 항목의 담당은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴.
+엔티티 10개. 산출물과 평가, 기여 항목의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴.
 
 ```mermaid
 erDiagram
@@ -213,6 +213,9 @@ erDiagram
     TEAM_MEMBER ||--o{ DELIVERABLE : "올림"
     TEAM ||--o{ CONTRIBUTION : "기록함"
     TEAM_MEMBER ||--o{ CONTRIBUTION : "담당함"
+    TEAM_MEMBER ||--o{ CONFIRMATION : "확인함 confirmer_id"
+    DELIVERABLE |o--o{ CONFIRMATION : "deliverable_id"
+    CONTRIBUTION |o--o{ CONFIRMATION : "contribution_id"
     TEAM_MEMBER ||--o{ EVALUATION : "평가자 evaluator_id"
     TEAM_MEMBER ||--o{ EVALUATION : "대상 target_id"
 
@@ -280,6 +283,14 @@ erDiagram
         LocalDateTime reportedAt "완료 보고 시각 · 서버가 기록. 보고 전에는 null"
         LocalDateTime canceledAt "취소 시각 · 서버가 기록. 취소 전에는 null"
     }
+    CONFIRMATION {
+        Long id PK "완료확인 번호"
+        Long confirmer_id FK "확인한 조원의 조 참여"
+        Long deliverable_id FK "확인한 산출물 · 기여 항목을 확인했으면 null"
+        Long contribution_id FK "확인한 기여 항목 · 산출물을 확인했으면 null"
+        LocalDateTime confirmedAt "확인 시각 · 서버가 기록"
+        LocalDateTime canceledAt "취소 시각 · 서버가 기록. 취소 전에는 null"
+    }
     EVALUATION {
         Long id PK "평가 번호"
         Long evaluator_id FK "평가한 조원의 조 참여"
@@ -298,6 +309,7 @@ erDiagram
 - 각 열의 오른쪽 칸은 비고. 그 값이 무엇에 쓰이는지 적음. `id`는 모두 데이터베이스가 자동으로 붙이는 번호(`IDENTITY`)임. `EVALUATION` 점수 열의 항목 이름은 `frontend/src/constants/peerEvaluation.js`의 `name`과 같음
 - 열 이름 표기: FK는 데이터베이스 열 이름(`professor_id`), 나머지는 Java 필드 이름(`startDate`)으로 적음. 실제 데이터베이스 열은 snake_case임(`startDate` → `start_date`)
 - `TEAM_MEMBER`에 `(assignment_id, member_id)` unique, `EVALUATION`에 `(evaluator_id, target_id)` unique
+- `CONFIRMATION`은 취소한 행이 남아서 일반 unique를 걸 수 없음. 한 조원의 유효한 확인이 하나인 것은 대상 행을 잠그고 `ConfirmationService`가 확인함
 - `TEAM_MEMBER.assignment_id`는 `TEAM.assignment_id`와 같은 값. unique 제약은 한 테이블의 열만 쓸 수 있어서, "한 학생은 한 과제에서 한 조"를 DB가 지키도록 복사해 둠. 생성자가 team에서 채우므로 둘이 달라질 수 없음
 - 합류: 같은 조에 다시 합류하면 오류 없이 200. 같은 과제의 다른 조에 이미 있으면 Service 검사로 409 `DUPLICATE`. `TEAM_MEMBER`의 unique는 두 요청이 거의 동시에 올 때를 막는 마지막 장치
 - 평가: 이미 제출했으면 Service 검사로 409 `DUPLICATE`. `EVALUATION`의 unique는 두 요청이 거의 동시에 올 때를 막는 마지막 장치

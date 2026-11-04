@@ -578,6 +578,74 @@ token
 - 보고와 취소가 겹쳐도 항목 행을 잠가 하나만 성공함
 - 조장이 바뀌면 새 조장이 취소함
 
+## 완료확인
+
+### POST /deliverables/{deliverableId}/confirmations — 산출물 완료확인 (R-3-1) · 2026.11.04
+
+올린 조원을 뺀 같은 조 조원이 기록 단계에서 확인함. 요청 body는 없음. 확인 시각은 서버가 기록함
+
+200
+```json
+{
+  "id": 1,
+  "deliverableId": 1,
+  "contributionId": null,
+  "confirmerMemberId": 3,
+  "confirmerName": "이서연",
+  "confirmedAt": "2026-11-05T14:03:22",
+  "canceledAt": null
+}
+```
+
+- `deliverableId`, `contributionId`: 둘 중 하나만 값이 있음
+- `confirmerMemberId`, `confirmerName`: 확인한 조원. 회원 번호와 이름으로 펼침
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때, 평가 단계일 때, 삭제된 산출물일 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함), 자기가 올린 산출물일 때 |
+| 404 | `NOT_FOUND` | 없는 산출물일 때 |
+| 409 | `DUPLICATE` | 이 조원의 유효한 확인이 이미 있을 때 |
+
+서버 쪽 규칙
+- 한 기록에 여러 조원이 확인할 수 있으나 한 조원의 유효한 확인은 하나임
+- 요청이 겹쳐도 대상 행을 잠가 하나만 저장됨. 나머지는 409임
+- 건수를 세거나 점수로 바꾸지 않음. 응답에도 건수가 없음
+
+### POST /contributions/{contributionId}/confirmations — 기여 항목 완료확인 (R-3-1) · 2026.11.04
+
+담당 조원을 뺀 같은 조 조원이 기록 단계에서 보고된 항목을 확인함. 요청 body는 없음
+
+200: 산출물 완료확인과 같은 모양. `contributionId`에 값이 있고 `deliverableId`는 null임
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때, 평가 단계일 때, 취소된 항목일 때, 보고 전 항목일 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원이 아닐 때(교수 포함), 자기가 맡은 항목일 때 |
+| 404 | `NOT_FOUND` | 없는 항목일 때 |
+| 409 | `DUPLICATE` | 이 조원의 유효한 확인이 이미 있을 때 |
+
+### GET /deliverables/{deliverableId}/confirmations — 산출물 완료확인 이력 (R-3-3) · 2026.11.04
+
+### GET /contributions/{contributionId}/confirmations — 기여 항목 완료확인 이력 (R-3-3) · 2026.11.04
+
+그 조의 조원과 그 과제를 만든 교수가 봄. 최근 것부터 줌. 확인이 없으면 빈 배열임
+
+200: 완료확인 응답의 배열
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 그 조의 조원도, 그 과제를 만든 교수도 아닐 때 |
+| 404 | `NOT_FOUND` | 없는 산출물이나 항목일 때 |
+
+서버 쪽 규칙
+- 삭제된 산출물의 이력도 그대로 줌
+- 평가 단계에도 그대로 줌
+
 ---
 
 ## 동료평가
@@ -656,11 +724,7 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 8 | R-3-1 | `POST /deliverables/{deliverableId}/confirmations` | 올린 조원을 뺀 조원 |
-| 8 | R-3-1 | `POST /contributions/{contributionId}/confirmations` | 담당 조원을 뺀 조원 |
 | 8 | R-3-2 | `POST /confirmations/{confirmationId}/cancel` | 확인한 조원 |
-| 8 | R-3-3 | `GET /deliverables/{deliverableId}/confirmations` | 조원, 교수 |
-| 8 | R-3-3 | `GET /contributions/{contributionId}/confirmations` | 조원, 교수 |
 | 9 | E-2-2 | `GET /teams/{teamId}/evaluations/draft` | 조원 |
 | 9 | E-2-2 | `PUT /teams/{teamId}/evaluations/draft` | 조원 |
 | 10 | E-1-1 | `GET /teams/{teamId}/members/{teamMemberId}/evidence` | 조원(평가 단계), 교수 |

@@ -763,6 +763,115 @@ function handleCancelContribution(req, res, loginMember, contributionId) {
   return res.json(toContributionResponse(db, db.get('contributions').find({ id: contributionId }).value()))
 }
 
+// 완료확인 한 건의 모양입니다. 실제 ConfirmationResponse와 같습니다.
+function toConfirmationResponse(db, confirmation) {
+  const { id, deliverableId, contributionId, confirmerId, confirmedAt, canceledAt } = confirmation
+  const teamMember = db.get('teamMembers').find({ id: confirmerId }).value()
+  const member = db.get('members').find({ id: teamMember.memberId }).value()
+  return { id, deliverableId, contributionId, confirmerMemberId: member.id, confirmerName: member.name, confirmedAt, canceledAt }
+}
+
+// 완료확인 행을 저장하고 응답을 보냅니다. target은 { deliverableId } 또는 { contributionId }입니다.
+function saveConfirmation(db, res, confirmer, target) {
+  const confirmation = {
+    id: nextId(db, 'confirmations'),
+    confirmerId: confirmer.id,
+    deliverableId: null,
+    contributionId: null,
+    ...target,
+    confirmedAt: nowLocalDateTime(),
+    canceledAt: null,
+  }
+  db.get('confirmations').push(confirmation).write()
+  return res.json(toConfirmationResponse(db, confirmation))
+}
+
+// 이 조원의 유효한(취소하지 않은) 확인이 이 대상에 있으면 true입니다.
+function hasActiveConfirmation(db, confirmer, target) {
+  return db.get('confirmations').find({ confirmerId: confirmer.id, canceledAt: null, ...target }).value() !== undefined
+}
+
+// POST /deliverables/{deliverableId}/confirmations: 올린 조원을 뺀 같은 조 조원이 산출물을 확인합니다.
+function handleConfirmDeliverable(req, res, loginMember, deliverableId) {
+  const db = req.app.db
+  const deliverable = db.get('deliverables').find({ id: deliverableId }).value()
+  if (!deliverable) {
+    return sendError(res, 404, 'NOT_FOUND', '산출물이 없습니다. id=' + deliverableId)
+  }
+  const uploader = db.get('teamMembers').find({ id: deliverable.teamMemberId }).value()
+  const team = db.get('teams').find({ id: uploader.teamId }).value()
+  const confirmer = checkTeamMember(db, res, team, loginMember)
+  if (!confirmer) return
+  if (uploader.id === confirmer.id) {
+    return sendError(res, 403, 'FORBIDDEN', '자기가 올린 산출물은 확인할 수 없습니다')
+  }
+  if (!checkRecording(db, res, team)) return
+  if (deliverable.deletedAt !== null) {
+    return sendError(res, 400, 'INVALID_INPUT', '삭제된 산출물은 확인할 수 없습니다')
+  }
+  if (hasActiveConfirmation(db, confirmer, { deliverableId })) {
+    return sendError(res, 409, 'DUPLICATE', '이미 확인한 기록입니다')
+  }
+  return saveConfirmation(db, res, confirmer, { deliverableId })
+}
+
+// POST /contributions/{contributionId}/confirmations: 담당 조원을 뺀 같은 조 조원이 보고된 기여 항목을 확인합니다.
+function handleConfirmContribution(req, res, loginMember, contributionId) {
+  const db = req.app.db
+  const contribution = db.get('contributions').find({ id: contributionId }).value()
+  if (!contribution) {
+    return sendError(res, 404, 'NOT_FOUND', '기여 항목이 없습니다. id=' + contributionId)
+  }
+  const team = db.get('teams').find({ id: contribution.teamId }).value()
+  const confirmer = checkTeamMember(db, res, team, loginMember)
+  if (!confirmer) return
+  if (contribution.assigneeId === confirmer.id) {
+    return sendError(res, 403, 'FORBIDDEN', '자기가 맡은 항목은 확인할 수 없습니다')
+  }
+  if (!checkRecording(db, res, team)) return
+  if (contribution.canceledAt !== null) {
+    return sendError(res, 400, 'INVALID_INPUT', '취소된 항목은 확인할 수 없습니다')
+  }
+  if (contribution.reportedAt === null) {
+    return sendError(res, 400, 'INVALID_INPUT', '보고 전 항목은 확인할 수 없습니다')
+  }
+  if (hasActiveConfirmation(db, confirmer, { contributionId })) {
+    return sendError(res, 409, 'DUPLICATE', '이미 확인한 기록입니다')
+  }
+  return saveConfirmation(db, res, confirmer, { contributionId })
+}
+
+// 대상의 완료확인 이력을 최근 것부터 보냅니다. 취소된 확인도 빼지 않습니다.
+function sendConfirmations(db, res, target) {
+  const confirmations = db.get('confirmations').filter(target).sortBy('id').reverse().value()
+  return res.json(confirmations.map((confirmation) => toConfirmationResponse(db, confirmation)))
+}
+
+// GET /deliverables/{deliverableId}/confirmations: 산출물의 완료확인 이력입니다. 조원과 교수가 봅니다.
+function handleGetDeliverableConfirmations(req, res, loginMember, deliverableId) {
+  const db = req.app.db
+  const deliverable = db.get('deliverables').find({ id: deliverableId }).value()
+  if (!deliverable) {
+    return sendError(res, 404, 'NOT_FOUND', '산출물이 없습니다. id=' + deliverableId)
+  }
+  const uploader = db.get('teamMembers').find({ id: deliverable.teamMemberId }).value()
+  const team = db.get('teams').find({ id: uploader.teamId }).value()
+  if (!checkTeamAccess(db, res, team, loginMember)) return
+  return sendConfirmations(db, res, { deliverableId })
+}
+
+// GET /contributions/{contributionId}/confirmations: 기여 항목의 완료확인 이력입니다. 조원과 교수가 봅니다.
+function handleGetContributionConfirmations(req, res, loginMember, contributionId) {
+  const db = req.app.db
+  const contribution = db.get('contributions').find({ id: contributionId }).value()
+  if (!contribution) {
+    return sendError(res, 404, 'NOT_FOUND', '기여 항목이 없습니다. id=' + contributionId)
+  }
+  const team = db.get('teams').find({ id: contribution.teamId }).value()
+  if (!checkTeamAccess(db, res, team, loginMember)) return
+  return sendConfirmations(db, res, { contributionId })
+}
+
 // 동료평가 6개 항목의 이름입니다. 실제 EvaluationSubmitRequest.Item의 점수 필드와 같습니다.
 const SCORE_FIELDS = ['goalSharing', 'roleFulfillment', 'encouragement', 'onlineCommunication', 'offlineCommunication', 'progressCheck']
 
@@ -981,6 +1090,26 @@ function handleRequest(req, res, next) {
     const contributionId = parseIdOrSendError(res, cancelIdText)
     if (contributionId === null) return
     return handleCancelContribution(req, res, loginMember, contributionId)
+  }
+
+  const deliverableConfirmationsIdText = matchId(/^\/deliverables\/([^/]+)\/confirmations$/, req.path)
+  if ((req.method === 'GET' || req.method === 'POST') && deliverableConfirmationsIdText !== null) {
+    const deliverableId = parseIdOrSendError(res, deliverableConfirmationsIdText)
+    if (deliverableId === null) return
+    if (req.method === 'POST') {
+      return handleConfirmDeliverable(req, res, loginMember, deliverableId)
+    }
+    return handleGetDeliverableConfirmations(req, res, loginMember, deliverableId)
+  }
+
+  const contributionConfirmationsIdText = matchId(/^\/contributions\/([^/]+)\/confirmations$/, req.path)
+  if ((req.method === 'GET' || req.method === 'POST') && contributionConfirmationsIdText !== null) {
+    const contributionId = parseIdOrSendError(res, contributionConfirmationsIdText)
+    if (contributionId === null) return
+    if (req.method === 'POST') {
+      return handleConfirmContribution(req, res, loginMember, contributionId)
+    }
+    return handleGetContributionConfirmations(req, res, loginMember, contributionId)
   }
 
   const leaderTeamIdText = matchId(/^\/teams\/([^/]+)\/leader$/, req.path)

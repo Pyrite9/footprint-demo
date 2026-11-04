@@ -874,8 +874,8 @@
       ]
     },
     {
-      "name": "3. 산출물과 역할 변경 (R-1, T-2-2)",
-      "description": "역할이 있는 조원이 파일을 올리고, 교수가 목록을 보고 내려받습니다. 조장이 역할을 바꿔도 올린 산출물의 역할명은 그대로입니다. 올린 조원이 삭제해도 기록은 남습니다.",
+      "name": "3. 산출물과 역할 변경, 완료확인 (R-1, T-2-2, R-3)",
+      "description": "역할이 있는 조원이 파일을 올리고, 교수가 목록을 보고 내려받습니다. 조장이 역할을 바꿔도 올린 산출물의 역할명은 그대로입니다. 올린 조원이 삭제해도 기록은 남습니다. 올린 조원을 뺀 조원이 완료확인하고, 조원과 교수가 이력을 봅니다.",
       "item": [
         {
           "name": "산출물 업로드 (조원)",
@@ -976,6 +976,198 @@
                 "exec": [
                   "pm.test('200 응답', () => pm.response.to.have.status(200));",
                   "pm.test('첨부 파일 header', () => pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "완료확인 - 올린 조원은 403 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}/confirmations",
+            "description": "자기가 올린 산출물은 확인할 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "완료확인 - 교수는 403 (교수)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}/confirmations",
+            "description": "교수는 이력만 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "산출물 완료확인 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}/confirmations",
+            "description": "조장도 다른 조원과 똑같이 확인합니다. 확인 시각은 서버가 기록합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "const confirmation = pm.response.json();",
+                  "pm.test('이 산출물의 확인', () => pm.expect(confirmation.deliverableId).to.eql(Number(pm.collectionVariables.get('deliverableId'))));",
+                  "pm.test('기여 항목 번호는 null', () => pm.expect(confirmation.contributionId).to.eql(null));",
+                  "pm.test('확인 시각이 있음', () => pm.expect(confirmation.confirmedAt).to.be.a('string'));",
+                  "pm.test('취소 시각은 null', () => pm.expect(confirmation.canceledAt).to.eql(null));",
+                  "pm.collectionVariables.set('confirmationId', confirmation.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다시 확인하면 409 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}/confirmations",
+            "description": "한 조원의 유효한 확인은 하나입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 응답', () => pm.response.to.have.status(409));",
+                  "pm.test('code가 DUPLICATE', () => pm.expect(pm.response.json().code).to.eql('DUPLICATE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "완료확인 이력 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}/confirmations",
+            "description": "교수는 이력을 봅니다. 건수는 응답에 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('확인 1건', () => pm.expect(pm.response.json()).to.have.lengthOf(1));",
+                  "pm.test('확인한 사람 이름이 있음', () => pm.expect(pm.response.json()[0].confirmerName).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "완료확인 이력 - 다른 조 학생은 403 (다른 조)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}/confirmations",
+            "description": "조의 기록은 그 조의 조원과 그 과제를 만든 교수만 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
                 ]
               }
             }
@@ -1289,12 +1481,74 @@
               }
             }
           ]
+        },
+        {
+          "name": "삭제된 산출물을 확인하면 400 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}/confirmations",
+            "description": "삭제된 산출물에는 새로 확인할 수 없습니다. 이미 확인했는지보다 먼저 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "삭제해도 완료확인 이력은 남음 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}/confirmations",
+            "description": "삭제 전의 확인은 그대로입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('확인 1건', () => pm.expect(pm.response.json()).to.have.lengthOf(1));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "4. 기여 항목 (R-2)",
-      "description": "파일이 남지 않는 일의 기록입니다. 조장이 등록하고, 담당 조원이 완료 보고하고, 조장이 보고 전 항목을 취소합니다. 취소해도 목록에 남습니다.",
+      "name": "4. 기여 항목과 완료확인 (R-2, R-3)",
+      "description": "파일이 남지 않는 일의 기록입니다. 조장이 등록하고, 담당 조원이 완료 보고하고, 조장이 보고 전 항목을 취소합니다. 취소해도 목록에 남습니다. 담당 조원을 뺀 조원이 보고된 항목을 완료확인합니다.",
       "item": [
         {
           "name": "기여 항목 등록 - 조원은 403 (조원)",
@@ -1631,6 +1885,37 @@
           ]
         },
         {
+          "name": "보고 전 항목을 확인하면 400 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/confirmations",
+            "description": "보고된 항목만 확인합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "완료 보고 (조원)",
           "request": {
             "method": "POST",
@@ -1747,6 +2032,100 @@
                 "exec": [
                   "pm.test('200 응답', () => pm.response.to.have.status(200));",
                   "pm.test('처음 메모 그대로', () => pm.expect(pm.response.json()[0].reportMemo).to.eql('회의록을 정리해 올렸습니다.'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "완료확인 - 담당 조원은 403 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/confirmations",
+            "description": "자기가 맡은 항목은 확인할 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "기여 항목 완료확인 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/confirmations",
+            "description": "보고된 항목을 확인합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('이 항목의 확인', () => pm.expect(pm.response.json().contributionId).to.eql(Number(pm.collectionVariables.get('contributionId'))));",
+                  "pm.test('산출물 번호는 null', () => pm.expect(pm.response.json().deliverableId).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "기여 항목 완료확인 이력 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/confirmations",
+            "description": "담당 조원도 자기 항목의 이력을 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('확인 1건', () => pm.expect(pm.response.json()).to.have.lengthOf(1));"
                 ]
               }
             }
@@ -1920,6 +2299,37 @@
                   "language": "json"
                 }
               }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "취소된 항목을 확인하면 400 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{canceledContributionId}}/confirmations",
+            "description": "취소된 항목은 확인할 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "event": [
@@ -2360,6 +2770,68 @@
                 "exec": [
                   "pm.test('400 응답', () => pm.response.to.have.status(400));",
                   "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 단계에서 완료확인하면 400 (조장)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/confirmations",
+            "description": "단계 검사가 이미 확인했는지 보는 검사보다 먼저입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 단계에도 완료확인 이력은 봄 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/contributions/{{contributionId}}/confirmations",
+            "description": "열람은 그대로입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('확인 1건', () => pm.expect(pm.response.json()).to.have.lengthOf(1));"
                 ]
               }
             }
@@ -2858,6 +3330,10 @@
     },
     {
       "key": "canceledContributionId",
+      "value": ""
+    },
+    {
+      "key": "confirmationId",
       "value": ""
     }
   ]

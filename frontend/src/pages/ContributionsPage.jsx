@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getMe } from '../api/auth'
+import { confirmContribution, getContributionConfirmations } from '../api/confirmations'
 import { cancelContribution, createContribution, getContributions, reportContribution } from '../api/contributions'
 import { getTeam, getTeamMembers } from '../api/teams'
 import ContributionCreateForm from '../components/ContributionCreateForm'
 import ContributionList from '../components/ContributionList'
 
-// 조의 기여 항목 화면입니다. 목록은 조원과 교수가 보고, 기록 단계에서 등록과 취소는 조장이, 완료 보고는 담당 조원이 합니다(서버가 확인합니다).
+// 조의 기여 항목 화면입니다. 목록과 완료확인 이력은 조원과 교수가 보고, 기록 단계에서 등록과 취소는 조장이, 완료 보고는 담당 조원이, 완료확인은 담당 조원을 뺀 조원이 합니다(서버가 확인합니다).
 function ContributionsPage() {
     const { teamId } = useParams()
     const [me, setMe] = useState(null)
@@ -25,6 +26,11 @@ function ContributionsPage() {
     const [memo, setMemo] = useState('')
     const [reporting, setReporting] = useState(false)
     const [canceling, setCanceling] = useState(false)
+    // 완료확인 이력을 열어 둔 항목의 번호입니다. 한 번에 하나만 열립니다.
+    const [confirmationTargetId, setConfirmationTargetId] = useState(null)
+    const [confirmations, setConfirmations] = useState([])
+    // 이력 불러오기와 완료확인은 서로 끝날 때까지 막습니다. 다른 줄의 이력이 열어 둔 줄에 섞이지 않게 합니다.
+    const [confirmationBusy, setConfirmationBusy] = useState(false)
 
     useEffect(() => {
         Promise.all([getMe(), getTeam(teamId), getTeamMembers(teamId), getContributions(teamId)])
@@ -105,6 +111,35 @@ function ContributionsPage() {
             .finally(() => setCanceling(false))
     }
 
+    // 완료확인 이력을 불러와 그 줄에 엽니다. 다른 줄의 이력이 열려 있었으면 바꿉니다.
+    function handleOpenConfirmations(target) {
+        setActionError(null)
+        setConfirmationBusy(true)
+        getContributionConfirmations(target.id)
+            .then((data) => {
+                setConfirmations(data)
+                setConfirmationTargetId(target.id)
+            })
+            .catch((err) => setActionError(err.message))
+            .finally(() => setConfirmationBusy(false))
+    }
+
+    // 완료확인 이력을 닫습니다.
+    function handleCloseConfirmations() {
+        setConfirmationTargetId(null)
+        setConfirmations([])
+    }
+
+    // 열어 둔 항목을 확인합니다. 성공하면 새 확인을 이력 맨 위(최근)에 더합니다.
+    function handleConfirm() {
+        setActionError(null)
+        setConfirmationBusy(true)
+        confirmContribution(confirmationTargetId)
+            .then((created) => setConfirmations([created, ...confirmations]))
+            .catch((err) => setActionError(err.message))
+            .finally(() => setConfirmationBusy(false))
+    }
+
     if (loading) return <main><p>불러오는 중...</p></main>
     if (error) {
         return (
@@ -138,7 +173,7 @@ function ContributionsPage() {
                     creating={busy}
                 />
             )}
-            {!isRecording && <p className="notice">평가 단계입니다. 기여 항목을 더 등록, 보고, 취소할 수 없습니다.</p>}
+            {!isRecording && <p className="notice">평가 단계입니다. 기여 항목을 더 등록, 보고, 취소, 완료확인할 수 없습니다.</p>}
             {actionError && <p className="error">{actionError}</p>}
 
             <h2>기여 항목 (최근 등록순)</h2>
@@ -155,6 +190,13 @@ function ContributionsPage() {
                 onCloseReport={handleCloseReport}
                 onCancel={handleCancel}
                 busy={busy}
+                canConfirm={isRecording && myTeamMember !== undefined}
+                confirmationTargetId={confirmationTargetId}
+                confirmations={confirmations}
+                onOpenConfirmations={handleOpenConfirmations}
+                onCloseConfirmations={handleCloseConfirmations}
+                onConfirm={handleConfirm}
+                confirmationBusy={confirmationBusy}
             />
         </main>
     )

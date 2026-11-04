@@ -1,6 +1,7 @@
 package com.footprint.backend.config;
 
 import com.footprint.backend.entity.Assignment;
+import com.footprint.backend.entity.Confirmation;
 import com.footprint.backend.entity.Contribution;
 import com.footprint.backend.entity.Deliverable;
 import com.footprint.backend.entity.Member;
@@ -8,6 +9,7 @@ import com.footprint.backend.entity.MemberType;
 import com.footprint.backend.entity.Team;
 import com.footprint.backend.entity.TeamMember;
 import com.footprint.backend.repository.AssignmentRepository;
+import com.footprint.backend.repository.ConfirmationRepository;
 import com.footprint.backend.repository.ContributionRepository;
 import com.footprint.backend.repository.DeliverableRepository;
 import com.footprint.backend.repository.MemberRepository;
@@ -37,13 +39,14 @@ public class DataInitializer implements CommandLineRunner {
     private final TeamMemberRepository teamMemberRepository;
     private final DeliverableRepository deliverableRepository;
     private final ContributionRepository contributionRepository;
+    private final ConfirmationRepository confirmationRepository;
     private final PasswordEncoder passwordEncoder;
     private final StorageService storageService;
 
     public DataInitializer(MemberRepository memberRepository, AssignmentRepository assignmentRepository,
                            TeamRepository teamRepository, TeamMemberRepository teamMemberRepository,
                            DeliverableRepository deliverableRepository, ContributionRepository contributionRepository,
-                           PasswordEncoder passwordEncoder,
+                           ConfirmationRepository confirmationRepository, PasswordEncoder passwordEncoder,
                            StorageService storageService) {
         this.memberRepository = memberRepository;
         this.assignmentRepository = assignmentRepository;
@@ -51,11 +54,12 @@ public class DataInitializer implements CommandLineRunner {
         this.teamMemberRepository = teamMemberRepository;
         this.deliverableRepository = deliverableRepository;
         this.contributionRepository = contributionRepository;
+        this.confirmationRepository = confirmationRepository;
         this.passwordEncoder = passwordEncoder;
         this.storageService = storageService;
     }
 
-    // MinIO 버킷을 준비하고, 회원 11명과 과제 2개(기록 단계, 평가 단계), 조 3개, 산출물 3건, 기여 항목 2건을 저장합니다.
+    // MinIO 버킷을 준비하고, 회원 11명과 과제 2개(기록 단계, 평가 단계), 조 3개, 산출물 3건, 기여 항목 2건, 완료확인 2건을 저장합니다.
     @Override
     public void run(String... args) {
         // 산출물 파일을 넣을 버킷이 없으면 만듭니다. 이미 있으면 그대로 둡니다(데이터베이스와 달리 서버를 다시 켜도 비워지지 않습니다).
@@ -99,11 +103,14 @@ public class DataInitializer implements CommandLineRunner {
         List<TeamMember> evaluationTeam = saveTeam(evaluationAssignment, "1조", "demo-evaluation-1",
                 List.of(student01, student02, student03),
                 List.of("기획", "백엔드", "발표"));
-        saveDeliverable(evaluationTeam.get(1), "최종 보고서.txt", "발자국 최종 보고서\n1. 결과 요약\n");
+        Deliverable finalReport = saveDeliverable(evaluationTeam.get(1), "최종 보고서.txt", "발자국 최종 보고서\n1. 결과 요약\n");
         // 평가 단계에서는 보고할 수 없어서, 보고까지 끝난 항목으로 넣습니다.
         Contribution reportedContribution = new Contribution(evaluationTeam.get(1).getTeam(), evaluationTeam.get(1), "자료 취합");
         reportedContribution.report("자료를 모아 조 공유 폴더에 올렸습니다.");
         contributionRepository.save(reportedContribution);
+        // 평가 단계에서는 새로 확인할 수 없어서, 읽기 전용 이력을 바로 볼 수 있게 확인을 넣어 둡니다.
+        confirmationRepository.save(new Confirmation(evaluationTeam.get(0), finalReport));
+        confirmationRepository.save(new Confirmation(evaluationTeam.get(2), reportedContribution));
     }
 
     // 비밀번호를 BCrypt로 바꿔서 회원을 저장합니다.
@@ -129,9 +136,9 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     // 글자 내용으로 된 산출물 하나를 MinIO와 데이터베이스에 저장합니다. 역할명은 올린 조원의 지금 역할명을 복사합니다.
-    private void saveDeliverable(TeamMember uploader, String fileName, String text) {
+    private Deliverable saveDeliverable(TeamMember uploader, String fileName, String text) {
         byte[] content = text.getBytes(StandardCharsets.UTF_8);
         String storageKey = storageService.save("text/plain; charset=UTF-8", content);
-        deliverableRepository.save(new Deliverable(uploader, uploader.getRoleName(), fileName, content.length, storageKey));
+        return deliverableRepository.save(new Deliverable(uploader, uploader.getRoleName(), fileName, content.length, storageKey));
     }
 }
