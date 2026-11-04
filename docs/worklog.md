@@ -1108,3 +1108,19 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 내가 채운 가정:
   - 지금 규칙 중 무엇을 테스트할지는 내가 고름. CLAUDE.md "업무 규칙"의 접근 범위, 합류, 역할, 업로드, 평가 규칙을 기준으로 함
   - 20MB 제한과 동시 요청은 뺌(`TODO.md` 5절)
+
+### O-6 CI
+- 결정:
+  - GitHub Actions를 씀. 백엔드와 화면을 job 2개로 나눔. 한쪽이 실패해도 다른 쪽 결과를 볼 수 있음
+  - PostgreSQL, MinIO는 `infra`의 `docker compose up -d --wait`로 켬. 선택지: Actions의 `services`(이미지와 비밀번호를 파일 두 곳에 적어야 하고, MinIO에 필요한 `server /data` 명령을 넘길 수 없음), compose(내 컴퓨터와 같은 파일). 뒤를 고름
+  - 실행 조건은 main push와 PR임. 모든 push로 두면 PR 브랜치에서 같은 검사가 두 번 돎
+- 만든 파일: `.github/workflows/ci.yml`
+- 고친 파일: `TODO.md`, `README.md`
+- 확인:
+  - **실제 실행은 확인하지 못함.** push 전에는 GitHub에서 돌지 않음
+  - YAML 문법과 job 구조만 파서로 확인함. 같은 명령(`docker compose up -d --wait`, `gradlew build`, `npm run build`, `npm run lint`)은 내 컴퓨터에서 돌림. `npm ci`는 돌리지 않음
+- 읽을 때 볼 곳:
+  - `permissions: contents: read`는 이 workflow가 저장소를 고치지 못하게 함
+  - Linux에서 돌아서 `backend/gradlew`의 실행 권한(`100755`)이 필요함. 지금은 맞음
+- 내가 채운 가정:
+  - action 버전은 major(`@v4`)로 고정함. 공개 저장소에서 쓰는 GitHub 공식 action이라 commit hash까지 고정하지 않음

@@ -1,0 +1,45 @@
+# main에 push 하거나 PR을 열면 GitHub 서버에서 빌드, 테스트, lint를 돌립니다. 비밀값은 쓰지 않습니다.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 코드를 읽기만 합니다.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      # 테스트가 실제 PostgreSQL과 MinIO에 접속합니다. 내 컴퓨터와 같은 파일로 켭니다. --wait는 healthcheck가 통과할 때까지 기다립니다.
+      - name: Start PostgreSQL and MinIO
+        working-directory: infra
+        run: docker compose up -d --wait
+      - name: Build and test
+        working-directory: backend
+        run: ./gradlew build --no-daemon
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint

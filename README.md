@@ -78,6 +78,7 @@ frontend/   React
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
 docs/       구조 그림, API 명세, Postman 모음, 작업 기록, 노트북 설정 지시서
 docker-compose.yml  한 번에 실행(백엔드, nginx, infra의 PostgreSQL·MinIO)
+.github/workflows/ci.yml  main push와 PR마다 빌드·테스트·lint를 돌림
 TODO.md     앞으로 할 것
 ```
 
