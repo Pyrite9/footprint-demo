@@ -129,6 +129,9 @@ class PhaseRuleTests {
         expectBadRequest(api.put("/teams/" + teamId + "/leader", api.login("professor@example.com"),
                 "{ \"teamMemberId\": " + member.getId() + " }"), BLOCKED_MESSAGE);
         expectBadRequest(api.upload("/teams/" + teamId + "/deliverables", leader, file), BLOCKED_MESSAGE);
+        // 시작 산출물을 올린 student02가 지우려고 해도 평가 단계에서는 막힙니다. 파일은 지워지지 않습니다.
+        Long deliverableId = deliverableRepository.findByTeamMemberTeamIdOrderByIdDesc(teamId).get(0).getId();
+        expectBadRequest(api.delete("/deliverables/" + deliverableId, api.login("student02@example.com")), BLOCKED_MESSAGE);
         expectBadRequest(api.post("/teams/join", api.login("student04@example.com"),
                 "{ \"inviteCode\": \"demo-evaluation-1\" }"), BLOCKED_MESSAGE);
     }
@@ -146,6 +149,8 @@ class PhaseRuleTests {
     void permissionIsCheckedBeforePhase() throws Exception {
         TestApi.expectError(api.post("/teams/" + evaluationTeam.getId() + "/invite-code",
                 api.login("student02@example.com"), ""), 403, "FORBIDDEN");
+        Long deliverableId = deliverableRepository.findByTeamMemberTeamIdOrderByIdDesc(evaluationTeam.getId()).get(0).getId();
+        TestApi.expectError(api.delete("/deliverables/" + deliverableId, api.login("student01@example.com")), 403, "FORBIDDEN");
     }
 
     // 평가 단계에서도 열람은 됩니다.

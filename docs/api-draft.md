@@ -412,7 +412,7 @@ token
 
 200
 ```json
-{ "id": 3, "roleName": "백엔드", "fileName": "API 명세.pdf", "fileSize": 52344, "uploaderName": "이서연", "uploadedAt": "2026-11-05T14:03:22" }
+{ "id": 3, "roleName": "백엔드", "fileName": "API 명세.pdf", "fileSize": 52344, "uploaderMemberId": 3, "uploaderName": "이서연", "uploadedAt": "2026-11-05T14:03:22", "deletedAt": null }
 ```
 
 | 상태 | code | 언제 |
@@ -424,17 +424,19 @@ token
 
 ### GET /teams/{teamId}/deliverables — 산출물 목록 (R-1-2) · 2026.10.25
 
-조의 산출물을 최신순(올린 순서의 역순)으로 받음. 그 조의 조원과 그 과제를 만든 교수가 볼 수 있음. 오류는 `GET /teams/{teamId}`와 같음
+조의 산출물을 최신순(올린 순서의 역순)으로 받음. 삭제된 산출물도 빠지지 않음. 그 조의 조원과 그 과제를 만든 교수가 볼 수 있음. 오류는 `GET /teams/{teamId}`와 같음
 
 200
 ```json
 [
-  { "id": 3, "roleName": "백엔드", "fileName": "API 명세 v2.pdf", "fileSize": 60211, "uploaderName": "조은우", "uploadedAt": "2026-11-06T10:00:00" },
-  { "id": 2, "roleName": "백엔드", "fileName": "API 명세.pdf", "fileSize": 52344, "uploaderName": "이서연", "uploadedAt": "2026-11-05T14:03:22" }
+  { "id": 3, "roleName": "백엔드", "fileName": "API 명세 v2.pdf", "fileSize": 60211, "uploaderMemberId": 8, "uploaderName": "조은우", "uploadedAt": "2026-11-06T10:00:00", "deletedAt": null },
+  { "id": 2, "roleName": "백엔드", "fileName": "API 명세.pdf", "fileSize": 52344, "uploaderMemberId": 3, "uploaderName": "이서연", "uploadedAt": "2026-11-05T14:03:22", "deletedAt": "2026-11-06T09:30:00" }
 ]
 ```
 
-- 순번(같은 역할 안에서 1, 2, 3…)은 응답에 넣지 않음. 화면이 이 목록에서 같은 `roleName`끼리 올린 순서로 셈(CLAUDE.md "업무 규칙"의 산출물 순번)
+- 순번(같은 역할 안에서 1, 2, 3…)은 응답에 넣지 않음. 화면이 이 목록에서 같은 `roleName`끼리 올린 순서로 셈(CLAUDE.md "업무 규칙"의 산출물 순번). 삭제된 산출물도 세므로 순번이 끊기지 않음
+- 역할별로 묶어 보여 주는 것은 화면이 함. API는 펼친 목록 그대로임
+- `uploaderMemberId`는 화면이 내 산출물에만 삭제 버튼을 보여 줄 때 씀
 - 조회 수, 다운로드 수는 없음
 
 ### GET /deliverables/{deliverableId}/download — 산출물 다운로드 (R-1-2) · 2026.10.25
@@ -452,12 +454,33 @@ token
 | 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때 |
 | 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
 | 403 | `FORBIDDEN` | 그 조의 조원도 아니고 그 과제를 만든 교수도 아닐 때 |
-| 404 | `NOT_FOUND` | 없는 산출물이거나, 파일 본문이 저장소에 없을 때 |
+| 404 | `NOT_FOUND` | 없는 산출물이거나, 삭제된 산출물이거나(메시지 "삭제된 산출물입니다. id=…"), 파일 본문이 저장소에 없을 때 |
 
 서버 쪽 규칙
 - 파일 본문은 MinIO에, 데이터베이스에는 저장 위치(key), 파일 이름, 크기만 둠(+ 올린 조원, 역할명, 시각)
-- 업로드는 "MinIO 저장 → 데이터베이스 저장" 순서임. 데이터베이스 저장이 실패하면 MinIO에 주인 없는 파일이 남음(지금은 지우지 않음. `TODO.md` O-7)
+- 업로드는 "MinIO 저장 → 데이터베이스 저장" 순서임. 데이터베이스 저장이 실패하면 올린 파일을 지움(O-7). 그 뒤 커밋 단계에서 실패하는 경우까지 막지는 않음
 - 크기 제한은 `spring.servlet.multipart.max-file-size`, `max-request-size` 20MB
+
+### DELETE /deliverables/{deliverableId} — 산출물 삭제 (R-1-3) · 2026.11.04
+
+올린 조원이 기록 단계에서 자기 산출물을 삭제함. MinIO의 파일 본문만 지우고 데이터베이스 행은 남김. 삭제 시각은 서버가 기록함
+
+200: 삭제 시각이 담긴 산출물. 모양은 목록의 한 줄과 같음
+```json
+{ "id": 3, "roleName": "백엔드", "fileName": "API 명세.pdf", "fileSize": 52344, "uploaderMemberId": 3, "uploaderName": "이서연", "uploadedAt": "2026-11-05T14:03:22", "deletedAt": "2026-11-06T09:30:00" }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때, 평가 단계일 때, 이미 삭제된 산출물일 때(메시지 "이미 삭제된 산출물입니다") |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 올린 조원이 아닐 때(조장, 교수 포함) |
+| 404 | `NOT_FOUND` | 없는 산출물일 때 |
+
+서버 쪽 규칙
+- 목록에서 빠지지 않고 `deletedAt`이 채워짐. 순번은 그대로임
+- 역할이나 조장이 바뀌어도 올린 사람이 지움. 올릴 때의 역할명은 그대로 남음
+- 데이터베이스에 삭제 표시를 먼저 반영하고 파일을 지움. 파일 지우기가 실패하면 500이고 삭제 표시도 되돌아감
 
 ---
 
@@ -537,7 +560,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 6 | R-1-3 | `DELETE /deliverables/{deliverableId}` | 올린 조원 |
 | 7 | R-2-1 | `POST /teams/{teamId}/contributions` | 조장 |
 | 7 | R-2-2 | `GET /teams/{teamId}/contributions` | 조원 |
 | 7 | R-2-3 | `POST /contributions/{contributionId}/report` | 담당 조원 |

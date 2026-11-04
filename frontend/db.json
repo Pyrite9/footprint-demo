@@ -37,9 +37,9 @@
     {"id": 13, "teamId": 3, "memberId": 4, "leader": false, "roleName": "발표", "roleAssignedAt": "2026-10-25T09:00:00"}
   ],
   "deliverables": [
-    {"id": 1, "teamMemberId": 1, "roleName": "기획", "fileName": "기획서.txt", "fileSize": 78, "storageKey": "seed-1.txt", "uploadedAt": "2026-10-25T09:00:00"},
-    {"id": 2, "teamMemberId": 2, "roleName": "백엔드", "fileName": "API 명세.txt", "fileSize": 33, "storageKey": "seed-2.txt", "uploadedAt": "2026-10-25T09:00:00"},
-    {"id": 3, "teamMemberId": 12, "roleName": "백엔드", "fileName": "최종 보고서.txt", "fileSize": 44, "storageKey": "seed-3.txt", "uploadedAt": "2026-10-25T09:00:00"}
+    {"id": 1, "teamMemberId": 1, "roleName": "기획", "fileName": "기획서.txt", "fileSize": 78, "storageKey": "seed-1.txt", "uploadedAt": "2026-10-25T09:00:00", "deletedAt": null},
+    {"id": 2, "teamMemberId": 2, "roleName": "백엔드", "fileName": "API 명세.txt", "fileSize": 33, "storageKey": "seed-2.txt", "uploadedAt": "2026-10-25T09:00:00", "deletedAt": null},
+    {"id": 3, "teamMemberId": 12, "roleName": "백엔드", "fileName": "최종 보고서.txt", "fileSize": 44, "storageKey": "seed-3.txt", "uploadedAt": "2026-10-25T09:00:00", "deletedAt": null}
   ],
   "evaluations": [],
   "roleHistories": [],

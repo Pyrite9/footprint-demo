@@ -44,6 +44,9 @@ public class Deliverable {
     @Column(nullable = false)
     private LocalDateTime uploadedAt;
 
+    // 삭제한 시각입니다. 삭제하기 전에는 비어 있습니다. 파일 본문은 지워도 이 행은 남겨서 순번이 끊기지 않습니다.
+    private LocalDateTime deletedAt;
+
     public Deliverable(TeamMember teamMember, String roleName, String fileName, long fileSize, String storageKey) {
         this.teamMember = teamMember;
         this.roleName = roleName;
@@ -52,5 +55,15 @@ public class Deliverable {
         this.storageKey = storageKey;
         // 초 아래(나노초)는 버립니다. 화면에 "2026-11-05T14:03:22"처럼 보이게 하기 위해서입니다.
         this.uploadedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+    }
+
+    // 삭제된 산출물이면 true입니다.
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    // 삭제 표시를 합니다. 삭제 시각은 서버의 현재 시각으로 기록합니다. 파일 본문을 지우는 일은 DeliverableService가 합니다.
+    public void markDeleted() {
+        this.deletedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
     }
 }

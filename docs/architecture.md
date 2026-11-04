@@ -264,8 +264,9 @@ erDiagram
         String roleName "업로드 당시 역할명을 복사 · 역할이 바뀌어도 순번 유지"
         String fileName "올린 파일의 원래 이름 · 다운로드할 때 이 이름으로 내려줌"
         long fileSize "파일 크기(byte)"
-        String storageKey "MinIO 안의 위치 · 파일 본문을 꺼낼 때 씀"
+        String storageKey "MinIO 안의 위치 · 파일 본문을 꺼낼 때 씀. 삭제한 뒤에도 값은 남음"
         LocalDateTime uploadedAt "올린 시각 · 서버가 기록"
+        LocalDateTime deletedAt "삭제 시각 · 서버가 기록. 삭제 전에는 null"
     }
     EVALUATION {
         Long id PK "평가 번호"
@@ -294,4 +295,4 @@ erDiagram
 - `LEADER_HISTORY`는 조장이 바뀔 때마다 한 줄 쌓임. 만든 뒤에는 고치거나 지우지 않음
 - 조장이 조마다 한 명인 것은 DB 제약이 아니라 `TeamService.changeLeader`가 지킴. 조 행을 잠가 교체 요청을 차례로 처리함
 - 점수 열은 6개 그대로 저장함. 합계·평균 열은 두지 않음
-- 기록 시각(`uploadedAt`, `roleAssignedAt`, `changedAt`, `submittedAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음
+- 기록 시각(`uploadedAt`, `deletedAt`, `roleAssignedAt`, `changedAt`, `submittedAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음

@@ -1,6 +1,7 @@
 package com.footprint.backend.service;
 
 import com.footprint.backend.entity.Assignment;
+import com.footprint.backend.entity.Deliverable;
 import com.footprint.backend.entity.Team;
 import com.footprint.backend.entity.TeamMember;
 import com.footprint.backend.exception.ForbiddenException;
@@ -52,6 +53,13 @@ public class TeamAccessChecker {
     public TeamMember checkTeamMember(Team team, Long memberId) {
         return teamMemberRepository.findByTeamIdAndMemberId(team.getId(), memberId)
                 .orElseThrow(() -> new ForbiddenException("이 조에 접근할 권한이 없습니다"));
+    }
+
+    // 이 산출물을 올린 회원인지 확인합니다. 아니면 ForbiddenException을 던집니다. 조장과 교수도 여기서는 막힙니다.
+    public void checkUploader(Deliverable deliverable, Long memberId) {
+        if (!deliverable.getTeamMember().getMember().getId().equals(memberId)) {
+            throw new ForbiddenException("올린 조원만 삭제할 수 있습니다");
+        }
     }
 
     // 이 조의 조장인지 확인하고 그 조 참여 기록을 돌려줍니다. 조장이 아니면 ForbiddenException을 던집니다.

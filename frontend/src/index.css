@@ -165,6 +165,14 @@ h2 {
   margin: 32px 0 12px;
 }
 
+/* 구역 안의 작은 제목입니다. 본문과 같은 크기로 두어 구역 제목(h2)보다 한 단계 낮게 보이게 합니다. */
+h3 {
+  font-size: var(--font-body);
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 20px 0 8px;
+}
+
 /* 기본 굵기(700)는 본문 사이에서 너무 진해서 제목과 같은 600으로 맞춥니다. */
 strong {
   font-weight: 600;

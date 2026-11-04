@@ -10,6 +10,7 @@ import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -19,7 +20,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.UUID;
 
-// 산출물 파일 본문을 MinIO(S3)에 저장하고 꺼냅니다. 조원은 S3Client를 직접 쓰지 않고 이 클래스의 메서드만 부릅니다.
+// 산출물 파일 본문을 MinIO(S3)에 저장하고, 꺼내고, 지웁니다. 조원은 S3Client를 직접 쓰지 않고 이 클래스의 메서드만 부릅니다.
 // 파일 이름과 크기는 여기서 저장하지 않습니다. 호출한 쪽이 데이터베이스에 저장합니다.
 @Service
 public class StorageService {
@@ -79,5 +80,14 @@ public class StorageService {
         } catch (NoSuchKeyException e) {
             throw new NotFoundException("파일이 없습니다. key=" + key);
         }
+    }
+
+    // 저장 위치(key)의 파일 본문을 지웁니다. S3는 없는 key를 지워도 오류를 내지 않습니다.
+    public void delete(String key) {
+        DeleteObjectRequest request = DeleteObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .build();
+        s3Client.deleteObject(request);
     }
 }

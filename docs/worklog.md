@@ -1251,3 +1251,45 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 같은 사람으로 되돌리는 교체도 막지 않음. 되돌린 것도 이력에 남음
   - 교체 전 확인은 `window.confirm`으로 함. 문구와 "새 조장으로", "조장 교체 이력", 오류 메시지는 내가 씀
   - 시작 데이터와 `frontend/db.json`에 조장 교체 이력을 넣지 않음
+
+### R-1-3 산출물 삭제, O-7 주인 없는 파일 정리
+
+- 결정:
+  - `DELETE /deliverables/{deliverableId}`를 둠. 응답은 200과 삭제 시각이 담긴 산출물임. 선택지: 204. 행이 남고 화면이 그 줄을 바로 바꿔야 해서 200으로 함
+  - 검사 순서는 없음 404 → 올린 조원 아니면 403 → 평가 단계 400 → 이미 삭제 400임. 다른 조 학생에게 삭제 여부가 보이지 않게 권한을 먼저 봄
+  - 삭제된 산출물의 다운로드는 404임. 권한이 없으면 403이 먼저임
+  - 응답에 `uploaderMemberId`를 더함. 화면이 내 산출물에만 삭제 버튼을 보여 주는 데 씀. 이름은 겹칠 수 있어서 쓰지 않음
+  - 삭제는 "데이터베이스 반영(flush) → 파일 삭제 → 커밋" 순서임. 선택지: 커밋 뒤 파일 삭제. 파일 삭제가 실패하면 삭제됨으로 표시됐는데 파일이 남음. 지금 순서는 파일 삭제가 실패하면 행도 되돌아감
+  - O-7은 `saveAndFlush`의 오류를 `catch`해서 파일을 지움. 선택지: `TransactionSynchronization`으로 커밋 실패까지 처리. 초심자가 따라 읽기 어려운 숨은 동작이 늘어서 쓰지 않음. 커밋 단계 실패는 `TODO.md` 5절 "알려진 한계"에 남김
+  - 역할 묶음 순서는 가나다순임. 선택지: 많이 올린 순, 최근 순. 역할끼리 비교하는 순위처럼 보이고 위치가 흔들려서 쓰지 않음. 묶음 안은 최신순임
+  - 순번은 삭제된 산출물도 셈(규칙: 순번 유지)
+  - O-7은 가짜 API에 넣지 않음. 가짜 API에서는 저장 실패가 나지 않음
+- 만든 파일: `DeliverableDeleteRuleTests`, `DeliverableOrphanFileTests`
+- 고친 파일:
+  - 백엔드: `entity/Deliverable`, `dto/DeliverableResponse`, `service/DeliverableService`, `service/StorageService`, `service/TeamAccessChecker`, `controller/DeliverableController`, 테스트 `PhaseRuleTests`
+  - 가짜 API: `frontend/mock/middleware.cjs`, `frontend/db.json`
+  - 화면: `api/deliverables.js`, `pages/DeliverablesPage.jsx`, `components/DeliverableList.jsx`, `components/StartEvaluationPanel.jsx`, `index.css`(`h3`)
+  - 문서: `docs/api-draft.md`, `docs/architecture.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`, `frontend/README.md`
+- 고친 기존 문제:
+  - `frontend/README.md`가 시작 파일을 `seed-1.txt`, `seed-2.txt`만 적고 있었음. `seed-3.txt`도 있어서 고침
+- 확인:
+  - `gradlew clean build` 성공. 테스트 67개, 실패 0(`DeliverableDeleteRuleTests` 7개, `DeliverableOrphanFileTests` 2개 새로, `PhaseRuleTests`의 기존 테스트 2개에 삭제 확인을 더함). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 52개, 확인 101개, 실패 0
+  - 실제 백엔드와 가짜 API의 업로드, 삭제, 다시 삭제, 삭제 후 다운로드, 없는 번호, 잘못된 번호 응답과 오류 메시지가 같음을 비교함
+  - 브라우저에서 실제 백엔드로 확인: 조원에게 내 산출물에만 삭제 버튼이 보임. 취소하면 그대로이고, 확인하면 그 줄이 "삭제됨"과 삭제 시각으로 바뀌고 다운로드 버튼이 사라짐. 교수에게는 삭제 버튼이 없고 삭제된 줄은 보임. 평가 단계 조에서는 삭제 버튼이 없고 안내 문구가 보임. 폭 375px에서 가로 스크롤 없음
+  - 삭제 확인 창은 눌러 보지 못함. 시험할 때 `window.confirm`을 바꿔 문구와 취소, 확인 동작을 확인함
+  - 파일 삭제가 실패할 때 행이 되돌아가는지는 시험하지 않음. 테스트 트랜잭션 안에서는 커밋과 롤백을 재현할 수 없음
+  - rule-check: 금지 패턴 없음. 점수 계산 없음. 새 public 메서드에 주석 있음. 값을 바꾸는 `delete`에 `@Transactional` 있음. 수정 필요 없음
+- 읽을 때 볼 곳:
+  - `DeliverableService.upload`의 `saveAndFlush`. `save`만 쓰면 INSERT가 커밋 때까지 미뤄질 수 있어서 `catch`가 오류를 받지 못함
+  - `DeliverableService.delete`의 `flush`. 파일은 되돌릴 수 없어서 데이터베이스 오류를 파일 삭제 전에 먼저 드러냄
+  - `deleteOrphanFile`의 `addSuppressed`. 지우기까지 실패해도 사용자에게 나가는 오류는 원래 오류임
+  - `DeliverableOrphanFileTests`의 `mock`, `spy`. 이 프로젝트에서 처음 씀. 실제 요청으로는 저장 실패를 만들 수 없어서 씀. Mockito는 `spring-boot-starter-test`에 들어 있어 새 의존성이 아님
+  - `DeliverableDeleteRuleTests`가 시작 산출물을 지우지 않는 이유. MinIO 삭제는 테스트가 끝나도 되돌아가지 않음
+  - `DeliverableList`의 `sequenceOf`. 삭제된 줄을 빼지 않고 세어야 순번이 끊기지 않음
+- 내가 채운 가정:
+  - 다시 삭제하면 400 `INVALID_INPUT`, 삭제된 산출물 다운로드는 404 `NOT_FOUND`임
+  - 파일 삭제 뒤에도 행의 `storageKey` 값은 남김. 지워도 쓸 곳이 없고, 기록을 고치지 않는 쪽을 고름
+  - 같은 산출물을 동시에 삭제하는 두 요청은 잠그지 않음. 올린 사람 한 명의 일이고 화면이 버튼을 막음
+  - 삭제 확인은 `window.confirm`으로 함. 확인 문구, 안내 문구, 오류 메시지, 화면 제목 "올린 산출물 (역할별 최신순)"은 내가 씀
+  - 시작 데이터와 `frontend/db.json`에 삭제된 산출물을 넣지 않음

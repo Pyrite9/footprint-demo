@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,6 +45,12 @@ public class DeliverableController {
         return deliverableService.findAll(teamId, memberId).stream()
                 .map(DeliverableResponse::from)
                 .toList();
+    }
+
+    // 올린 조원이 산출물을 삭제하고, 삭제 시각이 담긴 산출물을 돌려줍니다. 행이 남으므로 204가 아니라 200으로 보여 줍니다.
+    @DeleteMapping("/deliverables/{deliverableId}")
+    public DeliverableResponse delete(@AuthenticationPrincipal Long memberId, @PathVariable Long deliverableId) {
+        return DeliverableResponse.from(deliverableService.delete(deliverableId, memberId));
     }
 
     // 파일 본문을 내려줍니다. JSON이 아니라 파일 자체를 body로 보내므로 ResponseEntity<Resource>를 씁니다.

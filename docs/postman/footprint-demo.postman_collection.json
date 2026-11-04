@@ -875,7 +875,7 @@
     },
     {
       "name": "3. 산출물과 역할 변경 (R-1, T-2-2)",
-      "description": "역할이 있는 조원이 파일을 올리고, 교수가 목록을 보고 내려받습니다. 조장이 역할을 바꿔도 올린 산출물의 역할명은 그대로입니다.",
+      "description": "역할이 있는 조원이 파일을 올리고, 교수가 목록을 보고 내려받습니다. 조장이 역할을 바꿔도 올린 산출물의 역할명은 그대로입니다. 올린 조원이 삭제해도 기록은 남습니다.",
       "item": [
         {
           "name": "산출물 업로드 (조원)",
@@ -1133,6 +1133,162 @@
               }
             }
           ]
+        },
+        {
+          "name": "산출물 삭제 - 조장은 403 (조장)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}",
+            "description": "올린 조원만 삭제합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code가 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "산출물 삭제 (조원)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}",
+            "description": "파일 본문만 지우고 행은 남습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('삭제 시각이 있음', () => pm.expect(pm.response.json().deletedAt).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다시 삭제하면 400 (조원)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}",
+            "description": "이미 삭제된 산출물입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "삭제된 산출물 다운로드는 404 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}/download",
+            "description": "파일 본문이 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 응답', () => pm.response.to.have.status(404));",
+                  "pm.test('code가 NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "삭제해도 목록에 남음 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/{{teamId}}/deliverables",
+            "description": "순번이 끊기지 않게 행을 남깁니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('1건', () => pm.expect(pm.response.json().length).to.eql(1));",
+                  "pm.test('삭제 시각이 있음', () => pm.expect(pm.response.json()[0].deletedAt).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1344,6 +1500,37 @@
                 "exec": [
                   "pm.test('400 응답', () => pm.response.to.have.status(400));",
                   "pm.test('code는 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "평가 단계에서 삭제하면 400 (조원)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/deliverables/{{deliverableId}}",
+            "description": "평가 단계에서는 삭제할 수 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
                 ]
               }
             }

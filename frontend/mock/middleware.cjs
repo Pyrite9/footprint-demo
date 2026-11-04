@@ -511,12 +511,12 @@ function handleGetLeaderHistories(req, res, loginMember, teamId) {
   })))
 }
 
-// 산출물 한 건의 모양 { id, roleName, fileName, fileSize, uploaderName, uploadedAt }입니다. 실제 DeliverableResponse와 같습니다.
+// 산출물 한 건의 모양 { id, roleName, fileName, fileSize, uploaderMemberId, uploaderName, uploadedAt, deletedAt }입니다. 실제 DeliverableResponse와 같습니다.
 function toDeliverableResponse(db, deliverable) {
   const teamMember = db.get('teamMembers').find({ id: deliverable.teamMemberId }).value()
   const member = db.get('members').find({ id: teamMember.memberId }).value()
-  const { id, roleName, fileName, fileSize, uploadedAt } = deliverable
-  return { id, roleName, fileName, fileSize, uploaderName: member.name, uploadedAt }
+  const { id, roleName, fileName, fileSize, uploadedAt, deletedAt } = deliverable
+  return { id, roleName, fileName, fileSize, uploaderMemberId: member.id, uploaderName: member.name, uploadedAt, deletedAt }
 }
 
 // 요청 body를 끝까지 읽어 Buffer 하나로 돌려줍니다. 20MB를 넘으면 'TOO_LARGE'를 돌려줍니다.
@@ -611,6 +611,7 @@ function handleUploadDeliverable(req, res, next, loginMember, teamId) {
       fileSize: filePart.content.length,
       storageKey,
       uploadedAt: nowLocalDateTime(),
+      deletedAt: null,
     }
     db.get('deliverables').push(deliverable).write()
     return res.json(toDeliverableResponse(db, deliverable))
@@ -627,6 +628,9 @@ function handleDownloadDeliverable(req, res, loginMember, deliverableId) {
   const teamMember = db.get('teamMembers').find({ id: deliverable.teamMemberId }).value()
   const team = db.get('teams').find({ id: teamMember.teamId }).value()
   if (!checkTeamAccess(db, res, team, loginMember)) return
+  if (deliverable.deletedAt !== null) {
+    return sendError(res, 404, 'NOT_FOUND', '삭제된 산출물입니다. id=' + deliverableId)
+  }
 
   const filePath = path.join(FILES_DIR, deliverable.storageKey)
   if (!fs.existsSync(filePath)) {
@@ -635,6 +639,29 @@ function handleDownloadDeliverable(req, res, loginMember, deliverableId) {
   // res.attachment는 Content-Disposition(한글 이름은 filename*=UTF-8''...)과 확장자에 맞는 Content-Type을 붙입니다.
   res.attachment(deliverable.fileName)
   return res.send(fs.readFileSync(filePath))
+}
+
+// DELETE /deliverables/{deliverableId}: 올린 조원이 산출물을 삭제합니다. 파일 본문만 지우고 db.json의 행은 삭제 시각과 함께 남깁니다.
+function handleDeleteDeliverable(req, res, loginMember, deliverableId) {
+  const db = req.app.db
+  const deliverable = db.get('deliverables').find({ id: deliverableId }).value()
+  if (!deliverable) {
+    return sendError(res, 404, 'NOT_FOUND', '산출물이 없습니다. id=' + deliverableId)
+  }
+  const teamMember = db.get('teamMembers').find({ id: deliverable.teamMemberId }).value()
+  if (teamMember.memberId !== loginMember.id) {
+    return sendError(res, 403, 'FORBIDDEN', '올린 조원만 삭제할 수 있습니다')
+  }
+  const team = db.get('teams').find({ id: teamMember.teamId }).value()
+  if (!checkRecording(db, res, team)) return
+  if (deliverable.deletedAt !== null) {
+    return sendError(res, 400, 'INVALID_INPUT', '이미 삭제된 산출물입니다')
+  }
+
+  db.get('deliverables').find({ id: deliverableId }).assign({ deletedAt: nowLocalDateTime() }).write()
+  // force: 파일이 이미 없어도 오류를 내지 않습니다. 실제 저장소(S3)도 없는 key를 지울 때 오류를 내지 않습니다.
+  fs.rmSync(path.join(FILES_DIR, deliverable.storageKey), { force: true })
+  return res.json(toDeliverableResponse(db, db.get('deliverables').find({ id: deliverableId }).value()))
 }
 
 // 동료평가 6개 항목의 이름입니다. 실제 EvaluationSubmitRequest.Item의 점수 필드와 같습니다.
@@ -803,6 +830,13 @@ function handleRequest(req, res, next) {
     if (teamId === null) return
     if (req.method === 'GET') return handleGetDeliverables(req, res, loginMember, teamId)
     return handleUploadDeliverable(req, res, next, loginMember, teamId)
+  }
+
+  const deleteIdText = matchId(/^\/deliverables\/([^/]+)$/, req.path)
+  if (req.method === 'DELETE' && deleteIdText !== null) {
+    const deliverableId = parseIdOrSendError(res, deleteIdText)
+    if (deliverableId === null) return
+    return handleDeleteDeliverable(req, res, loginMember, deliverableId)
   }
 
   const downloadIdText = matchId(/^\/deliverables\/([^/]+)\/download$/, req.path)
