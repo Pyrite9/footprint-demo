@@ -507,7 +507,7 @@ token
 | 9 | E-2-2 | `GET /teams/{teamId}/evaluations/draft` | 조원 |
 | 9 | E-2-2 | `PUT /teams/{teamId}/evaluations/draft` | 조원 |
 | 10 | E-1-1 | `GET /teams/{teamId}/members/{teamMemberId}/evidence` | 조원(평가 단계), 교수 |
-| 11 | V-1-1 | `GET /teams/{teamId}/records` | 교수 |
+| 11 | V-1-1 | `GET /teams/{teamId}/records` | 조원, 교수 |
 | 12 | V-2-1 | `GET /teams/{teamId}/evaluations/status` | 교수 |
 | 12 | V-2-2 | `GET /teams/{teamId}/evaluations` | 교수 |
 | 12 | X-5 | `GET /teams/{teamId}/evaluations/export` | 교수 |
