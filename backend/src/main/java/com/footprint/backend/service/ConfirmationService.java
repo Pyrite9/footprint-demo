@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-// 산출물과 보고된 기여 항목의 완료확인을 저장하고 이력을 찾습니다. 건수를 세거나 점수로 바꾸지 않습니다.
+// 산출물과 보고된 기여 항목의 완료확인을 저장하고, 취소하고, 이력을 찾습니다. 건수를 세거나 점수로 바꾸지 않습니다.
 @Service
 public class ConfirmationService {
 
@@ -82,6 +82,23 @@ public class ConfirmationService {
         }
 
         return confirmationRepository.save(new Confirmation(confirmer, contribution));
+    }
+
+    // 확인한 조원 본인이 자기 확인을 취소합니다. 행은 남고 이력에 "취소됨"으로 보입니다. 다시 확인하면 새 행이 생깁니다.
+    // 삭제된 산출물의 확인도 취소할 수 있습니다. 내가 남긴 기록을 거두는 일이고 새로 확인하는 일이 아니기 때문입니다.
+    @Transactional
+    public Confirmation cancel(Long confirmationId, Long memberId) {
+        // 취소 요청이 겹치면 뒤의 요청이 처음 취소 시각을 덮어씁니다. 행을 잠가 한 번에 하나씩 처리합니다.
+        Confirmation confirmation = confirmationRepository.findWithLockById(confirmationId)
+                .orElseThrow(() -> new NotFoundException("완료확인이 없습니다. id=" + confirmationId));
+        teamAccessChecker.checkConfirmer(confirmation, memberId);
+        assignmentPhaseChecker.checkRecording(confirmation.getConfirmer().getTeam().getAssignment());
+        if (confirmation.isCanceled()) {
+            throw new InvalidInputException("이미 취소한 확인입니다");
+        }
+
+        confirmation.cancel();
+        return confirmation;
     }
 
     // 산출물의 완료확인 이력을 최근 것부터 찾습니다. 그 조의 조원과 그 과제를 만든 교수가 볼 수 있습니다. 삭제된 산출물의 이력도 남습니다.

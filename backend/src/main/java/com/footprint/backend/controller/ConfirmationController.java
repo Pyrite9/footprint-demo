@@ -32,6 +32,12 @@ public class ConfirmationController {
         return ConfirmationResponse.from(confirmationService.confirmContribution(contributionId, memberId));
     }
 
+    // 확인한 조원이 자기 확인을 취소하고, 취소 시각이 담긴 확인을 돌려줍니다.
+    @PostMapping("/confirmations/{confirmationId}/cancel")
+    public ConfirmationResponse cancel(@AuthenticationPrincipal Long memberId, @PathVariable Long confirmationId) {
+        return ConfirmationResponse.from(confirmationService.cancel(confirmationId, memberId));
+    }
+
     // 산출물의 완료확인 이력을 최근 것부터 돌려줍니다.
     @GetMapping("/deliverables/{deliverableId}/confirmations")
     public List<ConfirmationResponse> findForDeliverable(@AuthenticationPrincipal Long memberId, @PathVariable Long deliverableId) {

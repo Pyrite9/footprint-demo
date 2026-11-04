@@ -201,6 +201,84 @@ class ConfirmationRuleTests {
                 .andExpect(jsonPath("$[0].confirmerName").value("박도윤"));
     }
 
+    // 확인한 조원이 취소하면 취소 시각이 저장되고 이력에 남습니다. 다시 확인하면 새 기록이고, 그 뒤 또 확인하면 409입니다.
+    @Test
+    void confirmerCancelsAndConfirmsAgainAsNewRecord() throws Exception {
+        String path = "/deliverables/" + seedDeliverableId() + "/confirmations";
+        String member = api.login("student02@example.com");
+        int first = confirmationId(api.post(path, member, ""));
+
+        api.post("/confirmations/" + first + "/cancel", member, "")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(first))
+                .andExpect(jsonPath("$.canceledAt").value(matchesPattern(TIME_PATTERN)));
+
+        int second = confirmationId(api.post(path, member, ""));
+        TestApi.expectError(api.post(path, member, ""), 409, "DUPLICATE");
+
+        api.get(path, api.login("professor@example.com"))
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].id").value(second))
+                .andExpect(jsonPath("$[0].canceledAt").isEmpty())
+                .andExpect(jsonPath("$[1].id").value(first))
+                .andExpect(jsonPath("$[1].canceledAt").isNotEmpty());
+    }
+
+    // 확인한 조원만 취소합니다. 올린 조원, 다른 조원, 다른 조 학생, 교수는 403이고 확인은 그대로입니다.
+    @Test
+    void onlyConfirmerCancels() throws Exception {
+        String path = "/deliverables/" + seedDeliverableId() + "/confirmations";
+        String member = api.login("student02@example.com");
+        int id = confirmationId(api.post(path, member, ""));
+
+        for (String email : List.of("student01@example.com", "student03@example.com", "student06@example.com", "professor@example.com")) {
+            TestApi.expectError(api.post("/confirmations/" + id + "/cancel", api.login(email), ""), 403, "FORBIDDEN");
+        }
+        api.get(path, member).andExpect(jsonPath("$[0].canceledAt").isEmpty());
+    }
+
+    // 다시 취소하면 400이고 처음 취소 시각은 그대로입니다. 없는 확인은 404, 번호가 숫자가 아니면 400입니다.
+    @Test
+    void wrongCancelIsRejected() throws Exception {
+        String member = api.login("student02@example.com");
+        int id = confirmationId(api.post("/contributions/" + reportedContributionByStudent03() + "/confirmations", member, ""));
+        api.post("/confirmations/" + id + "/cancel", member, "").andExpect(status().isOk());
+
+        expectBadRequest(api.post("/confirmations/" + id + "/cancel", member, ""), "이미 취소한 확인입니다");
+        TestApi.expectError(api.post("/confirmations/999999/cancel", member, ""), 404, "NOT_FOUND");
+        TestApi.expectError(api.post("/confirmations/abc/cancel", member, ""), 400, "INVALID_INPUT");
+    }
+
+    // 삭제된 산출물의 확인도 취소할 수 있습니다. 그 뒤 다시 확인하지는 못합니다.
+    @Test
+    void confirmationOfDeletedDeliverableCanBeCanceled() throws Exception {
+        String uploader = api.login("student02@example.com");
+        String confirmer = api.login("student03@example.com");
+        // 시작 산출물을 지우면 MinIO 파일이 되돌아오지 않아서 새로 올린 파일을 지웁니다.
+        MockMultipartFile file = new MockMultipartFile("file", "지울 파일.txt", "text/plain", "내용".getBytes(StandardCharsets.UTF_8));
+        String uploaded = api.upload("/teams/" + teamId + "/deliverables", uploader, file)
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        int deliverableId = JsonPath.read(uploaded, "$.id");
+        String path = "/deliverables/" + deliverableId + "/confirmations";
+        int id = confirmationId(api.post(path, confirmer, ""));
+        api.delete("/deliverables/" + deliverableId, uploader).andExpect(status().isOk());
+
+        api.post("/confirmations/" + id + "/cancel", confirmer, "").andExpect(status().isOk());
+        expectBadRequest(api.post(path, confirmer, ""), "삭제된 산출물은 확인할 수 없습니다");
+    }
+
+    // 평가 단계에서는 확인한 조원도 취소할 수 없습니다. 권한 검사가 먼저입니다.
+    @Test
+    void evaluationPhaseBlocksCancel() throws Exception {
+        Team evaluationTeam = teamRepository.findByInviteCode("demo-evaluation-1").orElseThrow();
+        String professor = api.login("professor@example.com");
+        int deliverableId = firstId("/teams/" + evaluationTeam.getId() + "/deliverables", professor);
+        int id = firstId("/deliverables/" + deliverableId + "/confirmations", professor);
+
+        expectBadRequest(api.post("/confirmations/" + id + "/cancel", api.login("student01@example.com"), ""), "평가 단계에서는 조 운영과 과정 기록을 바꿀 수 없습니다");
+        TestApi.expectError(api.post("/confirmations/" + id + "/cancel", api.login("student02@example.com"), ""), 403, "FORBIDDEN");
+    }
+
     // 400 INVALID_INPUT이고 메시지가 같은지 확인합니다.
     private void expectBadRequest(ResultActions result, String message) throws Exception {
         TestApi.expectError(result, 400, "INVALID_INPUT");
@@ -229,6 +307,22 @@ class ConfirmationRuleTests {
         api.post("/contributions/" + id + "/report", api.login("student02@example.com"), "{ \"memo\": \"끝냈습니다\" }")
                 .andExpect(status().isOk());
         return id;
+    }
+
+    // student03이 맡아 완료 보고까지 한 항목의 번호를 돌려줍니다. student02가 확인할 수 있습니다.
+    private int reportedContributionByStudent03() throws Exception {
+        String body = "{ \"title\": \"자료 취합\", \"teamMemberId\": " + members.get(2).getId() + " }";
+        String created = api.post("/teams/" + teamId + "/contributions", api.login("student01@example.com"), body)
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        int id = JsonPath.read(created, "$.id");
+        api.post("/contributions/" + id + "/report", api.login("student03@example.com"), "{ \"memo\": \"끝냈습니다\" }")
+                .andExpect(status().isOk());
+        return id;
+    }
+
+    // 확인 요청이 성공했는지 보고 새 확인의 번호를 돌려줍니다.
+    private int confirmationId(ResultActions result) throws Exception {
+        return JsonPath.read(result.andExpect(status().isOk()).andReturn().getResponse().getContentAsString(), "$.id");
     }
 
     // 목록 맨 앞 줄의 번호를 돌려줍니다.

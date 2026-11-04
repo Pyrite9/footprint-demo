@@ -841,6 +841,27 @@ function handleConfirmContribution(req, res, loginMember, contributionId) {
   return saveConfirmation(db, res, confirmer, { contributionId })
 }
 
+// POST /confirmations/{confirmationId}/cancel: 확인한 조원 본인이 자기 확인을 취소합니다. 행은 취소 시각과 함께 남습니다.
+function handleCancelConfirmation(req, res, loginMember, confirmationId) {
+  const db = req.app.db
+  const confirmation = db.get('confirmations').find({ id: confirmationId }).value()
+  if (!confirmation) {
+    return sendError(res, 404, 'NOT_FOUND', '완료확인이 없습니다. id=' + confirmationId)
+  }
+  const confirmer = db.get('teamMembers').find({ id: confirmation.confirmerId }).value()
+  if (confirmer.memberId !== loginMember.id) {
+    return sendError(res, 403, 'FORBIDDEN', '확인한 조원만 취소할 수 있습니다')
+  }
+  const team = db.get('teams').find({ id: confirmer.teamId }).value()
+  if (!checkRecording(db, res, team)) return
+  if (confirmation.canceledAt !== null) {
+    return sendError(res, 400, 'INVALID_INPUT', '이미 취소한 확인입니다')
+  }
+
+  db.get('confirmations').find({ id: confirmationId }).assign({ canceledAt: nowLocalDateTime() }).write()
+  return res.json(toConfirmationResponse(db, db.get('confirmations').find({ id: confirmationId }).value()))
+}
+
 // 대상의 완료확인 이력을 최근 것부터 보냅니다. 취소된 확인도 빼지 않습니다.
 function sendConfirmations(db, res, target) {
   const confirmations = db.get('confirmations').filter(target).sortBy('id').reverse().value()
@@ -1110,6 +1131,13 @@ function handleRequest(req, res, next) {
       return handleConfirmContribution(req, res, loginMember, contributionId)
     }
     return handleGetContributionConfirmations(req, res, loginMember, contributionId)
+  }
+
+  const cancelConfirmationIdText = matchId(/^\/confirmations\/([^/]+)\/cancel$/, req.path)
+  if (req.method === 'POST' && cancelConfirmationIdText !== null) {
+    const confirmationId = parseIdOrSendError(res, cancelConfirmationIdText)
+    if (confirmationId === null) return
+    return handleCancelConfirmation(req, res, loginMember, confirmationId)
   }
 
   const leaderTeamIdText = matchId(/^\/teams\/([^/]+)\/leader$/, req.path)

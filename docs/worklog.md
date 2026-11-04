@@ -1422,7 +1422,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - `gradlew clean build` 성공. 테스트 94개, 실패 0(`ConfirmationRuleTests` 9개). `npm run build`, `npm run lint` 성공
   - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 88개, 확인 180개, 실패 0
   - 실제 백엔드와 가짜 API에 같은 요청 47개를 보내 응답과 오류 메시지가 같음을 비교함(저장소에 넣지 않은 임시 스크립트)
-  - 겹치는 요청 시험: 같은 조원이 같은 항목에 확인 두 개를 동시에 보내기를 20번 함. 매번 하나만 200이고 나머지는 409이며 유효한 확인은 하나임. 항목 쪽 잠금을 잠시 뺀 코드로 같은 시험을 하면 20번 모두 둘 다 200이고 유효한 확인이 둘 생김. 산출물 쪽은 같은 코드 모양이고 따로 겹침 시험을 하지 않음
+  - 겹치는 요청 시험: 같은 조원이 같은 항목에 확인 두 개를 동시에 보내기를 20번 함. 매번 하나만 200이고 나머지는 409이며 유효한 확인은 하나임. 항목 쪽 잠금을 잠시 뺀 코드로 같은 시험을 하면 20번 모두 둘 다 200이고 유효한 확인이 둘 생김. 산출물 쪽은 R-3-2 확인 때 시험함
   - 브라우저에서 실제 백엔드로 확인: 조원이 산출물과 보고된 항목의 이력을 열어 확인하면 맨 위에 더해지고 버튼이 사라짐. 올린 조원과 담당 조원, 교수에게는 완료확인 버튼이 없음. 다른 줄을 열면 이력이 바뀌고 패널은 하나만 열림. 삭제된 산출물은 이력만 보임. 취소된 항목과 보고 전 항목에는 이력 버튼이 없음. 평가 단계 조는 안내 문구와 시작 이력만 보임. 폭 375px에서 가로 스크롤 없음
   - `json-server --watch`는 `db.json`이 바뀌면 열린 연결을 끊음. 임시 비교 스크립트가 이 때문에 `ECONNRESET`으로 멈춰서 끊긴 요청만 다시 보내게 함. 앱 문제는 아님
   - rule-check: 금지 패턴 없음. 점수 계산, 건수 표시 없음. 새 클래스와 public 메서드에 주석 있음. 값을 바꾸는 `confirmDeliverable`, `confirmContribution`에 `@Transactional` 있음. 수정 필요 없음
@@ -1439,3 +1439,36 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 삭제된 산출물은 이력을 볼 수 있음. 취소된 항목에 확인할 수 없음은 `TODO.md`의 "보고된 기여 항목"에서 따름
   - 시작 데이터로 평가 단계 조에 완료확인 2건을 넣음
   - 화면 문구("완료확인 이력", "완료확인", "아직 완료확인이 없습니다.")와 오류 메시지는 내가 씀
+
+### R-3-2 완료확인 취소
+
+- 결정:
+  - `POST /confirmations/{confirmationId}/cancel`을 둠. `docs/api-draft.md` 예정 표의 주소 그대로임. body는 없음
+  - 검사 순서는 없음 404 → 확인한 조원 아니면 403 → 평가 단계 400 → 이미 취소 400임
+  - 다시 취소하면 400임. 기여 항목을 다시 취소할 때와 같음
+  - 다시 확인은 취소한 행을 되살리지 않고 새 행을 만듦. `TODO.md`의 "새 기록으로 남음"대로임
+  - 삭제된 산출물의 확인도 취소할 수 있음. 선택지: 막기. 내가 남긴 기록을 거두는 일이고 새로 확인하는 일이 아님. `TODO.md`는 "새로 완료확인할 수 없음"만 막음
+  - 취소 전 확인 창은 두지 않음. 잃는 것이 없고 다시 확인할 수 있음. 기여 항목 취소와 산출물 삭제는 되돌릴 수 없어서 확인 창이 있음
+  - 취소 뒤 평가 단계가 되면 다시 확인할 수 없음. 단계 규칙대로이고 화면에서 미리 막지 않음
+- 고친 파일:
+  - 백엔드: `entity/Confirmation`, `repository/ConfirmationRepository`, `service/ConfirmationService`, `service/TeamAccessChecker`, `controller/ConfirmationController`, 테스트 `ConfirmationRuleTests`
+  - 가짜 API: `frontend/mock/middleware.cjs`
+  - 화면: `api/confirmations.js`, `components/ConfirmationPanel.jsx`, `components/DeliverableList.jsx`, `components/ContributionList.jsx`, `pages/DeliverablesPage.jsx`, `pages/ContributionsPage.jsx`
+  - 문서: `docs/api-draft.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`
+- 확인:
+  - `gradlew clean build` 성공. 테스트 99개, 실패 0(`ConfirmationRuleTests`에 5개 더함). `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 95개, 확인 197개, 실패 0
+  - 실제 백엔드와 가짜 API에 같은 요청 66개를 보내 응답과 오류 메시지가 같음을 비교함(저장소에 넣지 않은 임시 스크립트)
+  - 겹치는 요청 시험(저장소에 넣지 않은 임시 스크립트): 같은 확인에 취소 두 개를 동시에 보내기 20번, 매번 하나만 200이고 나머지는 400임. 같은 산출물에 확인 두 개를 동시에 보내기 20번, 항목에 보내기 20번, 매번 하나만 200이고 유효한 확인은 하나임. 취소 쪽은 잠금을 뺀 코드와 비교하지 않음
+  - 브라우저에서 실제 백엔드로 확인: 내 유효한 확인 줄에만 "확인 취소"가 보임. 취소하면 그 줄이 "취소됨"과 취소 시각으로 바뀌고 "완료확인" 버튼이 다시 보임. 다시 확인하면 새 줄이 맨 위에 생기고 취소한 줄은 남음. 기여 항목 화면도 같음. 삭제된 산출물은 확인 취소만 되고 다시 확인 버튼은 없음. 보고 전 항목에는 이력 버튼이 없음. 평가 단계에서는 자기 확인에도 취소 버튼이 없음. 교수에게는 버튼 없이 취소된 줄까지 보임. 폭 375px에서 가로 스크롤 없음. 서버 오류 로그 없음
+  - rule-check: 금지 패턴 없음. 점수 계산, 건수 표시 없음. 새 public 메서드에 주석 있음. 값을 바꾸는 `cancel`에 `@Transactional` 있음. 수정 필요 없음
+- 읽을 때 볼 곳:
+  - `ConfirmationService.cancel`에 `save`가 없는 이유. `@Transactional` 안에서 찾은 Entity는 값만 바꿔도 커밋할 때 저장됨
+  - `ConfirmationPanel`의 `confirmation === myConfirmation`. 같은 배열에서 찾은 줄이라 객체 비교로 내 유효한 줄을 고름
+  - `DeliverableList`의 `canCancel={canConfirm}`. 줄마다 좁히기 전의 값이라 삭제된 산출물에서도 취소됨
+  - `ConfirmationRuleTests.confirmerCancelsAndConfirmsAgainAsNewRecord`. 번호가 다른 두 행이 남는지 봄
+- 내가 채운 가정:
+  - 다시 취소하면 400임
+  - 삭제된 산출물의 확인도 취소할 수 있음
+  - 취소 응답은 200으로 확인을 돌려줌
+  - "확인 취소" 버튼과 오류 메시지는 내가 씀

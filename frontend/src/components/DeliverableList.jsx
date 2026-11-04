@@ -3,8 +3,8 @@ import ConfirmationPanel from './ConfirmationPanel'
 // 조의 산출물 목록을 역할별로 묶어, 역할마다 최신순으로 그립니다. 데이터와 동작은 page에서 props로 받습니다.
 // 순번: 같은 역할의 산출물에 올린 조원과 관계없이 올린 순서대로 1, 2, 3…을 붙입니다. 삭제된 산출물도 세어서 순번이 끊기지 않습니다. 조회 수·다운로드 수는 없습니다.
 // 삭제 버튼은 canDelete(기록 단계)이고 내가 올린 산출물에만 보여 줍니다. 삭제된 산출물은 파일이 없어서 다운로드 버튼도 없습니다.
-// 완료확인 이력은 삭제된 산출물에도 남아서 모든 줄에서 열 수 있습니다. 새 확인은 canConfirm(기록 단계의 조원)이고 내가 올리지 않은, 삭제되지 않은 산출물에만 합니다.
-function DeliverableList({ deliverables, currentMemberId, canDelete, onDownload, onDelete, downloadingId, deleteDisabled, canConfirm, confirmationTargetId, confirmations, onOpenConfirmations, onCloseConfirmations, onConfirm, confirmationBusy }) {
+// 완료확인 이력은 삭제된 산출물에도 남아서 모든 줄에서 열 수 있습니다. 새 확인은 canConfirm(기록 단계의 조원)이고 내가 올리지 않은, 삭제되지 않은 산출물에만 합니다. 내 확인 취소는 삭제된 산출물에서도 합니다.
+function DeliverableList({ deliverables, currentMemberId, canDelete, onDownload, onDelete, downloadingId, deleteDisabled, canConfirm, confirmationTargetId, confirmations, onOpenConfirmations, onCloseConfirmations, onConfirm, onCancelConfirmation, confirmationBusy }) {
     if (deliverables.length === 0) {
         return <p>아직 올린 산출물이 없습니다.</p>
     }
@@ -48,7 +48,9 @@ function DeliverableList({ deliverables, currentMemberId, canDelete, onDownload,
                                 confirmations={confirmations}
                                 currentMemberId={currentMemberId}
                                 canConfirm={canConfirm && deliverable.deletedAt === null && deliverable.uploaderMemberId !== currentMemberId}
+                                canCancel={canConfirm}
                                 onConfirm={onConfirm}
+                                onCancel={onCancelConfirmation}
                                 onClose={onCloseConfirmations}
                                 busy={confirmationBusy}
                             />

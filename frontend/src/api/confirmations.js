@@ -19,3 +19,8 @@ export function confirmDeliverable(deliverableId) {
 export function confirmContribution(contributionId) {
   return request(`/contributions/${contributionId}/confirmations`, { method: 'POST' })
 }
+
+// 확인한 조원이 자기 확인을 취소하고, 취소 시각이 담긴 확인을 돌려줍니다.
+export function cancelConfirmation(confirmationId) {
+  return request(`/confirmations/${confirmationId}/cancel`, { method: 'POST' })
+}

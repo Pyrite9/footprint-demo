@@ -627,6 +627,25 @@ token
 | 404 | `NOT_FOUND` | 없는 항목일 때 |
 | 409 | `DUPLICATE` | 이 조원의 유효한 확인이 이미 있을 때 |
 
+### POST /confirmations/{confirmationId}/cancel — 완료확인 취소 (R-3-2) · 2026.11.04
+
+확인한 조원 본인이 기록 단계에서 자기 확인을 취소함. 요청 body는 없음. 취소 시각은 서버가 기록함
+
+200: 취소 시각이 담긴 확인. 모양은 완료확인 응답과 같음
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 400 | `INVALID_INPUT` | 주소의 번호가 숫자가 아닐 때, 평가 단계일 때, 이미 취소했을 때 |
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 403 | `FORBIDDEN` | 확인한 조원이 아닐 때(올린 조원, 조장, 교수 포함) |
+| 404 | `NOT_FOUND` | 없는 확인일 때 |
+
+서버 쪽 규칙
+- 이력에서 빠지지 않고 `canceledAt`이 채워짐
+- 취소한 뒤 다시 확인할 수 있고, 다시 한 확인은 새 번호의 새 기록임
+- 삭제된 산출물의 확인도 취소할 수 있음. 그 뒤 다시 확인하지는 못함
+- 취소 요청이 겹쳐도 행을 잠가 하나만 성공함
+
 ### GET /deliverables/{deliverableId}/confirmations — 산출물 완료확인 이력 (R-3-3) · 2026.11.04
 
 ### GET /contributions/{contributionId}/confirmations — 기여 항목 완료확인 이력 (R-3-3) · 2026.11.04
@@ -724,7 +743,6 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 8 | R-3-2 | `POST /confirmations/{confirmationId}/cancel` | 확인한 조원 |
 | 9 | E-2-2 | `GET /teams/{teamId}/evaluations/draft` | 조원 |
 | 9 | E-2-2 | `PUT /teams/{teamId}/evaluations/draft` | 조원 |
 | 10 | E-1-1 | `GET /teams/{teamId}/members/{teamMemberId}/evidence` | 조원(평가 단계), 교수 |

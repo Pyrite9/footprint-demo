@@ -1,6 +1,7 @@
 package com.footprint.backend.service;
 
 import com.footprint.backend.entity.Assignment;
+import com.footprint.backend.entity.Confirmation;
 import com.footprint.backend.entity.Contribution;
 import com.footprint.backend.entity.Deliverable;
 import com.footprint.backend.entity.Team;
@@ -67,6 +68,13 @@ public class TeamAccessChecker {
     public void checkAssignee(Contribution contribution, Long memberId) {
         if (!contribution.getAssignee().getMember().getId().equals(memberId)) {
             throw new ForbiddenException("담당 조원만 완료 보고할 수 있습니다");
+        }
+    }
+
+    // 이 완료확인을 한 회원인지 확인합니다. 아니면 ForbiddenException을 던집니다. 조장과 교수도 여기서는 막힙니다.
+    public void checkConfirmer(Confirmation confirmation, Long memberId) {
+        if (!confirmation.getConfirmer().getMember().getId().equals(memberId)) {
+            throw new ForbiddenException("확인한 조원만 취소할 수 있습니다");
         }
     }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { getMe } from '../api/auth'
-import { confirmContribution, getContributionConfirmations } from '../api/confirmations'
+import { cancelConfirmation, confirmContribution, getContributionConfirmations } from '../api/confirmations'
 import { cancelContribution, createContribution, getContributions, reportContribution } from '../api/contributions'
 import { getTeam, getTeamMembers } from '../api/teams'
 import ContributionCreateForm from '../components/ContributionCreateForm'
@@ -29,7 +29,7 @@ function ContributionsPage() {
     // 완료확인 이력을 열어 둔 항목의 번호입니다. 한 번에 하나만 열립니다.
     const [confirmationTargetId, setConfirmationTargetId] = useState(null)
     const [confirmations, setConfirmations] = useState([])
-    // 이력 불러오기와 완료확인은 서로 끝날 때까지 막습니다. 다른 줄의 이력이 열어 둔 줄에 섞이지 않게 합니다.
+    // 이력 불러오기, 완료확인, 확인 취소는 서로 끝날 때까지 막습니다. 다른 줄의 이력이 열어 둔 줄에 섞이지 않게 합니다.
     const [confirmationBusy, setConfirmationBusy] = useState(false)
 
     useEffect(() => {
@@ -140,6 +140,18 @@ function ContributionsPage() {
             .finally(() => setConfirmationBusy(false))
     }
 
+    // 내 확인을 취소합니다. 성공하면 그 줄만 서버가 돌려준 값으로 바꿉니다. 이력에서 빼지 않습니다.
+    function handleCancelConfirmation(target) {
+        setActionError(null)
+        setConfirmationBusy(true)
+        cancelConfirmation(target.id)
+            .then((updated) => {
+                setConfirmations(confirmations.map((confirmation) => (confirmation.id === updated.id ? updated : confirmation)))
+            })
+            .catch((err) => setActionError(err.message))
+            .finally(() => setConfirmationBusy(false))
+    }
+
     if (loading) return <main><p>불러오는 중...</p></main>
     if (error) {
         return (
@@ -196,6 +208,7 @@ function ContributionsPage() {
                 onOpenConfirmations={handleOpenConfirmations}
                 onCloseConfirmations={handleCloseConfirmations}
                 onConfirm={handleConfirm}
+                onCancelConfirmation={handleCancelConfirmation}
                 confirmationBusy={confirmationBusy}
             />
         </main>

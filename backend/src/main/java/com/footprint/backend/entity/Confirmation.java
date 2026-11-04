@@ -55,4 +55,14 @@ public class Confirmation {
         this.contribution = contribution;
         this.confirmedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
     }
+
+    // 취소했으면 true입니다.
+    public boolean isCanceled() {
+        return canceledAt != null;
+    }
+
+    // 취소 시각을 기록합니다. 행은 지우지 않습니다. 시각은 서버가 넣습니다.
+    public void cancel() {
+        this.canceledAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+    }
 }
