@@ -90,7 +90,7 @@ erDiagram
         Long assignee_id FK "담당 조원의 조 참여"
         String title "항목명 · 등록한 뒤 고치지 않음"
         LocalDateTime createdAt "등록 시각 · 서버가 기록"
-        String reportMemo "완료 보고 메모 · 보고 전에는 null"
+        String reportMemo "완료 보고 메모 · 최대 2000자 · 보고 전에는 null"
         LocalDateTime reportedAt "완료 보고 시각 · 서버가 기록. 보고 전에는 null"
         LocalDateTime canceledAt "취소 시각 · 서버가 기록. 취소 전에는 null"
     }
@@ -143,6 +143,6 @@ erDiagram
 - `DELIVERABLE.roleName`은 `TEAM_MEMBER.roleName`을 가리키지 않고 **값을 복사해 둔 것.** 나중에 역할이 바뀌어도 산출물 순번이 끊기지 않게 함
 - `ROLE_HISTORY`는 역할이 바뀔 때마다 한 줄 쌓임. 첫 지정은 이전 역할이 없어서 남기지 않음. 만든 뒤에는 고치거나 지우지 않음
 - `LEADER_HISTORY`는 조장이 바뀔 때마다 한 줄 쌓임. 만든 뒤에는 고치거나 지우지 않음
-- 조장이 조마다 한 명인 것은 DB 제약이 아니라 `TeamService`가 지킴. 조장 교체와 역할 지정·변경이 같은 조 행을 잠가 차례로 처리함. 그래서 역할 저장이 옛 `leader` 값을 덮어쓰지 않고, 같은 이전 역할이 이력에 두 줄 남지 않음
+- 조장이 조마다 한 명인 것은 DB 제약이 아니라 Service가 지킴. 첫 조장은 과제를 만들 때 `AssignmentService`가 조마다 한 명 넣고, 교체는 `TeamService`가 함. 조장 교체와 역할 지정·변경이 같은 조 행을 잠가 차례로 처리함. 그래서 역할 저장이 옛 `leader` 값을 덮어쓰지 않고, 같은 이전 역할이 이력에 두 줄 남지 않음
 - 점수 열은 6개 그대로 저장함. 합계·평균 열은 두지 않음
 - 기록 시각(`evaluationStartedAt`, `roleAssignedAt`, `previousRoleAssignedAt`, `changedAt`, `uploadedAt`, `deletedAt`, `createdAt`, `reportedAt`, `canceledAt`, `confirmedAt`, `submittedAt`, `savedAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음

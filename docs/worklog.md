@@ -1860,3 +1860,12 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 내가 채운 가정:
   - 대화에서 관리자가 방금 한 결정은 문서가 아니라서 기존 코드보다 앞선다고 적음
   - 맨 끝 규칙에 절 제목을 달지 않음. "실행 환경" 절 아래에 있음
+
+## 2026.11.10 ERD 검수와 문구 보강
+- 결정:
+  - `docs/erd.md`를 Entity 코드, Service의 잠금, 다른 문서와 대조함. 열 75개, 관계선 19개, unique 3개에서 어긋난 곳은 없었음
+  - 조장 한 명 서술에 첫 조장을 넣는 곳(`AssignmentService`)을 더함. `TeamService`만 적혀 있었고 그쪽은 교체와 합류만 맡음
+  - `CONTRIBUTION.reportMemo` 비고에 "최대 2000자"를 더함. `Contribution`의 `@Column(length = 2000)`과 `api-draft.md`에 맞춤
+  - A-1a 항목의 옛 unique 서술은 2026.10.29까지의 기록이라 그대로 둠
+- 고친 파일: `docs/erd.md`, `docs/worklog.md`
+- 확인: 문서 변경뿐이라 빌드와 테스트는 돌리지 않음. Mermaid가 GitHub에서 그려지는지와 실제 데이터베이스 스키마는 보지 않음
