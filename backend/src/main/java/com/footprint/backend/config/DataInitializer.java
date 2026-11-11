@@ -34,6 +34,10 @@ public class DataInitializer implements CommandLineRunner {
     // 시작 계정 전원이 같은 비밀번호를 씁니다. 개발용입니다.
     private static final String DEV_PASSWORD = "pass1234";
 
+    // 개인정보 고지에 아직 동의하지 않은 시작 계정입니다(X-2). 고지 화면을 시작 계정으로 시험할 때 씁니다.
+    // 나머지 시작 계정은 로그인할 때마다 고지 화면을 거치지 않도록 동의한 상태로 넣습니다.
+    private static final String PRIVACY_PENDING_EMAIL = "student10@example.com";
+
     private final MemberRepository memberRepository;
     private final AssignmentRepository assignmentRepository;
     private final TeamRepository teamRepository;
@@ -62,7 +66,7 @@ public class DataInitializer implements CommandLineRunner {
         this.notificationService = notificationService;
     }
 
-    // MinIO 버킷을 준비하고, 회원 11명과 과제 2개(기록 단계, 평가 단계), 조 3개, 산출물 3건, 기여 항목 2건, 완료확인 2건,
+    // MinIO 버킷을 준비하고, 회원 11명(임지아만 개인정보 고지 동의 전)과 과제 2개(기록 단계, 평가 단계), 조 3개, 산출물 3건, 기여 항목 2건, 완료확인 2건,
     // 그 기록에서 생겼을 알림을 저장합니다.
     @Override
     public void run(String... args) {
@@ -123,9 +127,13 @@ public class DataInitializer implements CommandLineRunner {
         notificationService.notifyEvaluationStarted(evaluationAssignment);
     }
 
-    // 비밀번호를 BCrypt로 바꿔서 회원을 저장합니다.
+    // 비밀번호를 BCrypt로 바꿔서 회원을 저장합니다. PRIVACY_PENDING_EMAIL이 아니면 개인정보 고지에 동의한 상태로 저장합니다.
     private Member saveMember(String email, String name, MemberType memberType) {
-        return memberRepository.save(new Member(email, passwordEncoder.encode(DEV_PASSWORD), name, memberType));
+        Member member = new Member(email, passwordEncoder.encode(DEV_PASSWORD), name, memberType);
+        if (!email.equals(PRIVACY_PENDING_EMAIL)) {
+            member.consentToPrivacy();
+        }
+        return memberRepository.save(member);
     }
 
     // 조를 초대 코드와 함께 저장하고 조원을 역할과 함께 등록합니다. members와 roleNames는 같은 순서로 짝을 이룹니다.

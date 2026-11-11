@@ -4,6 +4,7 @@ import com.footprint.backend.dto.MemberResponse;
 import com.footprint.backend.service.MemberService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,5 +24,12 @@ public class MemberController {
     @GetMapping("/me")
     public MemberResponse me(@AuthenticationPrincipal Long memberId) {
         return MemberResponse.from(memberService.findById(memberId));
+    }
+
+    // 로그인한 회원 본인이 개인정보 고지에 동의하고, 동의 시각이 담긴 내 정보를 돌려줍니다.
+    // 요청 body를 받지 않습니다(@RequestBody 없음). 그래서 클라이언트가 시각을 보내도 읽지 않습니다.
+    @PostMapping("/me/privacy-consent")
+    public MemberResponse consentToPrivacy(@AuthenticationPrincipal Long memberId) {
+        return MemberResponse.from(memberService.consentToPrivacy(memberId));
     }
 }

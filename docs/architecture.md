@@ -135,7 +135,8 @@ sequenceDiagram
 flowchart TB
     main["main.jsx"] --> app["App.jsx<br/>주소와 화면 짝 짓기"]
     app --> require["components/RequireLogin.jsx<br/>token 없으면 /login으로"]
-    require --> layout["pages/AppLayout.jsx<br/>과제 레일 · 메뉴 · Outlet"]
+    require --> consent["pages/RequirePrivacyConsent.jsx<br/>고지 동의 전이면 /privacy로"]
+    consent --> layout["pages/AppLayout.jsx<br/>과제 레일 · 메뉴 · Outlet"]
     layout --> page["pages/TeamMembersPage.jsx<br/>데이터 불러오기 · loading · error state"]
 
     page --> comp1["components/TeamMemberList.jsx"]
@@ -158,8 +159,10 @@ flowchart TB
 - `fetch`는 `src/api/` 밖에 쓰지 않음. 모든 호출이 `client.js` 한 곳을 거침
 - `client.js`는 실패하면 `status`와 `code`를 담은 오류를 던짐. page의 `.catch`가 그것을 받아 `error` state에 넣음
 - 비동기는 `.then` 방식으로 통일. `async`/`await`를 섞지 않음
+- 개인정보 고지에 동의하기 전에는 `RequirePrivacyConsent.jsx`가 `getMe`의 `privacyConsentedAt`을 보고 `/privacy`(`PrivacyNoticePage.jsx`)로 보냄. 서버는 동의 전 요청을 막지 않음(X-2). 내 정보를 불러오고 state를 가지므로 `RequireLogin.jsx`와 달리 `pages/`에 둠
 - 화면을 하나 더할 때 손대는 곳: `App.jsx`에 `Route` 한 줄, `pages/`에 page 하나, 필요하면 `api/`에 함수 하나
 - `src/constants/`는 화면에 그대로 쓰는 고정 문장. 동료평가 6개 항목과 점수 기준(`peerEvaluation.js`)이 여기 있고 **고치지 않음**
+- 개인정보 고지 문구와 보관 기간(`privacyNotice.js`)은 학교·담당 교수 확인 전 초안임. 확인 뒤 이 파일만 고침
 
 ## 4. 백엔드 구조
 

@@ -101,7 +101,7 @@ token
 
 200
 ```json
-{ "id": 2, "email": "student01@example.com", "name": "김민준", "memberType": "STUDENT" }
+{ "id": 2, "email": "student01@example.com", "name": "김민준", "memberType": "STUDENT", "privacyConsentedAt": "2026-11-12T09:00:00" }
 ```
 
 | 상태 | code | 언제 |
@@ -111,6 +111,28 @@ token
 
 서버 쪽 규칙
 - Controller는 로그인한 회원을 `@AuthenticationPrincipal Long memberId`로 받음(2026.10.25 결정). 회원 유형이 필요하면 Service가 DB에서 읽음
+- `privacyConsentedAt`(X-2, 2026.11.12): 개인정보 고지에 동의한 시각. 동의 전은 `null`. 화면은 이 값이 `null`이면 고지 화면으로 보냄
+
+### POST /members/me/privacy-consent — 개인정보 고지 동의 (X-2) · 2026.11.12
+
+로그인한 회원 본인이 개인정보 고지에 동의함. 요청 body는 없음
+
+200: 동의 시각이 담긴 내 정보. 모양은 `GET /members/me`와 같음
+```json
+{ "id": 2, "email": "student01@example.com", "name": "김민준", "memberType": "STUDENT", "privacyConsentedAt": "2026-11-12T09:00:00" }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | token이 없거나, 서명이 틀렸거나, 만료됐을 때 |
+| 404 | `NOT_FOUND` | token의 회원 id가 DB에 없을 때. 가짜 API는 이때 401임 |
+
+서버 쪽 규칙
+- 동의 시각은 서버가 저장함. body에 시각을 보내도 읽지 않음
+- 이미 동의한 회원이 다시 부르면 200이고, 처음 동의한 시각을 그대로 둠(알림 읽음 표시와 같은 방식)
+- 동의하지 않는 API는 없음. 동의를 거두거나 회원을 지우는 기능은 없음(회원 탈퇴는 `TODO.md` 2절 "명세 규칙을 바꿔야 하는 것")
+- 동의 전 회원의 다른 요청을 서버가 거부하지 않음. 동의 전에 다른 화면으로 가지 못하게 막는 것은 화면이 함(`docs/worklog.md` 2026.11.12 X-2 "결정")
+- 고지 문구는 서버에 없고 화면의 `frontend/src/constants/privacyNotice.js`에 있음. 문구의 판(버전)은 저장하지 않음
 
 ---
 
@@ -1062,11 +1084,9 @@ token
 
 | 순서 | ID | method 주소 | 누가 |
 |---|---|---|---|
-| 18 | X-2 | `POST /members/me/privacy-consent` | 회원 |
 | 20 | O-8 | `GET /actuator/health` | token 없이 |
 
 이미 있는 API의 응답이 바뀌는 곳
 
 - 새로 만드는 조 운영·과정 기록 쓰기 요청도 평가 단계에서 400 `INVALID_INPUT`
-- 내 정보(`GET /members/me`)에 `privacyConsentedAt` 추가(X-2)
 - 어떤 응답에도 합계, 평균, 순위, 진척률, 근거 패널의 건수를 넣지 않음

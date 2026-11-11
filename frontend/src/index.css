@@ -472,7 +472,7 @@ code {
   font-weight: 600;
 }
 
-/* 화면 전체에 걸린 안내 띠입니다. errband는 오류, lockband는 평가 단계 안내입니다. */
+/* 화면 전체에 걸린 안내 띠입니다. errband는 오류, lockband는 평가 단계 안내와 개인정보 고지의 초안 표시입니다. */
 .errband,
 .lockband {
   padding: 9px 20px;
@@ -1594,6 +1594,30 @@ textarea.input {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+/* 개인정보 고지 화면입니다. 합류 화면의 상자를 쓰되 글이 길어서 더 넓게 둡니다. */
+.notice-box {
+  max-width: 680px;
+}
+
+.notice-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.notice-section h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.notice-section ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 20px;
+  list-style: disc;
 }
 
 /* 진척 화면입니다. 줄의 왼쪽 끝이 과제 시작일, 오른쪽 끝이 종료일입니다. */

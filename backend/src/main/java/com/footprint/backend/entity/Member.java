@@ -5,6 +5,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+
 // member 테이블과 대응합니다. 교수와 학생 모두 회원입니다.
 @Entity
 @Getter
@@ -31,6 +34,9 @@ public class Member {
     @Column(nullable = false)
     private MemberType memberType;
 
+    // 개인정보 고지에 동의한 시각입니다(X-2). 서버가 기록합니다. 동의 전에는 null입니다.
+    private LocalDateTime privacyConsentedAt;
+
     public Member(String email, String password, String name, MemberType memberType) {
         this.email = email;
         this.password = password;
@@ -41,5 +47,15 @@ public class Member {
     // 회원 유형을 교수로 바꿉니다(X-1). 교수 목록에 있는 학생이 구글 로그인할 때 AuthService가 부릅니다.
     public void promoteToProfessor() {
         this.memberType = MemberType.PROFESSOR;
+    }
+
+    // 개인정보 고지에 동의했으면 true입니다.
+    public boolean hasConsentedToPrivacy() {
+        return privacyConsentedAt != null;
+    }
+
+    // 개인정보 고지에 동의한 시각을 기록합니다. 시각은 서버가 넣습니다.
+    public void consentToPrivacy() {
+        this.privacyConsentedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
     }
 }

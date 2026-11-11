@@ -3,7 +3,7 @@
 엔티티와 연결, 제약을 코드 없이 한눈에 보는 문서. GitHub가 Mermaid를 바로 그려 줌
 
 - 기준은 `backend/src/main/java/com/footprint/backend/entity/`. Entity 필드를 바꾸면 이 문서도 같은 작업 안에서 고칠 것
-- 실행 구성과 요청의 길은 `architecture.md`, 아직 없는 열(`Member.privacyConsentedAt`)은 `../TODO.md` "늘어나는 데이터"
+- 실행 구성과 요청의 길은 `architecture.md`
 
 엔티티 12개. 산출물과 평가, 기여 항목의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴. 알림만 회원을 가리킴.
 
@@ -37,6 +37,7 @@ erDiagram
         String password "BCrypt로 바꾼 값 · 구글 회원은 null"
         String name "화면에 보이는 이름"
         MemberType memberType "PROFESSOR 교수 · STUDENT 학생 · 교수만 과제 생성, 학생만 조 합류"
+        LocalDateTime privacyConsentedAt "개인정보 고지에 동의한 시각 · 서버가 기록 · 동의 전에는 null"
     }
     ASSIGNMENT {
         Long id PK "과제 번호"

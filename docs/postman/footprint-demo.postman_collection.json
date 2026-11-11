@@ -171,7 +171,7 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/members/me",
-            "description": "token으로 내 정보를 받습니다. 회원 유형이 들어 있습니다.",
+            "description": "token으로 내 정보를 받습니다. 회원 유형과 개인정보 고지 동의 시각이 들어 있습니다.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -190,7 +190,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 응답', () => pm.response.to.have.status(200));",
-                  "pm.test('회원 유형이 PROFESSOR', () => pm.expect(pm.response.json().memberType).to.eql('PROFESSOR'));"
+                  "pm.test('회원 유형이 PROFESSOR', () => pm.expect(pm.response.json().memberType).to.eql('PROFESSOR'));",
+                  "pm.test('시작 계정의 교수는 고지에 동의한 상태', () => pm.expect(pm.response.json().privacyConsentedAt).to.be.a('string'));"
                 ]
               }
             }
@@ -5068,6 +5069,188 @@
           ]
         }
       ]
+    },
+    {
+      "name": "8. 개인정보 고지 동의 (X-2)",
+      "description": "고지에 동의하기 전인 시작 계정(student10)으로 동의 시각이 서버 시각으로 저장되는 것을 봅니다. 다시 실행하면 이미 동의한 상태라 처음 시각이 그대로 돌아옵니다.",
+      "item": [
+        {
+          "name": "동의 전 조원 로그인 (student10)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "description": "시작 데이터에서 개인정보 고지에 아직 동의하지 않은 조원(임지아)입니다.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student10@example.com\",\n  \"password\": \"pass1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "// 받은 token을 모음 변수에 저장합니다. 이 폴더의 요청이 {{pendingToken}}으로 씁니다.",
+                  "pm.collectionVariables.set('pendingToken', pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "내 정보 - 동의 시각 칸 (동의 전 조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/members/me",
+            "description": "동의 전이면 privacyConsentedAt이 null입니다. 이 폴더를 이미 실행했으면 처음 동의한 시각입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pendingToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('privacyConsentedAt 칸이 있음', () => pm.expect(pm.response.json()).to.have.property('privacyConsentedAt'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "고지 동의 - 보낸 시각은 받지 않음 (동의 전 조원)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/members/me/privacy-consent",
+            "description": "body에 시각을 보내도 서버는 읽지 않고 자기 시각을 저장합니다. 응답은 내 정보와 같은 모양입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pendingToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"privacyConsentedAt\": \"2000-01-01T00:00:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "const me = pm.response.json();",
+                  "pm.test('내 정보와 같은 모양', () => pm.expect(Object.keys(me)).to.eql(['id', 'email', 'name', 'memberType', 'privacyConsentedAt']));",
+                  "pm.test('동의 시각이 서버 시각', () => {",
+                  "  pm.expect(me.privacyConsentedAt).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$/);",
+                  "  pm.expect(me.privacyConsentedAt).to.not.eql('2000-01-01T00:00:00');",
+                  "});",
+                  "pm.collectionVariables.set('privacyConsentedAt', me.privacyConsentedAt);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다시 동의해도 처음 시각 (동의 전 조원)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/members/me/privacy-consent",
+            "description": "이미 동의한 회원이 다시 불러도 200이고 처음 동의한 시각이 그대로입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{pendingToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('처음 시각 그대로', () => pm.expect(pm.response.json().privacyConsentedAt).to.eql(pm.collectionVariables.get('privacyConsentedAt')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "token 없이 동의하면 401",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/members/me/privacy-consent",
+            "description": "로그인하지 않으면 동의할 수 없습니다.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 응답', () => pm.response.to.have.status(401));",
+                  "pm.test('code UNAUTHORIZED', () => pm.expect(pm.response.json().code).to.eql('UNAUTHORIZED'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -5134,6 +5317,14 @@
     },
     {
       "key": "notificationReadAt",
+      "value": ""
+    },
+    {
+      "key": "pendingToken",
+      "value": ""
+    },
+    {
+      "key": "privacyConsentedAt",
       "value": ""
     }
   ]

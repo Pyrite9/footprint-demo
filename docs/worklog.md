@@ -2074,3 +2074,60 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 바뀐 시각과 이력은 남기지 않음
   - 새로 만드는 회원은 지금처럼 목록대로 바로 교수로 만듦(만든 뒤 올리는 두 단계로 바꾸지 않음)
   - 이미 있는 회원의 이메일 찾기(`findByEmail`)는 대소문자를 가림(기존 동작). 목록 비교만 대소문자를 무시함
+
+## 2026.11.12 X-2 개인정보 고지와 동의
+- 결정:
+  - TODO.md 3절의 "개인정보 고지 문구와 보관 기간"은 관리자가 조율 세션에서 **"초안으로 진행"**으로 정함(2026.11.12). 동의 구조(화면, 동의 시각, API)는 지금 만들고, 문구와 보관 기간은 `frontend/src/constants/privacyNotice.js` 한 파일에 "확인 전 초안"으로 모음. **학교·담당 교수 확인 전 초안. 확인 뒤 이 파일만 고침**
+  - API: `POST /members/me/privacy-consent`(회원 본인, body 없음, 응답은 `GET /members/me`와 같은 모양). `GET /members/me`에 `privacyConsentedAt` 추가(동의 전 `null`). 주소에 회원 번호가 없어서 남의 동의를 기록할 길이 없음
+  - **이미 동의한 회원이 다시 부르면 200이고 처음 시각을 둠**
+    - 선택지 A 200·처음 시각 유지(고름): 알림 읽음 표시(X-6)와 같은 방식. 두 탭에서 동의하거나 버튼을 두 번 눌러도 화면이 오류를 띄우지 않음. 동의 시각은 "처음 동의한 때"의 기록이라 덮어쓰지 않음
+    - 선택지 B 409 `DUPLICATE`: 평가 제출·완료 보고처럼 "한 번만"을 오류로 알림. 하지만 동의는 같은 내용을 다시 하는 것이라 거절할 이유가 약하고, 화면이 409를 따로 처리해야 함
+  - **"동의 전에는 다른 화면으로 가지 못함"은 화면에서만 막음. 서버는 동의 전 요청을 거부하지 않음**
+    - 선택지 A 화면만(고름): `RequirePrivacyConsent`(page)가 `getMe`의 `privacyConsentedAt`을 보고 `/privacy`로 보냄. 비용은 화면 파일 2개와 `App.jsx` Route 한 겹. 기존 테스트 169개, Postman 모음, 가짜 API의 다른 주소는 그대로 동작함. TODO.md 규칙의 문장도 "다른 화면으로 가지 못함"임
+    - 선택지 B 서버도 막음: 권한 검사를 Service의 보이는 메서드 호출로 둬야 해서(AOP·숨은 필터 금지) 로그인·내 정보·동의를 뺀 API 38개가 부르는 Service 메서드마다 `memberConsentChecker.checkConsented(memberId)`를 더해야 함. 응답 code는 새로 만들 수 없어 403 `FORBIDDEN`을 써야 하는데 "다른 조의 기록" 403과 섞임. 가짜 API의 모든 handle 함수에도 같은 검사를 넣어야 함. 동의 전 회원으로 로그인하는 테스트가 없어 기존 테스트는 깨지지 않지만 새 테스트가 Service마다 필요함
+    - 선택지 C `JwtAuthenticationFilter`에서 막음: 한 곳이지만 "숨은 필터"라서 CLAUDE.md "금지"(AOP·커스텀 어노테이션으로 숨기는 권한 검사)의 취지에 걸림. 필터가 매 요청 DB를 읽게 됨
+    - 동의는 고지를 읽었다는 확인이고, 조의 기록을 볼 권한은 이미 조원·교수 검사가 막음. API를 직접 부르는 사람(Postman)은 화면의 고지를 보지 않는 개발자라 서버에서 막아 얻는 것이 작음. 서버가 막지 않는다는 것은 `PrivacyConsentRuleTests.serverDoesNotBlockBeforeConsent`와 `docs/api-draft.md`에 적어 둠
+  - 화면 구조: `RequireLogin`(token) 안쪽에 `RequirePrivacyConsent`를 한 겹 더 둠. `/privacy`는 동의 전에도 열려야 해서 `RequireLogin` 안, `RequirePrivacyConsent` 바깥. 초대 링크(`/join/:inviteCode`)도 동의 전에는 막힘. `state.from`으로 원래 주소를 넘겨 동의 뒤 그곳으로 감(로그인 → 고지 → 동의 → 원래 주소). `RequirePrivacyConsent`는 데이터를 불러오고 state를 가져서 `components`가 아니라 `pages`에 둠(`AppLayout`과 같은 이유)
+  - 동의하지 않는 길: "동의하지 않고 로그아웃" 버튼 하나. 동의 거부를 서버에 기록하지 않음
+  - **화면에 초안 표시를 넣음**: 고지 맨 위에 `lockband` 띠로 "학교·담당 교수의 확인을 받기 전 초안" 문구. 실제 학생이 보고 확정된 안내로 오해하지 않게 함. 확인이 끝나면 `PRIVACY_NOTICE_DRAFT_BANNER`를 `null`로 바꾸면 띠가 사라짐
+  - 초안 문구: 저장하는 것은 `backend/.../entity`의 칸을 보고 적음(회원의 이메일·이름·유형·동의 시각, 조 참여와 역할·역할 이력·조장 이력, 산출물의 파일 내용·이름·크기·시각·역할명, 기여 항목과 보고 메모, 완료확인, 동료평가 점수·의견·제출 시각과 임시 저장, 알림). 받지 않는 것(비밀번호, 학번, 전화번호, 프로필 사진)과 브라우저에 남는 것(sessionStorage의 token, localStorage의 테마)도 적음. 누가 보는지는 접근 범위 규칙(같은 조 조원, 과제를 만든 교수, 평가 결과는 교수만, 임시 저장·알림은 본인만, 초대 링크 미리보기의 조장 이름)대로 적음. 학교·교수가 승인했다는 표현과 법 조항을 근거로 단정하는 표현은 넣지 않음
+  - 보관 기간 초안: "과제가 속한 학기의 성적 처리와 이의 신청 기간이 끝날 때까지". 지금은 자동 삭제와 탈퇴 기능이 없다는 사실을 그대로 적고, 지우는 방법은 확인 뒤 정한다고 적음
+  - **고지의 판(버전)은 이번 범위에 넣지 않음**
+    - 선택지 A 넣지 않음(고름): 문구가 확인 뒤 한 번 바뀔 것이 확실한데, 그때 다시 동의를 받을지는 학교·교수 확인과 함께 정할 일임. 넣으면 `Member`에 판 번호 칸, 상수 파일에 판 번호, 비교 규칙이 더해짐
+    - 선택지 B `privacyNoticeVersion` 칸을 더하고 화면이 상수의 판과 다르면 다시 고지: 칸 하나와 API 요청 body(판 번호)가 생김. "클라이언트가 보낸 값"을 받는 첫 동의 API가 되어 검증 규칙도 정해야 함
+    - 확정 문구로 바꿀 때 이미 동의한 회원에게 다시 받아야 하면 B를 그때 더함. 데모는 서버를 켤 때마다 데이터베이스를 새로 만들어서(`ddl-auto: create`) 지금은 문제가 드러나지 않음
+  - 시작 데이터: 임지아(student10)만 동의 전, 나머지 10명은 동의한 상태(`DataInitializer.saveMember`, `db.json`). 모두 동의 전이면 시연과 조원 개발 때 계정마다 고지 화면을 거쳐야 하고, 모두 동의하면 시작 계정으로 고지 화면을 시험할 길이 없음. 임지아는 2조의 일반 조원이라 다른 흐름(조장, 평가 단계 과제, 알림 테스트)에 쓰이지 않음. 서버는 동의 전 요청을 막지 않으므로 기존 테스트·Postman 모음에 영향 없음. 시작 데이터의 동의 시각은 실제 백엔드가 켤 때의 서버 시각, 가짜 API는 `2026-10-25T09:00:00`(다른 시작 시각과 같은 값)
+  - 회원 탈퇴, 동의 철회, 기록 삭제는 TODO.md 2절 "명세 규칙을 바꿔야 하는 것"이라 만들지 않음
+  - 프론트엔드 웹 가이드(`modern-web-guidance`): `privacy`, `accessibility`, `content-first-noise-reduction`을 찾아봄
+    - `privacy`: "DON'T use deceptive patterns (dark patterns) to trick users into giving consent" → 동의와 로그아웃을 같은 크기 버튼으로 나란히 두고 미리 체크된 칸을 두지 않음. "DON'T bury data collection explanations in long, complex privacy policies" → 구역 4개(저장하는 것, 쓰는 목적, 누가 보는지, 보관 기간)의 짧은 목록으로 씀
+    - `accessibility`: 제목은 h1 하나와 h2(구역), 항목은 `ul`. 불러오는 중 표시는 live region이 아니라 `<progress>`("Don't use live regions for interstitial states like Loading…")로 둠. 기존 화면은 `aria-busy` 상자와 글자를 씀(이번 단위에서 만든 두 화면에만 적용). 오류는 기존처럼 `role="alert"`
+    - `content-first-noise-reduction`: 페이지가 열릴 때 막는 화면은 줄이라는 가이드지만, 고지 동의는 관리자가 정한 필수 단계(TODO.md "동의 전에는 다른 화면으로 가지 못함")라서 모달이 아니라 전체 화면 page로 둠
+- 만든 파일:
+  - 백엔드: 테스트 `PrivacyConsentRuleTests`(7개)
+  - 화면: `frontend/src/pages/PrivacyNoticePage.jsx`, `frontend/src/pages/RequirePrivacyConsent.jsx`, `frontend/src/constants/privacyNotice.js`
+- 고친 파일:
+  - 백엔드: `entity/Member`(`privacyConsentedAt`, `hasConsentedToPrivacy`, `consentToPrivacy`), `service/MemberService`(`consentToPrivacy`), `controller/MemberController`(`POST /members/me/privacy-consent`), `dto/MemberResponse`(`privacyConsentedAt`), `config/DataInitializer`(`PRIVACY_PENDING_EMAIL`)
+  - 가짜 API: `frontend/mock/middleware.cjs`(`toMemberResponse`, `handleConsentToPrivacy`, 구글 로그인의 새 회원), `frontend/db.json`(회원 11명에 `privacyConsentedAt`)
+  - 화면: `frontend/src/App.jsx`(`/privacy`, `RequirePrivacyConsent` Route), `frontend/src/api/auth.js`(`consentToPrivacy`), `frontend/src/index.css`(`.notice-box`, `.notice-section`)
+  - Postman: 모음에 "8. 개인정보 고지 동의 (X-2)" 폴더(요청 5개)와 "내 정보 (교수)"의 동의 시각 test, `docs/postman/README.md`
+  - 문서: `docs/api-draft.md`, `CLAUDE.md`(업무 규칙의 기록 시각과 개인정보 고지), `TODO.md`(순서 18, 단위별 규칙, 늘어나는 데이터, 2절 회원 탈퇴, 3절), `README.md`, `backend/README.md`(시작 계정), `frontend/README.md`(가짜 API), `docs/erd.md`(`MEMBER`), `docs/architecture.md`(프론트엔드 구조 그림과 설명)
+- 확인:
+  - `gradlew.bat build` 성공. 테스트 22개 클래스 169개, 실패 0(`PrivacyConsentRuleTests` 7개 더함): 동의 전 `null`과 시작 계정의 동의 시각 / 동의하면 서버 시각이 저장되고 `GET /members/me`에도 같은 시각 / body로 보낸 2000년 시각은 무시 / 다시 동의해도 처음 시각(1.1초 기다린 뒤 비교) / 다른 회원의 동의 시각은 그대로 / token 없음 401 / 동의 전에도 `GET /assignments` 200(서버는 막지 않음)
+  - `npm run build`, `npm run lint` 성공
+  - Newman: 실제 백엔드(새로 켠 서버)와 가짜 API 모두 요청 146개, assertion 341개, 실패 0. 실행 뒤 `frontend/db.json`을 되돌림
+  - 브라우저(가짜 API, 실제 백엔드 각각): 로그아웃 상태로 `/join/demo-team-2` → `/login` → student10 로그인 → `/privacy`(초안 띠, h1 하나와 h2 4개) → "동의합니다" → `/join/demo-team-2` 미리보기. 가짜 API에서는 동의 전에 `/teams/2`를 직접 열어도 `/privacy`로 가고 동의 뒤 `/teams/2`로 돌아옴. 동의한 뒤 `/privacy`를 열면 동의 시각과 "돌아가기"만 보임. 375px 폭에서 가로 스크롤 없음
+  - rule-check: 금지 패턴 없음(`@Autowired`는 다른 테스트와 같은 생성자 주입). 값을 바꾸는 `consentToPrivacy`에 `@Transactional` 있음. 클라이언트 시각을 받지 않음(`@RequestBody` 없음). 새 클래스·메서드에 주석 있음. 실제 API와 가짜 API 응답 모양 같음(칸 순서까지). 고칠 것 없었음
+- 읽을 때 볼 곳:
+  - `MemberService.consentToPrivacy`에 `save`가 없는 이유: `@Transactional` 안에서 읽은 Entity의 값이 바뀌면 트랜잭션이 끝날 때 JPA가 UPDATE 함(변경 감지). X-1의 `promoteIfListed`와 같음
+  - `MemberController.consentToPrivacy`에 `@RequestBody`가 없음. 그래서 body에 무엇을 보내도 서버가 읽지 않음
+  - `App.jsx`의 Route 겹침: `RequireLogin` → (`/privacy` | `RequirePrivacyConsent` → (`/join` | `AppLayout` → 화면)). `/privacy`가 `RequirePrivacyConsent` 바깥에 있어야 동의 전에도 열림. 안에 넣으면 `/privacy`로 보내고 다시 `/privacy`로 보내는 무한 반복이 됨
+  - `RequirePrivacyConsent`는 들어올 때 한 번만 `getMe`를 부름. 안쪽 화면끼리 옮겨 다닐 때는 다시 만들어지지 않음. 고지 화면에서 동의하고 돌아오면 바깥(`/privacy`)에서 들어오는 것이라 새로 만들어지며 다시 불러옴
+  - `<progress>`에 `value`가 없으면 "끝을 모르는 진행 막대"로 그려짐
+- 내가 채운 가정:
+  - 다시 동의하면 200·처음 시각 유지(409 아님)
+  - 서버는 동의 전 요청을 막지 않음(화면만 막음)
+  - 고지의 판(버전)은 저장하지 않음. 문구가 바뀌어도 이미 동의한 회원에게 다시 묻지 않음
+  - 화면에 초안 표시 띠를 둠
+  - 시작 데이터는 임지아(student10)만 동의 전
+  - 초안 문구의 보관 기간("학기의 성적 처리와 이의 신청 기간이 끝날 때까지")과 "광고나 다른 서비스에 쓰지 않고 서비스 밖으로 보내지 않음", "궁금한 점은 담당 교수에게 문의" 문장. 모두 학교·담당 교수 확인 대상
+  - 이미 동의한 회원이 고지를 다시 볼 메뉴 링크는 두지 않음. 주소 `/privacy`로는 열림

@@ -227,6 +227,8 @@ function handleGoogleLogin(req, res) {
       password: null,
       name: payload.name ?? payload.email,
       memberType: PROFESSOR_EMAILS.includes(payload.email.toLowerCase()) ? 'PROFESSOR' : 'STUDENT',
+      // 처음 온 회원은 개인정보 고지에 동의하기 전입니다. 화면이 고지 화면으로 보냅니다.
+      privacyConsentedAt: null,
     }
     db.get('members').push(member).write()
   }
@@ -239,10 +241,26 @@ function handleGoogleLogin(req, res) {
   return res.json({ accessToken: 'mock-token-' + member.id })
 }
 
-// GET /members/me: 비밀번호를 뺀 내 정보를 돌려줍니다.
+// 회원을 실제 MemberResponse와 같은 모양으로 바꿉니다. 비밀번호는 넣지 않습니다.
+function toMemberResponse(member) {
+  const { id, email, name, memberType, privacyConsentedAt } = member
+  // X-2 전에 db.json에 저장된 회원에는 이 칸이 없습니다. 실제 백엔드처럼 동의 전(null)으로 봅니다.
+  return { id, email, name, memberType, privacyConsentedAt: privacyConsentedAt ?? null }
+}
+
+// GET /members/me: 비밀번호를 뺀 내 정보를 돌려줍니다. 개인정보 고지에 동의하기 전이면 privacyConsentedAt이 null입니다.
 function handleMe(req, res, loginMember) {
-  const { id, email, name, memberType } = loginMember
-  return res.json({ id, email, name, memberType })
+  return res.json(toMemberResponse(loginMember))
+}
+
+// POST /members/me/privacy-consent: 로그인한 회원 본인이 개인정보 고지에 동의합니다(X-2).
+// body는 읽지 않고 시각은 여기서 정합니다. 이미 동의했으면 처음 동의한 시각을 그대로 둡니다.
+function handleConsentToPrivacy(req, res, loginMember) {
+  const db = req.app.db
+  if (!loginMember.privacyConsentedAt) {
+    db.get('members').find({ id: loginMember.id }).assign({ privacyConsentedAt: nowLocalDateTime() }).write()
+  }
+  return res.json(toMemberResponse(db.get('members').find({ id: loginMember.id }).value()))
 }
 
 // POST /assignments: 교수가 과제, 조, 조장을 한 번에 만듭니다. 검사 순서는 실제 백엔드와 같습니다.
@@ -1572,6 +1590,9 @@ function handleRequest(req, res, next) {
 
   if (req.method === 'GET' && req.path === '/members/me') {
     return handleMe(req, res, loginMember)
+  }
+  if (req.method === 'POST' && req.path === '/members/me/privacy-consent') {
+    return handleConsentToPrivacy(req, res, loginMember)
   }
   if (req.method === 'POST' && req.path === '/assignments') {
     return handleCreateAssignment(req, res, loginMember)
