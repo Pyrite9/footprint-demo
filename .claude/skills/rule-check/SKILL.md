@@ -13,6 +13,7 @@ argument-hint: "[폴더 — 비우면 backend, frontend 전체]"
 
 - 백엔드: `mapstruct`, `querydsl`, `extends Base`, `@MappedSuperclass`, `ApiResponse<`, `Result<`, `@RequiredArgsConstructor`, `@Autowired`(필드 주입), `@PreAuthorize`, `@Aspect`
 - 프론트엔드: `redux`, `zustand`, `recoil`, `jotai`, `@tanstack`, `axios`, `async `/`await `(예시와 달리 `.then`을 써야 함), `src/api/` 밖의 `fetch(`
+  - 다만 `frontend/src`의 HTML·CSS·클라이언트 JS가 `modern-web-guidance` 가이드를 따른 결과이고 worklog에 가이드 id가 적혀 있으면 "코드 규칙 — 프론트엔드"·단순함 위반으로 잡지 않는다(CLAUDE.md "프론트엔드 웹 가이드"). 위의 금지 라이브러리는 그대로 잡는다
 - 공통: `average`, `avg`, `sum(`, `rank`, `score` 합산·평균 계산 코드
 
 ## 구조 검사
