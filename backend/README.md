@@ -107,11 +107,14 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 - 설정값(`application.yml`의 `google`):
   - `GOOGLE_CLIENT_ID` — Google Cloud의 OAuth Client ID. 기본값이 들어 있어 따로 넣지 않아도 됨. `frontend/.env`의 `VITE_GOOGLE_CLIENT_ID`와 같아야 함
   - `GOOGLE_ALLOWED_DOMAINS` — 받는 학교 도메인. 기본 `g.yju.ac.kr`
-  - `PROFESSOR_EMAILS` — 교수로 저장할 이메일(쉼표로 구분). 기본값은 비어 있어서 모두 학생으로 저장됨. 실제 이메일이라 저장소에 적지 않음
+  - `PROFESSOR_EMAILS` — 교수로 저장하거나 교수로 올릴 이메일(쉼표로 구분, 대소문자 무시). 기본값은 비어 있어서 모두 학생으로 저장됨. 실제 이메일이라 저장소에 적지 않음
 - 교수 이메일 넣는 법:
   - 내 컴퓨터에서 bootRun — 같은 PowerShell 창에서 먼저 `$env:PROFESSOR_EMAILS="교수이메일@g.yju.ac.kr"` 후 `.\gradlew.bat bootRun`. macOS는 `PROFESSOR_EMAILS=... ./gradlew bootRun`
   - docker compose — `infra/.env`에 `PROFESSOR_EMAILS=...` 한 줄을 넣을 것(`infra/.env.example` 참고)
-- 회원 유형은 처음 로그인할 때 한 번만 정해짐. 학생으로 먼저 로그인한 뒤 목록에 넣어도 바뀌지 않음. 서버를 다시 켜면(데이터베이스가 새로 만들어지면) 다시 정해짐
+- 회원 유형은 구글 로그인할 때마다 확인함(X-1)
+  - 학생으로 먼저 로그인한 뒤 목록에 넣으면, 서버를 다시 켠 뒤 다음 구글 로그인 때 교수로 바뀜. 그 로그인에서 받은 token부터 교수임
+  - 조원·조장 기록이 하나라도 있는 학생은 목록에 있어도 학생으로 남음. 오류는 나지 않음. 교수로 쓰려면 조에 들어가지 않은 계정을 써야 함
+  - 목록에서 빼도 교수를 학생으로 내리지 않음. 이메일·비밀번호 로그인은 유형을 바꾸지 않음
 - 로그인할 수 있는 구글 계정: Google Cloud의 동의 화면이 "테스트 중"이면 그곳의 "테스트 사용자"에 넣은 계정만 됨. 데모·개발에 쓸 학교 계정을 먼저 넣어 둘 것
 - 서버는 구글 공개키를 받으려고 인터넷에 접속함. 인터넷이 없으면 구글 로그인은 500이 나고 시작 계정 로그인은 됨
 

@@ -5,6 +5,7 @@ import com.footprint.backend.entity.MemberType;
 import com.footprint.backend.exception.ForbiddenException;
 import com.footprint.backend.exception.UnauthorizedException;
 import com.footprint.backend.repository.MemberRepository;
+import com.footprint.backend.repository.TeamMemberRepository;
 import com.footprint.backend.security.GoogleTokenVerifier;
 import com.footprint.backend.security.GoogleTokenVerifier.GoogleAccount;
 import com.footprint.backend.security.JwtProvider;
@@ -23,6 +24,7 @@ public class AuthService {
     private static final String LOGIN_FAILED_MESSAGE = "이메일 또는 비밀번호가 올바르지 않습니다";
 
     private final MemberRepository memberRepository;
+    private final TeamMemberRepository teamMemberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final GoogleTokenVerifier googleTokenVerifier;
@@ -30,11 +32,12 @@ public class AuthService {
     private final List<String> professorEmails;
 
     // allowedDomains와 professorEmails는 application.yml의 쉼표로 구분한 값을 Spring이 목록으로 바꿔 넣어 줍니다.
-    public AuthService(MemberRepository memberRepository, PasswordEncoder passwordEncoder, JwtProvider jwtProvider,
-                       GoogleTokenVerifier googleTokenVerifier,
+    public AuthService(MemberRepository memberRepository, TeamMemberRepository teamMemberRepository,
+                       PasswordEncoder passwordEncoder, JwtProvider jwtProvider, GoogleTokenVerifier googleTokenVerifier,
                        @Value("${google.allowed-domains}") List<String> allowedDomains,
                        @Value("${google.professor-emails}") List<String> professorEmails) {
         this.memberRepository = memberRepository;
+        this.teamMemberRepository = teamMemberRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtProvider = jwtProvider;
         this.googleTokenVerifier = googleTokenVerifier;
@@ -57,6 +60,7 @@ public class AuthService {
     }
 
     // 구글 계정으로 로그인합니다. 처음 온 계정이면 회원으로 저장합니다(M-1-1 회원 등록). token 문자열을 돌려줍니다.
+    // 이미 있는 회원이 교수 목록에 있는 학생이면 교수로 올립니다(X-1). 회원 유형을 바꿀 수 있어서 @Transactional입니다.
     @Transactional
     public String loginWithGoogle(String credential) {
         GoogleAccount account = googleTokenVerifier.verify(credential);
@@ -68,13 +72,32 @@ public class AuthService {
 
         Member member = memberRepository.findByEmail(account.email())
                 .orElseGet(() -> memberRepository.save(createGoogleMember(account)));
+        promoteIfListed(member);
+        // token은 올린 뒤에 만듭니다. 그래서 올린 로그인의 token부터 교수가 담깁니다.
         return jwtProvider.createToken(member);
     }
 
     // 구글 계정으로 새 회원을 만듭니다. 교수 이메일 목록에 있으면 교수, 아니면 학생입니다. 비밀번호는 받지 않아서 null입니다.
     private Member createGoogleMember(GoogleAccount account) {
-        MemberType memberType = professorEmails.contains(account.email().toLowerCase())
-                ? MemberType.PROFESSOR : MemberType.STUDENT;
+        MemberType memberType = isProfessorEmail(account.email()) ? MemberType.PROFESSOR : MemberType.STUDENT;
         return new Member(account.email(), null, account.name(), memberType);
+    }
+
+    // 교수 목록에 있는 학생을 교수로 올립니다(X-1). 교수를 학생으로 내리지는 않습니다.
+    private void promoteIfListed(Member member) {
+        if (member.getMemberType() != MemberType.STUDENT || !isProfessorEmail(member.getEmail())) {
+            return;
+        }
+        // 조원·조장 기록이 있는 학생은 올리지 않습니다. 올리면 교수가 조원으로 남아 "조원은 모두 학생"이 깨집니다.
+        if (teamMemberRepository.existsByMemberId(member.getId())) {
+            return;
+        }
+        // save를 다시 부르지 않습니다. @Transactional 안에서 읽은 Entity는 값이 바뀌면 끝날 때 JPA가 UPDATE 합니다(변경 감지).
+        member.promoteToProfessor();
+    }
+
+    // 이메일이 교수 목록에 있는지 봅니다. 목록은 생성자에서 소문자로 바꿔 두어서 대소문자를 가리지 않습니다.
+    private boolean isProfessorEmail(String email) {
+        return professorEmails.contains(email.toLowerCase());
     }
 }

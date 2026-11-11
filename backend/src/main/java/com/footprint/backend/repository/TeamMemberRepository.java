@@ -30,4 +30,7 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
 
     // 한 조에서 한 회원의 조 참여 기록을 찾습니다. 조원이 아니면 빈 Optional입니다.
     Optional<TeamMember> findByTeamIdAndMemberId(Long teamId, Long memberId);
+
+    // 한 회원의 조 참여 기록이 하나라도 있는지 봅니다. 조원·조장이었던 학생을 교수로 올리지 않을 때 씁니다(X-1).
+    boolean existsByMemberId(Long memberId);
 }

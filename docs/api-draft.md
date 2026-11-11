@@ -81,7 +81,13 @@ token
 - ID token 검증은 Google 라이브러리(`GoogleIdTokenVerifier`)가 함: 서명(구글 공개키), 만료, 발급자(`accounts.google.com`), 받는 앱(`aud` = `google.client-id`)
 - 그다음 서버가 `email_verified`가 true인지, `hd`가 `google.allowed-domains`에 있는지 봄
 - 같은 이메일의 회원이 있으면 그 회원으로 로그인함. 없으면 새로 만듦. 이름은 구글 이름(공개하지 않은 계정이면 이메일), 비밀번호는 없음(null)
-- 회원 유형: 이메일이 `google.professor-emails`(쉼표로 구분한 목록)에 있으면 `PROFESSOR`, 아니면 `STUDENT`. 대소문자는 가리지 않음. 처음 만들 때만 정하고, 나중에 목록을 바꿔도 이미 있는 회원의 유형은 바뀌지 않음(X-1에서 바뀜. `TODO.md` 1절)
+- 회원 유형: 새로 만드는 회원은 이메일이 `google.professor-emails`(쉼표로 구분한 목록)에 있으면 `PROFESSOR`, 아니면 `STUDENT`. 대소문자는 가리지 않음
+- 교수로 올리기(X-1, 2026.11.12): 이미 있는 회원도 구글 로그인할 **때마다** 확인함. 회원 유형이 `STUDENT`이고 이메일이 교수 목록에 있으면 `PROFESSOR`로 바꾸고, 그 로그인에서 발급하는 token부터 교수로 담음
+  - 조원·조장 기록(조 참여 기록)이 하나라도 있는 학생은 올리지 않고 `STUDENT`로 로그인함. 오류를 내지 않음. "조원은 모두 학생"을 지키려는 것임
+  - 내리지는 않음. 목록에서 빠져도 `PROFESSOR`로 남음
+  - 바뀐 시각이나 이력은 남기지 않음. 관리 화면과 새 API는 없음
+  - 이메일·비밀번호 로그인(`POST /auth/login`)은 유형을 바꾸지 않음
+  - 권한 검사는 token의 `memberType`이 아니라 DB의 회원 유형으로 하므로, 올리기 전에 받은 token으로도 교수 권한이 바로 적용됨
 - 비밀번호가 없는 회원(구글로 만든 회원)은 `POST /auth/login`으로 로그인할 수 없음(401)
 - 가짜 API는 구글 서명을 확인하지 못함. payload만 풀어 같은 규칙(`email_verified`, `hd`, 교수 목록)을 적용함
 

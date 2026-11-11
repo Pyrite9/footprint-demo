@@ -37,4 +37,9 @@ public class Member {
         this.name = name;
         this.memberType = memberType;
     }
+
+    // 회원 유형을 교수로 바꿉니다(X-1). 교수 목록에 있는 학생이 구글 로그인할 때 AuthService가 부릅니다.
+    public void promoteToProfessor() {
+        this.memberType = MemberType.PROFESSOR;
+    }
 }

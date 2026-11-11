@@ -200,6 +200,7 @@ function readGooglePayload(credential) {
 }
 
 // POST /auth/google: 구글 ID token으로 로그인합니다. 처음 온 계정이면 회원으로 저장합니다.
+// 이미 있는 학생이 교수 목록에 있으면 교수로 올립니다(X-1). 조 참여 기록이 있으면 올리지 않고, 교수를 내리지는 않습니다.
 function handleGoogleLogin(req, res) {
   const body = readBodyOrSendError(req, res, { credential: 'string' })
   if (!body) return
@@ -229,6 +230,12 @@ function handleGoogleLogin(req, res) {
     }
     db.get('members').push(member).write()
   }
+  const listed = PROFESSOR_EMAILS.includes(member.email.toLowerCase())
+  const hasTeamRecord = db.get('teamMembers').some({ memberId: member.id }).value()
+  if (member.memberType === 'STUDENT' && listed && !hasTeamRecord) {
+    db.get('members').find({ id: member.id }).assign({ memberType: 'PROFESSOR' }).write()
+  }
+  // 가짜 token에는 회원 번호만 있고, 내 정보는 요청마다 db에서 읽습니다. 실제 백엔드처럼 권한은 db의 유형으로 봅니다.
   return res.json({ accessToken: 'mock-token-' + member.id })
 }
 

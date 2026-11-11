@@ -40,7 +40,8 @@ google:
   client-id: ${GOOGLE_CLIENT_ID:729696424693-ktasf5hijpb7v53ga17j1469e8batb8f.apps.googleusercontent.com}
   # 로그인을 허용할 학교 Google Workspace 도메인(ID token의 hd)입니다. 여러 개면 쉼표로 구분합니다.
   allowed-domains: ${GOOGLE_ALLOWED_DOMAINS:g.yju.ac.kr}
-  # 처음 구글 로그인할 때 교수로 저장할 이메일 목록입니다. 쉼표로 구분합니다.
+  # 구글 로그인할 때 교수로 저장하거나 교수로 올릴 이메일 목록입니다. 쉼표로 구분합니다.
+  # 이미 있는 학생도 다음 구글 로그인 때 교수로 올립니다(X-1). 조 참여 기록이 있는 학생은 올리지 않고, 목록에서 빼도 교수를 내리지 않습니다.
   # 실제 사람의 이메일이라 저장소에 적지 않고 infra/.env 또는 환경 변수 PROFESSOR_EMAILS로 넣습니다. 비어 있으면 모두 학생입니다.
   professor-emails: ${PROFESSOR_EMAILS:}
 

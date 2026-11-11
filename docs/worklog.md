@@ -699,7 +699,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 새 의존성: `com.google.api-client:google-api-client:2.9.1`(2026.09 배포). `GoogleIdTokenVerifier`가 서명(구글 공개키), 만료, 발급자, `aud`를 확인한다. 대안은 `spring-boot-starter-oauth2-resource-server`의 `NimbusJwtDecoder`+구글 JWKS였다. 검증 규칙을 validator 설정으로 조립해야 해서 읽기 어려워 고르지 않았다.
   - 책임 나누기: `security/GoogleTokenVerifier`는 "구글이 확인한 사람인가"(서명, `email_verified`)만, `AuthService`는 우리 규칙(허용 도메인 `hd`, 회원 찾기·만들기, 교수 판별)을 맡는다.
   - 응답: 학교 도메인이 아니면 403 `FORBIDDEN`(구글이 확인한 사람이지만 권한이 없음), 그 밖의 검증 실패는 401로 묶는다, 구글 공개키를 못 받으면 500.
-  - 회원: 이메일로 찾고 없으면 만든다(M-1-1 회원 등록을 대신함). `Member.password`는 nullable(구글 회원은 null). 회원 유형은 처음 만들 때만 정한다. 구글 `sub`는 저장하지 않는다.
+  - 회원: 이메일로 찾고 없으면 만든다(M-1-1 회원 등록을 대신함). `Member.password`는 nullable(구글 회원은 null). 회원 유형은 처음 만들 때만 정한다(2026.11.12 X-1에서 바뀜: 구글 로그인할 때마다 목록의 학생을 교수로 올림). 구글 `sub`는 저장하지 않는다.
   - 화면: 구글 script는 npm 패키지 없이 `src/google.js`가 한 번만 붙인다. 비밀번호 form은 `<details>`로 접었다(state 없음).
   - Client ID는 비밀값이 아니라서 `application.yml`, `frontend/.env`(`VITE_GOOGLE_CLIENT_ID`), `frontend/Dockerfile` 기본값에 넣었다. 교수 이메일은 실제 사람의 이메일이라 저장소에 넣지 않고 `PROFESSOR_EMAILS`로 받는다.
 - 만든 파일: `security/GoogleTokenVerifier`, `dto/GoogleLoginRequest`, `frontend/src/google.js`, `frontend/src/components/GoogleLoginButton.jsx`
@@ -2032,3 +2032,45 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 업로드의 `file` 누락 문장을 "파일이 없습니다"에서 바꿈. 20MB 초과("파일은 20MB까지 올릴 수 있습니다")와 빈 파일("빈 파일은 올릴 수 없습니다")은 그대로 둠
   - `@Size`의 이유는 "자"로 적음. 지금 `@Size`는 모두 글자 칸에 있음. 목록에 `@Size`를 붙이면 문장을 고쳐야 함
   - 가짜 API에 남는 차이: `5.0`을 정수로 받음(기존), 아주 큰 수(2^53 이상)의 주소 번호, Java와 JavaScript의 공백 기준 차이(`trim`), 글자 칸에 온 소수의 글자 모양(`5.0` → 실제 "5.0", 가짜 "5"). JSON이 아닌 Content-Type 요청은 이번에 비교하지 않음(실제는 "요청의 형식이 올바르지 않습니다")
+
+## 2026.11.12 X-1 교수 회원 유형 변경 경로
+- 결정:
+  - 2026.10.26 결정 "회원 유형은 처음 만들 때만 정함"을 고침. 구글 로그인할 **때마다** 회원 유형이 `STUDENT`이고 이메일이 `google.professor-emails`에 있으면(대소문자 무시) `PROFESSOR`로 올림. 내리지 않음. 관리 화면과 새 API 없음(TODO.md 추천안 그대로)
+  - **조원·조장 기록(`TeamMember` 행)이 하나라도 있는 학생은 올리지 않음.** 오류 없이 학생으로 로그인함
+    - 선택지 A 그대로 올림: 비용 없음. 하지만 교수가 조원·조장으로 남음. 학생만 조에 합류하고 학생만 조장이 되는 규칙(`TeamService` 합류 검사, `AssignmentService` 조장 검사)과 어긋나고, 과제 목록이 "내가 만든 과제"로 바뀌어 자기 조의 과제가 목록에서 사라짐(주소로는 여전히 조원으로 열림). 동료평가 대상·평가자에 교수가 섞임
+    - 선택지 B 조 기록이 있으면 올리지 않음(고름): 비용은 `TeamMemberRepository.existsByMemberId` 조회 하나. "조원은 모두 학생"이 유지됨. 단점은 목록에 넣었는데도 조용히 학생으로 남는 것. 이 경우 교수용으로는 조에 들어가지 않은 계정을 쓰게 안내함(`backend/README.md`)
+    - 선택지 C 올리면서 조 기록을 지움: 기록 보존 규칙(삭제·취소도 줄을 남김)과 정면으로 부딪혀서 고르지 않음
+    - "조 기록"은 `TeamMember` 행 하나로 봄. 산출물, 기여 항목, 완료확인, 평가, 임시 저장, 알림은 모두 조원일 때만 생기고, 조에서 나가는 기능이 없어 `TeamMember` 행은 지워지지 않음
+  - **바뀐 시각과 이력은 남기지 않음**
+    - 선택지 A 남기지 않음(고름): Entity 변경 없음
+    - 선택지 B `Member.memberTypeChangedAt` 칸 하나: 비용은 칸 하나와 ERD 수정. 볼 화면이 없음
+    - 선택지 C 이력 Entity(역할·조장 이력처럼): Entity 하나와 저장소 하나. 역할·조장 이력은 평가 근거라서 남기는 것이지만, 유형 변경은 조 기록이 없는 회원에게만 일어나 평가 근거에 닿지 않음. 무엇이 바뀌었는지의 근거는 서버 설정의 교수 목록임
+    - 나중에 필요하면 B를 Entity 변경으로 더함. 서버 로그는 O-8에서 정함
+  - token: `JwtProvider.createToken`은 올린 뒤에 부르므로 올린 로그인의 token부터 `memberType` claim이 `PROFESSOR`임. 이미 발급된 옛 token은 claim이 `STUDENT`지만, `JwtAuthenticationFilter`는 token에서 회원 id(`sub`)만 꺼내고 Service는 DB에서 회원 유형을 읽음(`AssignmentService.create`·`findAllForMember`, `TeamService` 합류 검사). 그래서 옛 token으로도 바로 교수 권한이 적용되고 따로 처리할 것이 없음. 테스트로 확인함
+  - 접근 범위 규칙 확인: "과제를 만든 교수인가"는 회원 유형이 아니라 `assignment.professor`의 id로 보고(`TeamAccessChecker.isProfessorOf`), "조원인가"는 `TeamMember` 행으로 봄. 올린 회원은 조 기록이 없으므로 새로 보이는 조 기록이 없음. "교수만 과제를 만든다"는 DB 유형으로 보므로 올린 뒤에만 만들 수 있음
+  - 테스트의 구글 ID token: 기존에 구글 로그인 테스트가 없어서 따를 방식이 없었음. `@MockitoBean`(Spring Framework 6.2, `spring-boot-starter-test`에 이미 있음. 새 의존성 아님)으로 `GoogleTokenVerifier`를 대역으로 바꿈. 선택지: `@TestConfiguration`의 손으로 만든 대역 클래스. 이메일마다 돌려줄 값을 정하는 코드를 따로 써야 해서 고르지 않음. 교수 목록과 허용 도메인은 `@TestPropertySource`로 이 테스트만 `example.com`으로 바꿈
+    - 이 두 설정 때문에 이 테스트는 다른 테스트와 다른 Spring context로 켜짐. `ddl-auto: create`가 `footprint_test` 스키마를 다시 만들고 시작 데이터를 다시 넣지만 id가 같아서 전체 테스트가 그대로 통과함
+  - 가짜 API: 같은 규칙(목록의 학생, `teamMembers`에 행이 없으면 `PROFESSOR`로 바꿈)을 맞춤. 맞출 수 없는 부분은 token의 `memberType`임. 가짜 token은 `mock-token-<id>`라 유형을 담지 않음. 화면은 token을 풀어 읽지 않고 `GET /members/me`(DB의 유형)를 쓰므로 화면 동작은 같음
+  - 화면: 고칠 것 없음. 유형으로 갈리는 곳(`AppLayout`, `HomePage`, `AssignmentDetailPage`, `TeamMembersPage`, `MeBox`)은 모두 `GET /members/me`의 `memberType`을 씀. 로그인 화면은 `AppLayout` 밖이라 로그인한 뒤 `AppLayout`이 새로 열리며 내 정보를 다시 불러옴. 이미 열려 있던 다른 탭은 새로 고침 전까지 옛 유형을 보여 줌(서버 권한은 DB 기준이라 문제 없음). `frontend/src`를 고치지 않아서 `modern-web-guidance`는 쓰지 않음
+  - Postman: 구글 로그인은 모음에 없어서(ID token을 받을 수 없음) 고칠 것 없음
+- 만든 파일:
+  - 백엔드: 테스트 `ProfessorPromoteRuleTests`(8개)
+- 고친 파일:
+  - 백엔드: `entity/Member`(`promoteToProfessor`), `repository/TeamMemberRepository`(`existsByMemberId`), `service/AuthService`(`promoteIfListed`, `isProfessorEmail`, 생성자에 `TeamMemberRepository`), `application.yml`(`professor-emails` 주석)
+  - 가짜 API: `frontend/mock/middleware.cjs`(`handleGoogleLogin`)
+  - 문서: `docs/api-draft.md`(구글 로그인 "서버 쪽 규칙"), `CLAUDE.md`(업무 규칙의 회원 유형), `TODO.md`, `README.md`, `backend/README.md`("구글 로그인"), `infra/.env.example`(주석), 이 파일의 2026.10.26 구글 로그인 결정 줄에 바뀐 날짜를 덧붙임
+- 확인:
+  - `gradlew.bat build` 성공. 테스트 162개, 실패 0(`ProfessorPromoteRuleTests` 8개 더함): 목록의 학생이 다시 로그인하면 교수, 그 로그인 token claim과 `GET /members/me`가 교수, 바로 과제 생성 200 / 목록에 없으면 학생 / 목록에서 빠진 교수는 교수 / 대소문자 무시 / 조 기록이 있는 student01은 학생으로 남고 데모 과제를 그대로 봄 / 처음 로그인은 목록대로 / 올리기 전 token(claim STUDENT)으로 `GET /members/me`가 교수, 과제 생성 200 / 비밀번호 로그인은 유형을 바꾸지 않음
+  - `npm run build`, `npm run lint` 성공
+  - 가짜 API(db 복사본, 포트 3099): 목록 밖 학생으로 만든 뒤 목록에 넣고 다시 켜서 로그인 → `PROFESSOR`, 그 회원으로 과제 생성 200 / 목록에서 뺀 교수 → `PROFESSOR` 유지 / 목록에 넣은 student01(조 기록 있음) → `STUDENT`. `frontend/db.json`은 건드리지 않음
+  - rule-check: 금지 패턴 없음(`@Autowired`는 다른 테스트와 같은 생성자 주입). 값을 바꾸는 `loginWithGoogle`에 `@Transactional` 있음. 새 메서드에 주석 있음. 실제 API와 가짜 API 응답 모양 같음
+- 읽을 때 볼 곳:
+  - `promoteIfListed`의 `member.promoteToProfessor()` 뒤에 `save`가 없는 이유: `@Transactional` 안에서 읽은 Entity는 값이 바뀌면 트랜잭션이 끝날 때 JPA가 UPDATE 함(변경 감지)
+  - `loginWithGoogle`에서 `promoteIfListed`를 `createToken`보다 먼저 부르는 순서. 바꾸면 올린 로그인의 token에 옛 유형이 담김
+  - `existsByMemberId`: 메서드 이름의 `MemberId`는 `member.id`를 따라감(다른 메서드와 같은 규칙). Spring Data가 `select ... limit 1` 모양의 존재 확인 쿼리를 만듦
+  - 테스트의 `@MockitoBean`: Spring이 진짜 `GoogleTokenVerifier` 대신 Mockito 대역을 넣음. `when(...).thenReturn(...)`으로 정한 credential에만 계정을 돌려줌
+- 내가 채운 가정:
+  - 조 기록이 있는 학생은 올리지 않음(TODO.md에 없던 규칙). 오류를 내지 않고 학생으로 로그인시킴
+  - 바뀐 시각과 이력은 남기지 않음
+  - 새로 만드는 회원은 지금처럼 목록대로 바로 교수로 만듦(만든 뒤 올리는 두 단계로 바꾸지 않음)
+  - 이미 있는 회원의 이메일 찾기(`findByEmail`)는 대소문자를 가림(기존 동작). 목록 비교만 대소문자를 무시함
