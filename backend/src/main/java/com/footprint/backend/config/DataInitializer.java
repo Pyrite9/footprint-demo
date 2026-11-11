@@ -20,6 +20,7 @@ import com.footprint.backend.service.StorageService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -27,7 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 // 서버가 시작할 때 데모용 시작 데이터를 넣습니다. 계정과 조 구성 표는 backend/README.md에 있습니다.
-// ddl-auto: create라서 실행할 때마다 테이블이 비워진 뒤 다시 들어갑니다.
+// 서버를 다시 켜도 데이터베이스가 비워지지 않으므로(Flyway, O-1) 회원이 한 명도 없는 빈 데이터베이스에서만 넣습니다.
 @Component
 public class DataInitializer implements CommandLineRunner {
 
@@ -68,10 +69,19 @@ public class DataInitializer implements CommandLineRunner {
 
     // MinIO 버킷을 준비하고, 회원 11명(임지아만 개인정보 고지 동의 전)과 과제 2개(기록 단계, 평가 단계), 조 3개, 산출물 3건, 기여 항목 2건, 완료확인 2건,
     // 그 기록에서 생겼을 알림을 저장합니다.
+    // @Transactional: 시작 데이터를 한 번에 저장합니다. 중간에 실패하면 모두 되돌려서, 다음에 켤 때 빈 데이터베이스로 보고 처음부터 다시 넣습니다.
+    // 묶지 않으면 회원만 들어간 채 멈췄을 때 "회원이 있음"으로 보고 나머지를 영영 넣지 않습니다.
     @Override
+    @Transactional
     public void run(String... args) {
-        // 산출물 파일을 넣을 버킷이 없으면 만듭니다. 이미 있으면 그대로 둡니다(데이터베이스와 달리 서버를 다시 켜도 비워지지 않습니다).
+        // 산출물 파일을 넣을 버킷이 없으면 만듭니다. 이미 있으면 그대로 둡니다. 버킷은 시작 데이터와 관계없이 켤 때마다 확인합니다.
         storageService.createBucketIfMissing();
+
+        // 회원이 한 명이라도 있으면 이미 시작 데이터를 넣었거나 실제로 쓰고 있는 데이터베이스입니다. 다시 넣으면 같은 이메일이 겹쳐 실패합니다.
+        // 시작 파일도 여기서 멈추므로 MinIO에 켤 때마다 쌓이지 않습니다.
+        if (memberRepository.count() > 0) {
+            return;
+        }
 
         Member professor = saveMember("professor@example.com", "이교수", MemberType.PROFESSOR);
 
@@ -98,7 +108,6 @@ public class DataInitializer implements CommandLineRunner {
                 List.of("기획", "백엔드", "백엔드", "프론트엔드", "발표"));
 
         // 다운로드를 바로 시험할 수 있게 1조에 산출물 2건을 넣습니다. 파일 본문도 MinIO에 올립니다.
-        // MinIO는 서버를 다시 켜도 비워지지 않아서, 켤 때마다 같은 내용의 파일이 새 key로 하나씩 더 쌓입니다(데모 범위에서는 그대로 둡니다).
         saveDeliverable(team1.get(0), "기획서.txt", "발자국 데모 기획서\n1. 과제 생성\n2. 조원 합류와 역할 배정\n");
         saveDeliverable(team1.get(1), "API 명세.txt", "POST /auth/login\nGET /members/me\n");
         // 조장이 아닌 조원의 화면도 바로 시험할 수 있게 기여 항목 1건을 넣습니다.

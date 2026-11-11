@@ -15,6 +15,7 @@ import java.time.temporal.ChronoUnit;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 // 한 학생은 같은 과제에서 한 조에만 있습니다. 이 규칙을 DB도 지키도록 (assignment_id, member_id) 조합에 unique 제약을 둡니다.
 // 같은 조에 두 번 등록되는 것도 이 제약이 함께 막습니다(조는 과제 하나에 속하므로).
+// "조장은 조마다 한 명"은 leader가 true인 행만 담는 부분 unique 인덱스가 막습니다(V2 migration). 조건이 있는 인덱스라 @Table로는 적을 수 없습니다.
 @Table(uniqueConstraints = @UniqueConstraint(columnNames = {"assignment_id", "member_id"}))
 public class TeamMember {
 

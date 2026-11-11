@@ -1,16 +1,21 @@
 # 테스트에서만 켜는 설정입니다(@ActiveProfiles("test")). application.yml 위에 덮어씁니다.
 spring:
+  flyway:
+    # 테스트의 테이블을 public이 아니라 footprint_test 스키마에 만듭니다. 그래서 빌드해도 개발 데이터(public)가 지워지지 않습니다.
+    # schemas: Flyway가 다루는 스키마입니다. 없으면 만들고, 아래 clean도 이 스키마만 비웁니다.
+    # default-schema: migration SQL의 테이블과 Flyway 이력 테이블(flyway_schema_history)이 들어갈 스키마입니다.
+    schemas: footprint_test
+    default-schema: footprint_test
+    # 테스트는 Spring context가 뜰 때마다 footprint_test를 비우고 migration을 처음부터 다시 돌립니다(TestFlywayConfig).
+    # Flyway는 실수로 데이터를 지우지 않도록 clean을 기본으로 막아 둡니다. 테스트에서만 풉니다.
+    clean-disabled: false
   jpa:
     # 테스트 로그에 SQL이 쏟아지면 실패 원인을 찾기 어려워서 끕니다.
     show-sql: false
     properties:
       hibernate:
-        # 테스트의 테이블을 public이 아니라 footprint_test 스키마에 만듭니다.
-        # ddl-auto: create가 이 스키마만 지우고 만들므로, 빌드해도 개발 데이터(public)가 지워지지 않습니다.
+        # Hibernate가 읽고 쓰는 테이블도 footprint_test 스키마의 것입니다. ddl-auto: validate도 이 스키마를 확인합니다.
         default_schema: footprint_test
-        # 스키마가 없으면 Hibernate가 먼저 만듭니다. 그래서 infra를 처음 켠 컴퓨터에서도 준비 작업이 없습니다.
-        hbm2ddl:
-          create_namespaces: true
 
 storage:
   # 시험 파일이 데모용 버킷에 쌓이지 않도록 시험 전용 버킷을 씁니다.

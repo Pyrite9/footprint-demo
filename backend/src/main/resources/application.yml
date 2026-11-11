@@ -23,7 +23,9 @@ spring:
     # 그러려면 응답을 만드는 동안 DB 연결이 열려 있어야 해서 open-in-view를 켭니다. 기본값도 true지만, 적지 않으면 시작할 때 WARN이 나옵니다.
     open-in-view: true
     hibernate:
-      ddl-auto: create
+      # 테이블은 Flyway가 src/main/resources/db/migration의 SQL 파일로 만듭니다. Hibernate는 Entity와 테이블이 맞는지 확인만 합니다.
+      # 맞지 않으면(열이 없음, 타입이 다름) 서버가 켜지지 않습니다. 서버를 다시 켜도 기록은 지워지지 않습니다(O-1).
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:

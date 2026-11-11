@@ -36,6 +36,10 @@ dependencies {
     implementation 'software.amazon.awssdk:s3:2.55.14'
     // 구글 로그인의 ID token을 검증합니다(GoogleIdTokenVerifier). 구글 공개키를 받아 오는 HTTP와 JSON 처리도 함께 들어옵니다.
     implementation 'com.google.api-client:google-api-client:2.9.1'
+    // 데이터베이스 스키마를 db/migration의 SQL 파일(V1__..., V2__...)로 만들고 고칩니다(O-1). 버전은 Spring Boot가 정합니다.
+    // flyway-database-postgresql: Flyway 10부터 PostgreSQL 지원이 core에서 이 모듈로 나뉘었습니다. 없으면 시작할 때 "Unsupported Database" 오류가 납니다.
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'

@@ -174,7 +174,11 @@ public class TeamService {
         TeamMember previousLeader = teamMemberRepository.findByTeamIdAndLeaderTrue(teamId)
                 .orElseThrow(() -> new NotFoundException("조장이 없습니다. teamId=" + teamId));
 
+        // 데이터베이스의 "조장은 조마다 한 명" 인덱스(V2 migration)는 UPDATE 한 줄마다 검사합니다.
+        // JPA는 바뀐 값을 트랜잭션 끝에 한꺼번에 보내는데, 새 조장의 UPDATE가 먼저 나가면 잠깐 조장이 둘이라 거절됩니다(500).
+        // 그래서 이전 조장을 내린 UPDATE를 flush로 먼저 보냅니다.
         previousLeader.stepDownAsLeader();
+        teamMemberRepository.flush();
         newLeader.becomeLeader();
         leaderHistoryRepository.save(new LeaderHistory(team, previousLeader, newLeader));
         return newLeader;

@@ -27,7 +27,8 @@ services:
     # 20MB를 넘는 업로드 뒤에 멈춰 localhost:8080 전체가 응답하지 않는 일이 있었습니다. 그래서 화면도 127.0.0.1:8080으로 부릅니다.
     ports:
       - "127.0.0.1:8080:8080"
-    # DB와 MinIO의 healthcheck가 통과한 뒤에 켭니다. 서버가 켜지면서 시작 데이터와 버킷을 만들기 때문입니다.
+    # DB와 MinIO의 healthcheck가 통과한 뒤에 켭니다. 서버가 켜지면서 테이블(Flyway migration), 시작 데이터, 버킷을 만들기 때문입니다.
+    # 데이터는 postgres-data volume에 남아서, backend를 다시 켜거나 이미지를 새로 만들어도 기록이 지워지지 않습니다(O-1).
     depends_on:
       postgres:
         condition: service_healthy

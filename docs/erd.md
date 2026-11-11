@@ -3,6 +3,7 @@
 엔티티와 연결, 제약을 코드 없이 한눈에 보는 문서. GitHub가 Mermaid를 바로 그려 줌
 
 - 기준은 `backend/src/main/java/com/footprint/backend/entity/`. Entity 필드를 바꾸면 이 문서도 같은 작업 안에서 고칠 것
+- 실제 테이블은 `backend/src/main/resources/db/migration`의 SQL 파일이 만듦(Flyway, O-1). Entity를 바꾸면 새 migration 파일도 함께 만듦
 - 실행 구성과 요청의 길은 `architecture.md`
 
 엔티티 12개. 산출물과 평가, 기여 항목의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴. 알림만 회원을 가리킴.
@@ -145,7 +146,11 @@ erDiagram
 - 각 열의 오른쪽 칸은 비고. 그 값이 무엇에 쓰이는지 적음. `id`는 모두 데이터베이스가 자동으로 붙이는 번호(`IDENTITY`)임. `EVALUATION` 점수 열의 항목 이름은 `frontend/src/constants/peerEvaluation.js`의 `name`과 같음
 - 열 이름 표기: FK는 데이터베이스 열 이름(`professor_id`), 나머지는 Java 필드 이름(`startDate`)으로 적음. 실제 데이터베이스 열은 snake_case임(`startDate` → `start_date`)
 - `TEAM_MEMBER`에 `(assignment_id, member_id)` unique, `EVALUATION`과 `EVALUATION_DRAFT`에 각각 `(evaluator_id, target_id)` unique
-- `CONFIRMATION`은 취소한 행이 남아서 일반 unique를 걸 수 없음. 한 조원의 유효한 확인이 하나인 것은 대상 행을 잠그고 `ConfirmationService`가 확인함
+- 부분 unique 인덱스 3개(`V2__add_partial_unique_indexes.sql`, O-1). `where` 조건에 맞는 행끼리만 겹침을 막음. Hibernate의 `@UniqueConstraint`로는 조건을 적을 수 없어서 Entity에는 없고 migration에만 있음
+  - `CONFIRMATION`의 `(deliverable_id, confirmer_id)`와 `(contribution_id, confirmer_id)`, 둘 다 `canceled_at is null`인 행만: 한 조원의 유효한 확인은 대상마다 하나. 취소한 행은 남아도 걸리지 않음
+  - `TEAM_MEMBER`의 `(team_id)`, `leader`가 true인 행만: 조장은 조마다 한 명
+  - 먼저 막는 것은 Service임. `ConfirmationService`는 대상 행을, `TeamService`는 조 행을 잠그고 검사해 409 `DUPLICATE` 등을 돌려줌. 인덱스는 그 검사를 지나친 저장을 막는 마지막 장치
+  - 조장 교체는 이전 조장을 내린 UPDATE를 먼저 보냄(`TeamService.changeLeader`의 `flush`). 새 조장을 먼저 올리면 잠깐 조장이 둘이라 인덱스에 걸림
 - `TEAM_MEMBER.assignment_id`는 `TEAM.assignment_id`와 같은 값. unique 제약은 한 테이블의 열만 쓸 수 있어서, "한 학생은 한 과제에서 한 조"를 DB가 지키도록 복사해 둠. 생성자가 team에서 채우므로 둘이 달라질 수 없음
 - 합류: 같은 조에 다시 합류하면 오류 없이 200. 같은 과제의 다른 조에 이미 있으면 Service 검사로 409 `DUPLICATE`. `TEAM_MEMBER`의 unique는 두 요청이 거의 동시에 올 때를 막는 마지막 장치
 - 평가: 이미 제출했으면 Service 검사로 409 `DUPLICATE`. 겹치는 제출과 임시 저장은 조 행을 잠가 한 번에 하나씩 처리함. `EVALUATION`의 unique는 마지막 장치

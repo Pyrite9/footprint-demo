@@ -11,6 +11,7 @@ import java.time.temporal.ChronoUnit;
 // confirmation 테이블과 대응합니다. 조원이 산출물이나 보고된 기여 항목을 확인한 기록 하나가 행 하나입니다.
 // 대상은 산출물(deliverable)과 기여 항목(contribution) 중 하나만 채웁니다. 대상 열을 둘로 나눠 외래 키 제약을 유지합니다.
 // 취소해도 행을 지우지 않습니다. 취소 시각이 비어 있는 행이 유효한 확인입니다.
+// "한 조원의 유효한 확인은 대상마다 하나"는 데이터베이스의 부분 unique 인덱스도 막습니다(V2 migration). 조건이 있는 인덱스라 여기 @Table로는 적을 수 없습니다.
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

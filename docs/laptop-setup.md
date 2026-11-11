@@ -277,3 +277,8 @@ docker compose down
 - 컴퓨터를 바꾸기 전에 `git status -sb`로 `ahead`가 없는지 봄. `docs/worklog.md`는 양쪽에서 자주 고치는 파일이라 특히 충돌이 잘 남
 - Linux는 파일 이름 대소문자를 구분함. Windows에서 `import './Header'`인데 파일이 `header.jsx`면 데스크톱에서는 되고 노트북에서는 깨짐. 노트북에서 import 오류가 나면 대소문자부터 봄(2026-10-28 기준 `frontend/src`에는 이런 곳이 없음)
 - 메모리와 전역 CLAUDE.md는 git으로 동기화되지 않음. 한쪽에서 바꾸면 다른 쪽도 손으로 맞춤
+- **O-1(2026.11.12)을 pull 한 뒤 처음 한 번**: 노트북의 개발 데이터베이스가 그 전 방식(`ddl-auto: create`)으로 만들어져 있으면 백엔드가 `Found non-empty schema(s) "public" but no schema history table`로 켜지지 않음. 데이터는 지켜야 할 것이 없음. 관리자에게 말한 뒤 아래 한 줄로 `public` 스키마만 다시 만들고 백엔드를 켬. `docker compose down -v`처럼 volume을 지우는 명령은 쓰지 않음. 자세한 것은 `backend/README.md` "데이터베이스 스키마"
+  ```bash
+  docker exec footprint-demo-postgres psql -U footprint -d footprint -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+  ```
+- 그 뒤로는 백엔드를 다시 켜도 데이터가 남음. 두 컴퓨터의 데이터베이스는 따로라서 서로 동기화되지 않음

@@ -2131,3 +2131,72 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 시작 데이터는 임지아(student10)만 동의 전
   - 초안 문구의 보관 기간("학기의 성적 처리와 이의 신청 기간이 끝날 때까지")과 "광고나 다른 서비스에 쓰지 않고 서비스 밖으로 보내지 않음", "궁금한 점은 담당 교수에게 문의" 문장. 모두 학교·담당 교수 확인 대상
   - 이미 동의한 회원이 고지를 다시 볼 메뉴 링크는 두지 않음. 주소 `/privacy`로는 열림
+
+## 2026.11.12 O-1 스키마 관리 (Flyway, `ddl-auto: validate`)
+- 결정:
+  - Flyway로 스키마를 관리하고 `ddl-auto: validate`를 씀(TODO.md 추천안). 서버를 다시 켜도 기록이 지워지지 않음
+  - **새 의존성** `org.flywaydb:flyway-core`, `org.flywaydb:flyway-database-postgresql`. 버전은 적지 않음. Spring Boot 3.5.16의 `spring-boot-dependencies`가 `flyway.version` 11.7.2로 두 모듈을 모두 관리함(Gradle 캐시의 BOM에서 확인). PostgreSQL 모듈은 Flyway 10부터 core에서 나뉘어서 따로 넣어야 함
+    - 대안 Liquibase: XML·YAML 변경 목록을 한 겹 더 배워야 함. Flyway는 SQL 파일 그대로라 초심자가 읽기 쉬움
+    - 대안 Hibernate `ddl-auto: update`: 열 삭제·이름 변경을 못 하고, 부분 unique 인덱스도 못 만들고, 무엇이 언제 바뀌었는지 기록이 남지 않음
+  - **첫 migration(`V1__create_tables.sql`)은 Hibernate가 실제로 만든 DDL을 옮김.** 테스트 설정에 `jakarta.persistence.schema-generation.scripts.action=create`를 잠깐 넣어 Hibernate의 create 스크립트를 파일로 뽑고, 직전 빌드가 만든 `footprint_test`를 `pg_dump --schema-only`로 뽑아 둘을 맞춰 봄(설정은 되돌림). 열 이름, 타입(`varchar(255)`, `varchar(2000)`, `varchar(1000)`, `timestamp(6)`, `bigint`, `integer`, `boolean`, `date`), not null, unique, enum의 `check`, 외래 키 21개가 같음
+    - 읽기 쉽게 바꾼 것 3가지: 테이블을 참조 순서로 놓음, 열을 Entity 필드 순서로 놓음, 외래 키를 `alter table` 대신 열 옆 `references`로 적음. 그래서 외래 키 이름이 Hibernate의 `FK3076c...`에서 PostgreSQL 기본 이름(`assignment_professor_id_fkey`)으로 바뀜. validate는 이름을 보지 않고 코드도 이름을 쓰지 않음
+  - **부분 unique 인덱스는 별도 migration(`V2__add_partial_unique_indexes.sql`)**. 인덱스 3개로 규칙 2개를 막음
+    - `confirmation_active_deliverable_uk`: `(deliverable_id, confirmer_id) where canceled_at is null and deliverable_id is not null`
+    - `confirmation_active_contribution_uk`: 같은 규칙을 기여 항목에
+    - `team_member_one_leader_uk`: `(team_id) where leader`
+    - 확인 대상이 두 열로 나뉘어 있어서 인덱스도 둘로 나눔. `is not null`은 없어도 같은 결과지만(NULL끼리는 겹침으로 보지 않음) 뜻이 보이게 적음
+    - V1에 넣지 않은 이유: V1은 "Hibernate가 만들던 것"이라는 기준을 지키고, 규칙을 더한 시점이 이력에 따로 남게 함
+  - **조장 교체에 `flush` 한 줄을 더함**(`TeamService.changeLeader`). PostgreSQL의 unique 인덱스는 문장마다 검사하고 미룰 수 없음. JPA는 트랜잭션 끝에 UPDATE를 영속성 컨텍스트에 들어온 순서로 보내는데, 요청에서는 새 조장을 먼저 읽으므로 "새 조장 true"가 먼저 나가 잠깐 조장이 둘이 됨(500). 이전 조장을 내린 뒤 flush 해서 순서를 고정함
+    - 확인: flush를 일부러 빼면 `SchemaRuleTests.leaderChangePassesTheIndex`가 `team_member_one_leader_uk` 위반으로 실패함. 되돌린 뒤 통과. 실제 서버에서도 `PUT /teams/1/leader`가 200
+    - 기존 `LeaderChangeRuleTests`는 flush를 빼도 통과했음. 테스트가 조원을 먼저 읽어 두어서 이전 조장의 UPDATE가 먼저 나갔기 때문임. 새 테스트는 `entityManager.clear()`로 실제 요청과 같은 순서를 만듦
+  - **완료확인 Service는 고치지 않음.** 확인 저장 전에 대상 행을 잠그고(`findWithLockById`) 유효한 확인이 있는지 보므로, 두 요청이 겹쳐도 뒤 요청은 앞 요청이 commit 한 행을 보고 409 `DUPLICATE`가 됨. 인덱스에 닿는 길이 없어서 `TeamService.join`처럼 예외를 잡아 409로 바꾸는 코드를 더하지 않음. 취소 뒤 다시 확인하는 기존 테스트도 취소 UPDATE가 검사 쿼리 전에 자동 flush 되어 그대로 통과함
+  - **시작 데이터는 회원이 한 명도 없을 때만 넣음**(`DataInitializer`). 선택지: 회원 수(고름. 한 줄이고 시작 데이터가 회원부터 넣는 순서와 맞음), 특정 시작 이메일이 있는지(시작 계정을 지운 데이터베이스에서 다시 들어감), 별도 표식 테이블(테이블이 하나 늘어남). 버킷 만들기는 조건 앞에 둬서 켤 때마다 확인함
+    - `run`에 `@Transactional`을 붙임. 묶지 않으면 중간에 실패했을 때 회원만 남아 "회원이 있음"으로 보고 나머지를 영영 넣지 않음
+    - 시작 파일도 같은 조건 안에 있어서 켤 때마다 MinIO에 쌓이던 문제(TODO.md 5절 "시작 파일이 쌓임")가 없어짐. 운영 설정에서 시작 데이터를 끄는 것은 O-2
+  - **테스트도 migration으로 만든 스키마에서 돎.** `application-test.yml`의 `spring.flyway.schemas`·`default-schema`를 `footprint_test`로 두고, `TestFlywayConfig`(src/test)의 `FlywayMigrationStrategy`가 context가 뜰 때마다 `clean()` 다음 `migrate()`를 함. `clean-disabled: false`는 테스트 설정에만 있음
+    - 선택지 A clean + migrate(고름): `ddl-auto: create`를 쓰던 때와 같이 context마다 빈 스키마에 시작 데이터가 들어감. 지난 빌드의 데이터나 commit 전 migration을 고친 흔적이 남지 않음. `create`로 만든 기존 `footprint_test`도 따로 지우지 않아도 됨
+    - 선택지 B migrate만: 스키마와 시작 데이터가 빌드 사이에 남음. commit 전 migration을 고치면 checksum 오류로 테스트가 깨지고, 시작 데이터를 고쳐도 테스트 스키마에 반영되지 않음
+    - context가 둘(공통, `ProfessorPromoteRuleTests`의 `@MockitoBean`·`@TestPropertySource`) 뜨고, 둘째가 첫째의 스키마를 비워도 identity가 1부터 다시 시작해 같은 시작 데이터가 같은 번호로 들어감. `create` 때와 같음. 테스트는 번호가 아니라 초대 코드·이메일로 찾음
+    - `@Configuration`을 src/test에 두면 테스트에서만 component scan에 걸림(`@TestConfiguration`은 scan에서 빠져서 쓰지 않음). `@Profile("test")`를 함께 붙여 test 프로필이 아닌 테스트가 생겨도 clean이 돌지 않게 함
+    - `hibernate.hbm2ddl.create_namespaces`는 지움. 스키마는 이제 Flyway가 만듦(`schemas`에 적은 스키마가 없으면 만듦)
+  - **이미 `ddl-auto: create`로 만든 개발 데이터베이스의 전환은 `public` 스키마를 한 번 다시 만드는 것으로 정함**
+    - 직접 확인: 새 코드를 이력 테이블이 없는 `public`(테이블 12개, 회원 11명)에 켜면 Flyway가 아무것도 바꾸지 않고 `Found non-empty schema(s) "public" but no schema history table. Use baseline() or set baselineOnMigrate to true to initialize the schema history table.`로 서버가 켜지지 않음
+    - 선택지 A `public` 다시 만들기(고름): `docker exec footprint-demo-postgres psql -U footprint -d footprint -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"` 한 줄. 그 데이터는 서버를 켤 때마다 지워지던 것이라 지킬 것이 없음. volume과 MinIO는 그대로임. 같은 명령이 "개발 중 처음부터 다시 만들기"에도 쓰여서 조원이 외울 것이 하나임
+    - 선택지 B `baseline-on-migrate`: 기존 테이블을 V1로 치고 V2만 실행함. 그러나 기존 테이블은 그 컴퓨터가 마지막에 켠 코드의 Entity로 만들어져서 V1과 같다는 보장이 없음(예: X-2 전 코드로 마지막에 켰으면 `privacy_consented_at`이 없음). 다르면 validate에서 막히고 원인을 찾기 어려움. 한 번만 필요한 설정이 계속 남고, 운영 데이터베이스에서 잘못 켜면 기존 스키마를 V1로 쳐 버릴 위험도 있음
+    - 선택지 C volume 지우기(`docker compose down -v`): MinIO 파일까지 지워지고 명령이 위험해서 버림
+    - 이 컴퓨터는 A로 전환함. 학습 저장소 infra와 상관없음(`footprint-demo-postgres` 컨테이너)
+  - CI(`.github/workflows/ci.yml`)는 바꾸지 않음. 새 컨테이너의 빈 데이터베이스에서 테스트가 `footprint_test`를 만들기 때문. `backend/Dockerfile`도 바꾸지 않음. migration 파일은 `src/main/resources`라서 `COPY src src`로 jar에 들어감. 맨 위 `docker-compose.yml`은 주석만 고침(테이블과 데이터가 volume에 남는다는 것)
+- 만든 파일:
+  - `backend/src/main/resources/db/migration/V1__create_tables.sql`, `V2__add_partial_unique_indexes.sql`
+  - 테스트: `SchemaRuleTests`(7개), `TestFlywayConfig`
+- 고친 파일:
+  - 백엔드: `build.gradle`(Flyway 2줄), `application.yml`(`ddl-auto: validate`), `application-test.yml`(Flyway 스키마·clean), `config/DataInitializer`(빈 데이터베이스에서만, `@Transactional`), `service/TeamService`(`changeLeader`의 flush), `entity/Confirmation`·`entity/TeamMember`(인덱스 주석 한 줄씩)
+  - 문서: `TODO.md`(순서 19, O-1 규칙, 4절, 5절), `README.md`(지금 상태, 실행 안내, "아직 만들지 않은 것"의 남은 추가 기능 개수 6 → 4. X-2가 끝난 뒤에도 6으로 남아 있었음), `backend/README.md`("데이터베이스 스키마" 절, 시작 계정·시작 데이터 문장), `CLAUDE.md`(코드 규칙 — 백엔드의 migration 규칙, 업무 규칙의 인덱스), `docs/erd.md`(부분 unique 인덱스), `docs/architecture.md`, `docs/laptop-setup.md`(노트북 한 번 전환), `docker-compose.yml`(주석)
+- 확인:
+  - `gradlew.bat cleanTest build` 두 번 연속 성공. 두 번 모두 테스트 23개 클래스 176개, 실패 0(169개 + `SchemaRuleTests` 7개). 로그에 context마다 `Successfully cleaned schema "footprint_test"`, `Successfully applied 2 migrations to schema "footprint_test", now at version v2`
+  - 빌드 뒤 `public` 스키마에 테이블이 생기지 않음(`\dt public.*` 없음). 테스트가 개발 데이터를 건드리지 않음
+  - migration이 Entity와 어긋나면 빌드가 깨지는지: V1의 `privacy_consented_at`을 일부러 바꾸면 `Schema-validation: missing column [privacy_consented_at] in table [member]`로 실패함. 되돌린 뒤 통과
+  - `SchemaRuleTests`: migration V1·V2 적용과 남은 migration 없음, `ddl-auto` 값 `validate` / 같은 산출물 유효 확인 두 번째 저장 거절(`DataIntegrityViolationException`) / 취소한 뒤 새 확인 저장 됨 / 같은 기여 항목 유효 확인 두 번째 거절 / 두 번째 조장 저장 거절 / 조장 교체 API 200 뒤 flush 해도 인덱스 통과·조장 한 명 / `DataInitializer.run()`을 한 번 더 불러도 회원·조원·산출물·기여 항목·완료확인·알림 수가 그대로
+  - 실제 서버(jar) 두 번 연달아 켜기: 전환 뒤 첫 실행에서 V1·V2 적용과 시작 데이터(회원 11, 산출물 3, 알림 6). student10 동의와 조장 교체(200)를 한 뒤 다시 켜면 `Schema "public" is up to date. No migration necessary.`, 회원 11·산출물 3·알림 6 그대로, 동의 시각·바뀐 조장·조장 이력 1건이 남음. MinIO `footprint` 버킷의 항목 수가 251로 그대로(시작 파일이 더 쌓이지 않음)
+  - Newman(실제 백엔드): `public`을 다시 만들고 켠 서버에 요청 146개, assertion 341개, 실패 0. 서버를 다시 켜서 기록이 남은 채로(과제 3개) 한 번 더 돌려도 실패 0. 확인 뒤 `public`을 다시 만들어 이 컴퓨터의 개발 데이터베이스를 빈 상태로 둠(다음에 켜면 시작 데이터가 들어감)
+  - 화면과 가짜 API는 바꾸지 않아 `npm run build`, `lint`는 돌리지 않음
+  - **CI 실행은 확인 못 함**(push 전). 맨 위 `docker-compose.yml`로 이미지를 새로 만들어 켜는 것도 돌리지 않음. 파일을 읽어 migration이 jar에 들어가는 경로만 확인함
+  - rule-check: 이번 단위 파일에서 금지 패턴 없음(`@Autowired`는 테스트 생성자 주입). 값을 바꾸는 `changeLeader`에 `@Transactional` 있음. 새 클래스·메서드에 주석 있음. 고칠 것 없었음
+- 읽을 때 볼 곳 (Flyway에서 막힐 곳):
+  - 파일 이름 규칙 `V1__create_tables.sql`: 대문자 V, 번호, **밑줄 두 개**, 설명. 밑줄이 하나면 Flyway가 파일을 migration으로 읽지 못함
+  - 이미 적용된 파일을 고치면 서버가 켜지지 않음: Flyway가 `flyway_schema_history`에 파일의 checksum을 적어 두고 켤 때마다 비교함. 고친 내용은 다음 번호의 새 파일로 씀
+  - `ddl-auto: validate`는 테이블·열이 있는지와 타입만 봄. unique, check, 외래 키, 인덱스는 보지 않음. 그래서 V2의 인덱스는 Entity에 없어도 validate가 통과함. 반대로 제약을 빠뜨린 migration도 validate는 잡지 못함
+  - enum에 값을 더할 때: V1의 `check (phase in ('RECORDING','EVALUATION'))`는 Hibernate가 만들던 제약을 그대로 옮긴 것임. 새 값을 저장하려면 새 migration에서 `check` 제약을 바꿔야 함. validate는 이것을 잡지 못하고 저장할 때 오류가 남
+  - 부분 인덱스(`where`)는 조건에 맞는 행만 담음. 취소한 확인, 조장이 아닌 조원은 아무리 많아도 겹침으로 보지 않음
+  - `TeamService.changeLeader`의 `flush()`: JPA는 바뀐 값을 바로 보내지 않고 모았다가 보냄. flush는 "지금 보내라"는 뜻임. 트랜잭션은 그대로라 뒤에서 실패하면 함께 되돌아감
+  - `TestFlywayConfig`의 `clean()`: 설정한 스키마의 모든 객체를 지움. 테스트 설정에서만 풀어 둔 이유가 이것임. 개발·운영 설정에 `clean-disabled: false`를 넣지 않음
+  - `DataInitializer`의 `memberRepository.count() > 0`: 시작 데이터 상태로 돌아가려면 서버를 다시 켜는 것으로는 안 되고 `public`을 다시 만들어야 함(`backend/README.md`)
+- 내가 채운 가정:
+  - 전환 방법은 `public` 다시 만들기(baseline 안 씀)
+  - 시작 데이터를 넣는 조건은 "회원이 한 명도 없을 때"
+  - `DataInitializer.run`을 한 트랜잭션으로 묶음
+  - 테스트는 context마다 clean + migrate(지난 빌드 데이터를 남기지 않음)
+  - migration을 읽기 쉽게 열 순서·외래 키 표기를 바꾼 것(외래 키 이름이 바뀜)
+  - 완료확인 인덱스를 산출물·기여 항목 둘로 나눔(규칙 2개에 인덱스 3개)
+  - 개발 데이터베이스를 다시 만들 때 MinIO의 이전 파일은 지우지 않고 둠(주인 없는 파일로 남음)
+  - 확인 뒤 이 컴퓨터의 `public`을 빈 상태로 둠
