@@ -98,6 +98,19 @@ export const RECORD_TYPE_LABELS = {
   EVALUATION_STARTED: '평가 시작. 기록 단계에서 평가 단계로 바뀜',
 }
 
+// 알림 종류마다 보여 줄 이름입니다. 값은 서버의 NotificationType과 같습니다.
+export const NOTIFICATION_TYPE_LABELS = {
+  EVALUATION_STARTED: '평가 시작',
+  CONTRIBUTION_ASSIGNED: '기여 항목 담당',
+  CONTRIBUTION_REPORTED: '완료 보고',
+}
+
+// 알림을 누르면 갈 주소입니다. 평가 시작은 그 조의 동료평가 화면, 나머지는 그 조의 기여 항목 화면입니다.
+export function notificationPathOf(notification) {
+  if (notification.type === 'EVALUATION_STARTED') return `/teams/${notification.teamId}/evaluation`
+  return `/teams/${notification.teamId}/contributions`
+}
+
 // 과제 단계마다 꼬리표 색 class입니다.
 export const PHASE_PILLS = {
   RECORDING: 'blue',

@@ -1888,3 +1888,56 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 플러그인이 없는 환경(조원 PC, 노트북)에서는 이 절을 쓰지 않고 `CLAUDE.md` 규칙대로 만듦
   - 초심자가 처음 볼 브라우저 API에는 이유 주석 한 줄을 닮
   - 강단PC 브라우저 지원은 따로 규칙을 두지 않음
+
+## 2026.11.12 X-6 화면 안 알림
+- 결정:
+  - 새 엔티티 `Notification`(받는 회원, 종류, 문장, 조, 만든 시각, 읽은 시각). 엔티티는 12개가 됨. 받는 쪽은 조 참여가 아니라 회원을 가리킴. 여러 과제의 알림을 한 목록으로 찾기 때문임. 선택지: `TeamMember`를 가리킴. 그러면 목록 조회가 조 참여를 거쳐야 함
+  - 종류는 enum `NotificationType` 3개(`EVALUATION_STARTED`, `CONTRIBUTION_ASSIGNED`, `CONTRIBUTION_REPORTED`). 내용은 서버가 만든 한국어 문장 하나로 저장함. 문장 앞에 "[과제 제목 조 이름]"을 붙임. "1조"만으로는 어느 과제인지 알 수 없음. 선택지: 항목명·이름을 칸으로 나눠 저장하고 화면이 문장을 만듦. 칸이 늘고 종류마다 화면 분기가 생겨 고르지 않음
+  - 받는 회원
+    - 평가 시작: 그 과제 모든 조의 조원(조장 포함). 교수는 시작한 본인이라 받지 않음
+    - 담당 지정: 담당 조원. 조장이 자신을 담당으로 정하면 만들지 않음. 스스로 한 일을 알릴 필요가 없음. 선택지: 언제나 만듦
+    - 완료 보고: 같은 조에서 보고한 조원을 뺀 조원 전원(조장 포함). 담당 조원을 뺀 조원 누구나 완료확인을 하므로 조장만으로 좁히지 않음. 교수는 이력만 보는 쪽이라 받지 않음. 선택지: 조장만
+  - 저장은 `AssignmentService.startEvaluation`, `ContributionService.create`, `ContributionService.report`가 같은 트랜잭션 안에서 `NotificationService`의 `notify...` 메서드를 직접 부름. 이벤트 리스너·AOP를 쓰지 않음(작업 지시와 "금지"). 알림 저장이 실패하면 원래 요청도 취소됨
+  - 남의 알림 읽음 표시는 403. 검사는 다른 "본인만" 검사처럼 `TeamAccessChecker.checkRecipient`에 둠. 목록은 처음부터 본인 것만 찾아서 검사가 없음
+  - 이미 읽은 알림을 다시 표시해도 200이고 처음 시각을 둠. 선택지: 409 `DUPLICATE`. 두 번 눌러도 해가 없는 일이라 오류로 만들지 않음
+  - 단계 검사를 하지 않음. 알림 읽음은 조 운영도 과정 기록도 아니라서 평가 단계에서도 됨
+  - **안 읽은 개수를 API에도 화면에도 두지 않음.** "건수를 담지 않음" 원칙과 같은 쪽을 고름. 화면은 `readAt`이 null인 알림이 있는지만 보고 종 모양 버튼에 점을 찍음. 선택지: 응답에 `unreadCount`, 버튼에 숫자. 평가와 상관없는 개수라 원칙에 직접 걸리지는 않지만, 개수 계산을 한 곳이라도 두면 다른 화면으로 번지기 쉬워 고르지 않음
+  - 알림을 지우는 API와 "모두 읽음"은 두지 않음. 작업 범위의 두 API만 만듦
+  - 시작 데이터에도 알림을 넣음. 시작 기록(담당 지정 1건, 완료 보고 1건, 평가 시작 1건)이 실제 요청으로 생겼을 때와 같은 알림을 `NotificationService`로 만듦. 가짜 API `db.json`에도 같은 6건을 넣음
+  - 화면: 메뉴 상자 아래(`MeBox`)에 종 모양 버튼을 두고 `/notifications` 알림 화면으로 감. 버튼은 어느 화면에서나 보이는 자리라 고름. 선택지: 각 화면의 `TopBar`(화면마다 넣어야 함), 메뉴 줄(과제를 고르면 메뉴가 바뀜)
+  - 공통 틀 `AppLayout`이 주소가 바뀔 때마다 알림을 다시 불러 점을 정함. 실시간 전송이 없어서 화면을 옮길 때가 새로 볼 때임. 점은 알림 배열에서 계산하고 따로 state로 두지 않음
+  - 알림을 누르면 읽음 표시 후 그 조의 화면으로 감. 평가 시작은 동료평가, 나머지는 기여 항목 화면. 읽음만 하는 버튼은 따로 두지 않음
+  - 종류 이름(`NOTIFICATION_TYPE_LABELS`)과 갈 주소(`notificationPathOf`)는 `RECORD_TYPE_LABELS`가 있는 `format.js`에 둠. 기존 코드를 따름
+  - 프론트엔드 웹 가이드(오늘 앞 항목)를 따라 고친 곳. 이 세션에는 플러그인 스킬이 올라오지 않았고 `npx modern-web-guidance` 실행은 권한 확인에서 막혀, 관리자 PC에 받아 둔 가이드 파일(0.0.194의 `guides/accessibility/accessibility.md`)을 직접 읽음
+    - `accessibility`: 알림 목록을 `<div>` 대신 `<ul>`, `<li>`로 그림("Use lists for repeated, contiguous content"). 기존 `RecordList`는 `<div>`라 두 방식이 섞임
+    - `accessibility`: 종 버튼의 이름은 "알림"으로 두고 "안 읽은 알림이 있습니다"는 `aria-describedby`로 따로 읽게 함("Don't pack descriptions, error messages, or instructions into the label"). 숨긴 글자용 `.visually-hidden`을 `index.css`에 더함
+    - `accessibility`: 알림 문장 버튼에 `min-block-size: 24px`("Interactive elements should be at least 24×24 CSS pixels")
+- 만든 파일:
+  - 백엔드: `entity/Notification`, `entity/NotificationType`, `repository/NotificationRepository`, `service/NotificationService`, `controller/NotificationController`, `dto/NotificationResponse`, 테스트 `NotificationRuleTests`
+  - 화면: `api/notifications.js`, `pages/NotificationsPage.jsx`, `components/NotificationList.jsx`
+- 고친 파일:
+  - 백엔드: `service/AssignmentService`, `service/ContributionService`, `service/TeamAccessChecker`, `repository/TeamMemberRepository`, `config/DataInitializer`
+  - 가짜 API: `frontend/db.json`, `frontend/mock/middleware.cjs`
+  - 화면: `App.jsx`, `format.js`, `index.css`, `pages/AppLayout.jsx`, `components/MeBox.jsx`, `components/Icon.jsx`
+  - 문서: `docs/api-draft.md`, `docs/erd.md`, `docs/architecture.md`, `docs/postman/`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`
+- 확인:
+  - `gradlew.bat build` 성공. 테스트 141개, 실패 0(`NotificationRuleTests` 10개 더함)
+  - `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 136개, 확인 309개, 실패 0. 새 폴더 "7. 알림" 6개 요청
+  - 실제 백엔드와 가짜 API에 같은 요청 24건(목록, 담당 지정, 자기 지정, 완료 보고, 평가 시작, 읽음, 다시 읽음, 403, 404, 400, 401)을 보내 응답이 같음을 비교함(시각 값만 가림, 저장소에 넣지 않은 일회용 스크립트)
+  - 브라우저에서 실제 백엔드로 확인: 이서연이 종 버튼의 점을 보고 알림 화면에서 4건을 봄. 완료 보고 알림을 누르면 기여 항목 화면으로 가고 돌아오면 "읽음". 평가 시작 알림은 동료평가 화면으로 감. 모두 읽으면 점이 사라짐. 교수는 "받은 알림이 없습니다"와 점 없음. 375px 폭에서 가로로 밀리지 않음. 콘솔 오류 없음
+  - 시험 뒤 `frontend/db.json`을 되돌림
+  - rule-check: 금지 패턴 없음. `NotificationList`의 `.length`는 빈 목록 문구를 고를 때만 씀. Controller가 DTO를 돌려주고, 값을 바꾸는 Service 메서드에 `@Transactional`이 있음
+- 읽을 때 볼 곳:
+  - `NotificationService`의 `@Transactional`. 다른 Service의 트랜잭션 안에서 불리면 새로 열지 않고 그 트랜잭션에 들어감(기본 전파 `REQUIRED`). 그래서 알림 저장이 실패하면 평가 시작이나 기여 항목 등록도 취소됨. `DataInitializer`처럼 트랜잭션 밖에서 부르면 메서드마다 새로 열림
+  - `NotificationResponse.from`의 `notification.getTeam().getId()`. `team`이 LAZY라도 id만 읽으면 조 행을 따로 읽지 않음
+  - `AppLayout`의 알림 `useEffect` 의존 배열 `[location.pathname, reloadCount]`. 주소가 바뀌면 다시 부름
+  - `MeBox`의 `aria-describedby`와 `.visually-hidden`. 화면에는 점만 보이고, 화면 읽기 프로그램은 "알림" 다음에 "안 읽은 알림이 있습니다"를 읽음
+  - `mock/middleware.cjs`의 `notify...` 함수 3개는 실제 `NotificationService`와 순서·문장이 같아야 함. 문장을 고치면 `db.json` 시작 알림과 `NotificationRuleTests`도 같이 고칠 것
+- 내가 채운 가정:
+  - 받는 회원 범위(위 "결정"). 특히 조장 자기 지정 제외, 완료 보고를 조원 전원에게 보냄
+  - 알림 문장 3개와 화면 문구("알림", "새 알림", "읽음", "받은 알림이 없습니다." 등)는 내가 씀
+  - 알림 문장 길이 상한 1000자(과제 제목 255자 + 항목명 255자 + 이름이 들어가도 넘지 않음)
+  - 다시 읽음 표시는 200으로 처음 시각 유지
+  - 알림 화면 주소 `/notifications`, 종 버튼 자리
+  - 알림을 지우거나 보관 기간을 두지 않음. X-2 보관 기간을 정할 때 같이 볼 것

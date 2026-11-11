@@ -1075,6 +1075,71 @@ code {
   font-size: 12px;
 }
 
+/* 화면에는 보이지 않고 화면 읽기 프로그램만 읽는 글자입니다. 알림 버튼의 점 설명에 씁니다.
+   display: none과 달리 접근성 정보에는 남습니다. 1px 크기로 줄이고 잘라서 숨깁니다. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 알림 버튼입니다. 안 읽은 알림이 있으면 오른쪽 위에 점을 찍습니다. 점의 자리를 버튼 기준으로 잡으려고 relative를 둡니다. */
+.bell {
+  position: relative;
+}
+
+.bell-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+/* 알림 한 줄입니다. 전체 기록의 줄과 같은 간격입니다. */
+.notice-row {
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.notice-row:first-child {
+  border-top: none;
+}
+
+/* "새 알림"과 "읽음" 꼬리표의 폭을 맞춰 알림 문장이 같은 자리에서 시작하게 합니다. */
+.notice-row .pill {
+  min-width: 56px;
+  justify-content: center;
+}
+
+/* 종류 이름을 위에, 알림 문장을 아래에 둡니다. 문장 길이와 상관없이 줄마다 같은 모양입니다. */
+.notice-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+/* 알림 문장입니다. 누르면 그 화면으로 가서 글자처럼 보이는 버튼으로 둡니다.
+   min-block-size: 누르는 자리의 높이를 24px보다 작게 만들지 않습니다(글이 길면 더 커짐). */
+.notice-link {
+  min-block-size: 24px;
+  font-weight: 600;
+}
+
+.notice-link:hover {
+  color: var(--accent-text);
+}
+
 /* 전체 기록의 한 줄입니다. */
 .record-row {
   padding: 10px 16px;

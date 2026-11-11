@@ -243,6 +243,7 @@ function handleStartEvaluation(req, res, loginMember, assignmentId) {
     return sendError(res, 400, 'INVALID_INPUT', '이미 평가 단계입니다')
   }
   db.get('assignments').find({ id: assignmentId }).assign({ phase: 'EVALUATION', evaluationStartedAt: nowLocalDateTime() }).write()
+  notifyEvaluationStarted(db, assignment)
   return res.json(toAssignmentResponse(db.get('assignments').find({ id: assignmentId }).value()))
 }
 
@@ -702,6 +703,7 @@ function handleCreateContribution(req, res, loginMember, teamId) {
     canceledAt: null,
   }
   db.get('contributions').push(contribution).write()
+  notifyContributionAssigned(db, contribution, loginMember.id)
   return res.json(toContributionResponse(db, contribution))
 }
 
@@ -740,6 +742,7 @@ function handleReportContribution(req, res, loginMember, contributionId) {
   }
 
   db.get('contributions').find({ id: contributionId }).assign({ reportMemo: memo.trim(), reportedAt: nowLocalDateTime() }).write()
+  notifyContributionReported(db, contribution)
   return res.json(toContributionResponse(db, db.get('contributions').find({ id: contributionId }).value()))
 }
 
@@ -1294,6 +1297,85 @@ function handleExportEvaluations(req, res, loginMember, teamId) {
   return res.send(Buffer.from('\uFEFF' + lines.map((line) => line + '\r\n').join(''), 'utf8'))
 }
 
+// 알림 한 건의 모양입니다. 실제 NotificationResponse와 같습니다. 받는 회원(recipientId)은 응답에 담지 않습니다.
+function toNotificationResponse(notification) {
+  const { id, type, message, teamId, createdAt, readAt } = notification
+  return { id, type, message, teamId, createdAt, readAt }
+}
+
+// 알림 한 건을 저장합니다. 실제 NotificationService.save와 같습니다.
+function saveNotification(db, recipientId, type, message, teamId) {
+  db.get('notifications').push({
+    id: nextId(db, 'notifications'),
+    recipientId,
+    type,
+    message,
+    teamId,
+    createdAt: nowLocalDateTime(),
+    readAt: null,
+  }).write()
+}
+
+// 알림 문장 앞에 붙일 "[과제 제목 조 이름] "입니다.
+function notificationPrefixOf(db, team) {
+  const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
+  return '[' + assignment.title + ' ' + team.name + '] '
+}
+
+// 평가가 시작된 과제의 모든 조원(조장 포함)에게 알림을 저장합니다. 실제 백엔드처럼 조 참여 번호 순서입니다.
+function notifyEvaluationStarted(db, assignment) {
+  const teams = db.get('teams').filter({ assignmentId: assignment.id }).value()
+  const teamIds = teams.map((team) => team.id)
+  const teamMembers = db.get('teamMembers').filter((teamMember) => teamIds.includes(teamMember.teamId)).sortBy('id').value()
+  teamMembers.forEach((teamMember) => {
+    const team = teams.find((item) => item.id === teamMember.teamId)
+    saveNotification(db, teamMember.memberId, 'EVALUATION_STARTED',
+      notificationPrefixOf(db, team) + '평가가 시작되었습니다. 동료평가를 입력할 수 있습니다.', team.id)
+  })
+}
+
+// 기여 항목의 담당 조원에게 알림을 저장합니다. 조장이 자신을 담당으로 정했으면 만들지 않습니다.
+function notifyContributionAssigned(db, contribution, leaderMemberId) {
+  const assignee = db.get('teamMembers').find({ id: contribution.assigneeId }).value()
+  if (assignee.memberId === leaderMemberId) return
+  const team = db.get('teams').find({ id: contribution.teamId }).value()
+  saveNotification(db, assignee.memberId, 'CONTRIBUTION_ASSIGNED',
+    notificationPrefixOf(db, team) + '기여 항목 "' + contribution.title + '"의 담당이 되었습니다.', team.id)
+}
+
+// 완료 보고된 항목의 조에서 보고한 조원을 뺀 조원 전원(조장 포함)에게 알림을 저장합니다. 보고 메모는 담지 않습니다.
+function notifyContributionReported(db, contribution) {
+  const team = db.get('teams').find({ id: contribution.teamId }).value()
+  const reporter = db.get('teamMembers').find({ id: contribution.assigneeId }).value()
+  const reporterMember = db.get('members').find({ id: reporter.memberId }).value()
+  const message = notificationPrefixOf(db, team) + reporterMember.name + ' 님이 기여 항목 "' + contribution.title + '" 완료 보고를 올렸습니다.'
+  const others = db.get('teamMembers').filter({ teamId: team.id }).sortBy('id').value()
+    .filter((teamMember) => teamMember.id !== reporter.id)
+  others.forEach((teamMember) => saveNotification(db, teamMember.memberId, 'CONTRIBUTION_REPORTED', message, team.id))
+}
+
+// GET /notifications: 로그인한 회원이 받은 알림을 최근 것부터 돌려줍니다. 다른 회원의 알림은 담지 않습니다.
+function handleGetNotifications(req, res, loginMember) {
+  const notifications = req.app.db.get('notifications').filter({ recipientId: loginMember.id }).sortBy('id').reverse().value()
+  return res.json(notifications.map(toNotificationResponse))
+}
+
+// POST /notifications/{notificationId}/read: 받은 회원 본인이 알림을 읽음으로 표시합니다. 이미 읽었으면 처음 시각을 그대로 둡니다.
+function handleReadNotification(req, res, loginMember, notificationId) {
+  const db = req.app.db
+  const notification = db.get('notifications').find({ id: notificationId }).value()
+  if (!notification) {
+    return sendError(res, 404, 'NOT_FOUND', '알림이 없습니다. id=' + notificationId)
+  }
+  if (notification.recipientId !== loginMember.id) {
+    return sendError(res, 403, 'FORBIDDEN', '받은 회원만 읽음으로 표시할 수 있습니다')
+  }
+  if (notification.readAt === null) {
+    db.get('notifications').find({ id: notificationId }).assign({ readAt: nowLocalDateTime() }).write()
+  }
+  return res.json(toNotificationResponse(db.get('notifications').find({ id: notificationId }).value()))
+}
+
 // 주소가 pattern과 맞으면 {id} 자리의 글자를 돌려줍니다. 맞지 않으면 null입니다.
 // 예: matchId(/^\/assignments\/([^/]+)$/, '/assignments/3') → '3'(글자). 숫자 검사는 parseIdOrSendError가 합니다.
 function matchId(pattern, path) {
@@ -1333,6 +1415,16 @@ function handleRequest(req, res, next) {
   }
   if (req.method === 'GET' && req.path === '/assignments') {
     return handleGetAssignments(req, res, loginMember)
+  }
+  if (req.method === 'GET' && req.path === '/notifications') {
+    return handleGetNotifications(req, res, loginMember)
+  }
+
+  const readNotificationIdText = matchId(/^\/notifications\/([^/]+)\/read$/, req.path)
+  if (req.method === 'POST' && readNotificationIdText !== null) {
+    const notificationId = parseIdOrSendError(res, readNotificationIdText)
+    if (notificationId === null) return
+    return handleReadNotification(req, res, loginMember, notificationId)
   }
 
   const assignmentIdText = matchId(/^\/assignments\/([^/]+)$/, req.path)

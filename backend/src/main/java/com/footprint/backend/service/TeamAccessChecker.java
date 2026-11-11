@@ -4,6 +4,7 @@ import com.footprint.backend.entity.Assignment;
 import com.footprint.backend.entity.Confirmation;
 import com.footprint.backend.entity.Contribution;
 import com.footprint.backend.entity.Deliverable;
+import com.footprint.backend.entity.Notification;
 import com.footprint.backend.entity.Team;
 import com.footprint.backend.entity.TeamMember;
 import com.footprint.backend.exception.ForbiddenException;
@@ -83,6 +84,13 @@ public class TeamAccessChecker {
     public void checkConfirmer(Confirmation confirmation, Long memberId) {
         if (!confirmation.getConfirmer().getMember().getId().equals(memberId)) {
             throw new ForbiddenException("확인한 조원만 취소할 수 있습니다");
+        }
+    }
+
+    // 이 알림을 받은 회원인지 확인합니다. 아니면 ForbiddenException을 던집니다. 같은 조의 조원과 교수도 여기서는 막힙니다.
+    public void checkRecipient(Notification notification, Long memberId) {
+        if (!notification.getRecipient().getId().equals(memberId)) {
+            throw new ForbiddenException("받은 회원만 읽음으로 표시할 수 있습니다");
         }
     }
 

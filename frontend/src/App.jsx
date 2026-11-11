@@ -10,6 +10,7 @@ import EvaluationResultsPage from './pages/EvaluationResultsPage'
 import HomePage from './pages/HomePage'
 import JoinPage from './pages/JoinPage'
 import LoginPage from './pages/LoginPage'
+import NotificationsPage from './pages/NotificationsPage'
 import ProgressPage from './pages/ProgressPage'
 import RecordsPage from './pages/RecordsPage'
 import TeamMembersPage from './pages/TeamMembersPage'
@@ -31,6 +32,7 @@ function App() {
                     <Route element={<AppLayout />}>
                         <Route path="/" element={<HomePage />} />
                         <Route path="/assignments/new" element={<AssignmentCreatePage />} />
+                        <Route path="/notifications" element={<NotificationsPage />} />
                         {/* :assignmentId 자리의 값은 page에서 useParams()로 꺼냅니다. React Router는 더 구체적인 /assignments/new를 먼저 고르므로 "new"가 id로 읽히지 않습니다. */}
                         <Route path="/assignments/:assignmentId" element={<AssignmentDetailPage />} />
                         <Route path="/teams/:teamId" element={<TeamPage />} />

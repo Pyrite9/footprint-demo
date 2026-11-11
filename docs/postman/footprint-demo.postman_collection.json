@@ -4686,6 +4686,208 @@
           ]
         }
       ]
+    },
+    {
+      "name": "7. 알림 (X-6)",
+      "item": [
+        {
+          "name": "알림 목록 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notifications",
+            "description": "받은 알림을 최근 것부터 봅니다. 이 모음에서 담당 지정과 평가 시작 알림을 받았습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "const teamId = Number(pm.collectionVariables.get('teamId'));",
+                  "const mine = pm.response.json().filter((n) => n.teamId === teamId);",
+                  "const started = mine.find((n) => n.type === 'EVALUATION_STARTED');",
+                  "pm.test('평가 시작 알림이 있음', () => pm.expect(started).to.not.be.undefined);",
+                  "pm.test('담당 지정 알림이 있음', () => pm.expect(mine.some((n) => n.type === 'CONTRIBUTION_ASSIGNED')).to.eql(true));",
+                  "pm.test('점수, 의견, 건수 칸이 없음', () => pm.response.json().forEach((n) => pm.expect(Object.keys(n)).to.eql(['id', 'type', 'message', 'teamId', 'createdAt', 'readAt'])));",
+                  "pm.collectionVariables.set('notificationId', started.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "알림 목록 (조장)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/notifications",
+            "description": "담당 조원이 완료 보고하면 같은 조의 다른 조원이 받습니다. 조장도 받습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{leaderToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "const teamId = Number(pm.collectionVariables.get('teamId'));",
+                  "const reported = pm.response.json().filter((n) => n.teamId === teamId && n.type === 'CONTRIBUTION_REPORTED');",
+                  "pm.test('완료 보고 알림이 있음', () => pm.expect(reported.length > 0).to.eql(true));",
+                  "pm.test('보고 메모를 담지 않음', () => reported.forEach((n) => pm.expect(n.message).to.not.include('회의록을 정리해 올렸습니다')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다른 회원의 알림을 읽음 표시하면 403 (다른 조)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/notifications/{{notificationId}}/read",
+            "description": "받은 회원 본인만 읽음으로 표시합니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "알림 읽음 표시 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/notifications/{{notificationId}}/read",
+            "description": "읽은 시각은 서버가 넣습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "const readAt = pm.response.json().readAt;",
+                  "pm.test('읽은 시각이 있음', () => pm.expect(readAt).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$/));",
+                  "pm.collectionVariables.set('notificationReadAt', readAt);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "다시 읽음 표시해도 처음 시각 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/notifications/{{notificationId}}/read",
+            "description": "이미 읽은 알림은 처음 읽은 시각을 그대로 둡니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('처음 읽은 시각 그대로', () => pm.expect(pm.response.json().readAt).to.eql(pm.collectionVariables.get('notificationReadAt')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "없는 알림이면 404 (조원)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/notifications/999999/read",
+            "description": "없는 알림입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 응답', () => pm.response.to.have.status(404));",
+                  "pm.test('code NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -4744,6 +4946,14 @@
     },
     {
       "key": "confirmationId",
+      "value": ""
+    },
+    {
+      "key": "notificationId",
+      "value": ""
+    },
+    {
+      "key": "notificationReadAt",
       "value": ""
     }
   ]

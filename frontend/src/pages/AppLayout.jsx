@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router'
 import { getAssignment, getAssignments } from '../api/assignments'
 import { getMe } from '../api/auth'
+import { getNotifications } from '../api/notifications'
 import { getTeam } from '../api/teams'
 import { removeToken } from '../api/token'
 import AssignmentRail from '../components/AssignmentRail'
@@ -20,6 +21,8 @@ function AppLayout() {
     const [assignments, setAssignments] = useState([])
     // 지금 주소의 조와 과제입니다. 내 과제 화면처럼 주소에 없으면 둘 다 null입니다.
     const [current, setCurrent] = useState({ team: null, assignment: null })
+    // 내가 받은 알림 목록입니다. 알림 버튼의 점을 정할 때만 씁니다.
+    const [notifications, setNotifications] = useState([])
     // 안쪽 화면이 과제를 만들거나 평가를 시작하면 1 늘려서 레일과 메뉴를 다시 불러옵니다.
     const [reloadCount, setReloadCount] = useState(0)
     // 지금 테마('light' 또는 'dark')입니다. 고른 테마는 theme.js가 브라우저에 기억합니다.
@@ -38,6 +41,14 @@ function AppLayout() {
             .then((data) => setAssignments(data))
             .catch(() => setAssignments([]))
     }, [reloadCount])
+
+    // 실시간 전송이 없어서 화면을 옮길 때마다 알림을 다시 불러옵니다. 알림 화면에서 읽고 다른 화면으로 가면 점이 사라집니다.
+    // 실패하면 점만 찍지 않습니다. 알림 화면에 들어가면 이유를 다시 알려 줍니다.
+    useEffect(() => {
+        getNotifications()
+            .then((data) => setNotifications(data))
+            .catch(() => setNotifications([]))
+    }, [location.pathname, reloadCount])
 
     useEffect(() => {
         // 조를 빠르게 옮겨 다니면 늦게 온 옛 응답이 메뉴를 덮어쓸 수 있습니다. 주소가 바뀌면 이전 요청의 결과를 버립니다.
@@ -69,6 +80,7 @@ function AppLayout() {
     }
 
     const isProfessor = me !== null && me.memberType === 'PROFESSOR'
+    const hasUnread = notifications.some((notification) => notification.readAt === null)
 
     return (
         <div className="app">
@@ -81,7 +93,7 @@ function AppLayout() {
                 <div className="side-in">
                     {current.assignment && <SideHead assignment={current.assignment} />}
                     <SideNav assignment={current.assignment} team={current.team} isProfessor={isProfessor} />
-                    <MeBox me={me} theme={theme} onToggleTheme={handleThemeToggle} onLogout={handleLogout} />
+                    <MeBox me={me} hasUnread={hasUnread} theme={theme} onToggleTheme={handleThemeToggle} onLogout={handleLogout} />
                 </div>
             </div>
             <div className="main">

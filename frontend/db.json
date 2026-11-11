@@ -52,5 +52,13 @@
   "confirmations": [
     {"id": 1, "confirmerId": 11, "deliverableId": 3, "contributionId": null, "confirmedAt": "2026-10-25T09:00:00", "canceledAt": null},
     {"id": 2, "confirmerId": 13, "deliverableId": null, "contributionId": 2, "confirmedAt": "2026-10-25T09:00:00", "canceledAt": null}
+  ],
+  "notifications": [
+    {"id": 1, "recipientId": 4, "type": "CONTRIBUTION_ASSIGNED", "message": "[발자국 데모 과제 1조] 기여 항목 \"회의록 정리\"의 담당이 되었습니다.", "teamId": 1, "createdAt": "2026-10-25T09:00:00", "readAt": null},
+    {"id": 2, "recipientId": 2, "type": "CONTRIBUTION_REPORTED", "message": "[발자국 평가 단계 과제 1조] 이서연 님이 기여 항목 \"자료 취합\" 완료 보고를 올렸습니다.", "teamId": 3, "createdAt": "2026-10-25T09:00:00", "readAt": null},
+    {"id": 3, "recipientId": 4, "type": "CONTRIBUTION_REPORTED", "message": "[발자국 평가 단계 과제 1조] 이서연 님이 기여 항목 \"자료 취합\" 완료 보고를 올렸습니다.", "teamId": 3, "createdAt": "2026-10-25T09:00:00", "readAt": null},
+    {"id": 4, "recipientId": 2, "type": "EVALUATION_STARTED", "message": "[발자국 평가 단계 과제 1조] 평가가 시작되었습니다. 동료평가를 입력할 수 있습니다.", "teamId": 3, "createdAt": "2026-10-31T09:00:00", "readAt": null},
+    {"id": 5, "recipientId": 3, "type": "EVALUATION_STARTED", "message": "[발자국 평가 단계 과제 1조] 평가가 시작되었습니다. 동료평가를 입력할 수 있습니다.", "teamId": 3, "createdAt": "2026-10-31T09:00:00", "readAt": null},
+    {"id": 6, "recipientId": 4, "type": "EVALUATION_STARTED", "message": "[발자국 평가 단계 과제 1조] 평가가 시작되었습니다. 동료평가를 입력할 수 있습니다.", "teamId": 3, "createdAt": "2026-10-31T09:00:00", "readAt": null}
   ]
 }

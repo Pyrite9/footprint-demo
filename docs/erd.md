@@ -3,9 +3,9 @@
 엔티티와 연결, 제약을 코드 없이 한눈에 보는 문서. GitHub가 Mermaid를 바로 그려 줌
 
 - 기준은 `backend/src/main/java/com/footprint/backend/entity/`. Entity 필드를 바꾸면 이 문서도 같은 작업 안에서 고칠 것
-- 실행 구성과 요청의 길은 `architecture.md`, 아직 없는 엔티티(`Notification`)와 열(`Member.privacyConsentedAt`)은 `../TODO.md` "늘어나는 데이터"
+- 실행 구성과 요청의 길은 `architecture.md`, 아직 없는 열(`Member.privacyConsentedAt`)은 `../TODO.md` "늘어나는 데이터"
 
-엔티티 11개. 산출물과 평가, 기여 항목의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴.
+엔티티 12개. 산출물과 평가, 기여 항목의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴. 알림만 회원을 가리킴.
 
 ```mermaid
 erDiagram
@@ -28,6 +28,8 @@ erDiagram
     TEAM_MEMBER ||--o{ EVALUATION : "대상 target_id"
     TEAM_MEMBER ||--o{ EVALUATION_DRAFT : "평가자 evaluator_id"
     TEAM_MEMBER ||--o{ EVALUATION_DRAFT : "대상 target_id"
+    MEMBER ||--o{ NOTIFICATION : "받음 recipient_id"
+    TEAM ||--o{ NOTIFICATION : "team_id"
 
     MEMBER {
         Long id PK "회원 번호"
@@ -128,6 +130,15 @@ erDiagram
         String comment "조원별 서술 의견 · 선택 · 최대 2000자"
         LocalDateTime savedAt "저장 시각 · 서버가 기록 · 한 번에 저장한 내용은 같은 시각"
     }
+    NOTIFICATION {
+        Long id PK "알림 번호"
+        Long recipient_id FK "받는 회원 · 본인만 조회하고 읽음 표시함"
+        NotificationType type "EVALUATION_STARTED 평가 시작 · CONTRIBUTION_ASSIGNED 담당 지정 · CONTRIBUTION_REPORTED 완료 보고"
+        String message "화면에 보일 문장 · 서버가 만듦 · 최대 1000자 · 점수와 의견, 보고 메모는 넣지 않음"
+        Long team_id FK "알림이 생긴 조 · 화면이 누르면 갈 곳"
+        LocalDateTime createdAt "만든 시각 · 서버가 기록"
+        LocalDateTime readAt "읽은 시각 · 서버가 기록. 읽기 전에는 null · 다시 읽어도 처음 시각 유지"
+    }
 ```
 
 - 각 열의 오른쪽 칸은 비고. 그 값이 무엇에 쓰이는지 적음. `id`는 모두 데이터베이스가 자동으로 붙이는 번호(`IDENTITY`)임. `EVALUATION` 점수 열의 항목 이름은 `frontend/src/constants/peerEvaluation.js`의 `name`과 같음
@@ -144,5 +155,6 @@ erDiagram
 - `ROLE_HISTORY`는 역할이 바뀔 때마다 한 줄 쌓임. 첫 지정은 이전 역할이 없어서 남기지 않음. 만든 뒤에는 고치거나 지우지 않음
 - `LEADER_HISTORY`는 조장이 바뀔 때마다 한 줄 쌓임. 만든 뒤에는 고치거나 지우지 않음
 - 조장이 조마다 한 명인 것은 DB 제약이 아니라 Service가 지킴. 첫 조장은 과제를 만들 때 `AssignmentService`가 조마다 한 명 넣고, 교체는 `TeamService`가 함. 조장 교체와 역할 지정·변경이 같은 조 행을 잠가 차례로 처리함. 그래서 역할 저장이 옛 `leader` 값을 덮어쓰지 않고, 같은 이전 역할이 이력에 두 줄 남지 않음
+- `NOTIFICATION`은 조 참여가 아니라 회원을 가리킴. 여러 과제의 알림을 한 목록으로 찾기 때문임. 알림을 만드는 사건 하나에 받는 회원마다 한 줄씩 쌓이고 지우지 않음
 - 점수 열은 6개 그대로 저장함. 합계·평균 열은 두지 않음
-- 기록 시각(`evaluationStartedAt`, `roleAssignedAt`, `previousRoleAssignedAt`, `changedAt`, `uploadedAt`, `deletedAt`, `createdAt`, `reportedAt`, `canceledAt`, `confirmedAt`, `submittedAt`, `savedAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음
+- 기록 시각(`evaluationStartedAt`, `roleAssignedAt`, `previousRoleAssignedAt`, `changedAt`, `uploadedAt`, `deletedAt`, `createdAt`, `reportedAt`, `canceledAt`, `confirmedAt`, `submittedAt`, `savedAt`, `readAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음

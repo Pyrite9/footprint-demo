@@ -15,6 +15,7 @@ import com.footprint.backend.repository.DeliverableRepository;
 import com.footprint.backend.repository.MemberRepository;
 import com.footprint.backend.repository.TeamMemberRepository;
 import com.footprint.backend.repository.TeamRepository;
+import com.footprint.backend.service.NotificationService;
 import com.footprint.backend.service.StorageService;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,12 +43,13 @@ public class DataInitializer implements CommandLineRunner {
     private final ConfirmationRepository confirmationRepository;
     private final PasswordEncoder passwordEncoder;
     private final StorageService storageService;
+    private final NotificationService notificationService;
 
     public DataInitializer(MemberRepository memberRepository, AssignmentRepository assignmentRepository,
                            TeamRepository teamRepository, TeamMemberRepository teamMemberRepository,
                            DeliverableRepository deliverableRepository, ContributionRepository contributionRepository,
                            ConfirmationRepository confirmationRepository, PasswordEncoder passwordEncoder,
-                           StorageService storageService) {
+                           StorageService storageService, NotificationService notificationService) {
         this.memberRepository = memberRepository;
         this.assignmentRepository = assignmentRepository;
         this.teamRepository = teamRepository;
@@ -57,9 +59,11 @@ public class DataInitializer implements CommandLineRunner {
         this.confirmationRepository = confirmationRepository;
         this.passwordEncoder = passwordEncoder;
         this.storageService = storageService;
+        this.notificationService = notificationService;
     }
 
-    // MinIO 버킷을 준비하고, 회원 11명과 과제 2개(기록 단계, 평가 단계), 조 3개, 산출물 3건, 기여 항목 2건, 완료확인 2건을 저장합니다.
+    // MinIO 버킷을 준비하고, 회원 11명과 과제 2개(기록 단계, 평가 단계), 조 3개, 산출물 3건, 기여 항목 2건, 완료확인 2건,
+    // 그 기록에서 생겼을 알림을 저장합니다.
     @Override
     public void run(String... args) {
         // 산출물 파일을 넣을 버킷이 없으면 만듭니다. 이미 있으면 그대로 둡니다(데이터베이스와 달리 서버를 다시 켜도 비워지지 않습니다).
@@ -94,7 +98,7 @@ public class DataInitializer implements CommandLineRunner {
         saveDeliverable(team1.get(0), "기획서.txt", "발자국 데모 기획서\n1. 과제 생성\n2. 조원 합류와 역할 배정\n");
         saveDeliverable(team1.get(1), "API 명세.txt", "POST /auth/login\nGET /members/me\n");
         // 조장이 아닌 조원의 화면도 바로 시험할 수 있게 기여 항목 1건을 넣습니다.
-        contributionRepository.save(new Contribution(team1.get(2).getTeam(), team1.get(2), "회의록 정리"));
+        Contribution meetingNotes = contributionRepository.save(new Contribution(team1.get(2).getTeam(), team1.get(2), "회의록 정리"));
 
         // 동료평가를 바로 시험할 수 있게 평가 단계인 과제를 하나 더 둡니다. 저장하기 전에 단계를 바꿔서 save를 한 번만 부릅니다.
         Assignment evaluationAssignment = new Assignment("발자국 평가 단계 과제", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 10, 30), professor);
@@ -111,6 +115,12 @@ public class DataInitializer implements CommandLineRunner {
         // 평가 단계에서는 새로 확인할 수 없어서, 읽기 전용 이력을 바로 볼 수 있게 확인을 넣어 둡니다.
         confirmationRepository.save(new Confirmation(evaluationTeam.get(0), finalReport));
         confirmationRepository.save(new Confirmation(evaluationTeam.get(2), reportedContribution));
+
+        // 알림 화면을 바로 시험할 수 있게, 위 기록이 실제 요청으로 생겼을 때와 같은 알림을 같은 순서로 남깁니다.
+        // 담당 지정(1조 박도윤) → 완료 보고(평가 단계 과제의 김민준, 박도윤) → 평가 시작(평가 단계 과제의 조원 3명)입니다.
+        notificationService.notifyContributionAssigned(meetingNotes, student01.getId());
+        notificationService.notifyContributionReported(reportedContribution);
+        notificationService.notifyEvaluationStarted(evaluationAssignment);
     }
 
     // 비밀번호를 BCrypt로 바꿔서 회원을 저장합니다.

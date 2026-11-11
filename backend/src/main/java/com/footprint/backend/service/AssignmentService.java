@@ -33,16 +33,19 @@ public class AssignmentService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final TeamAccessChecker teamAccessChecker;
+    private final NotificationService notificationService;
 
     public AssignmentService(MemberService memberService, MemberRepository memberRepository,
                              AssignmentRepository assignmentRepository, TeamRepository teamRepository,
-                             TeamMemberRepository teamMemberRepository, TeamAccessChecker teamAccessChecker) {
+                             TeamMemberRepository teamMemberRepository, TeamAccessChecker teamAccessChecker,
+                             NotificationService notificationService) {
         this.memberService = memberService;
         this.memberRepository = memberRepository;
         this.assignmentRepository = assignmentRepository;
         this.teamRepository = teamRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.teamAccessChecker = teamAccessChecker;
+        this.notificationService = notificationService;
     }
 
     // 과제를 만들고, leaderEmails 순서대로 "1조", "2조"…와 각 조의 조장을 저장합니다.
@@ -101,7 +104,7 @@ public class AssignmentService {
         return List.of(leader);
     }
 
-    // 과제를 만든 교수가 과제를 평가 단계로 바꿉니다. 되돌릴 수 없습니다. 시작 시각은 서버가 기록합니다.
+    // 과제를 만든 교수가 과제를 평가 단계로 바꾸고, 그 과제의 조원에게 알림을 남깁니다. 되돌릴 수 없습니다. 시작 시각은 서버가 기록합니다.
     // @Transactional: 메서드가 끝날 때 바뀐 단계와 시각이 DB에 저장됩니다(save를 따로 부르지 않아도 됩니다).
     @Transactional
     public Assignment startEvaluation(Long assignmentId, Long memberId) {
@@ -114,6 +117,8 @@ public class AssignmentService {
             throw new InvalidInputException("이미 평가 단계입니다");
         }
         assignment.startEvaluation();
+        // 그 과제의 모든 조원에게 알림을 저장합니다. 같은 트랜잭션이라 알림 저장이 실패하면 평가 시작도 취소됩니다.
+        notificationService.notifyEvaluationStarted(assignment);
         return assignment;
     }
 
