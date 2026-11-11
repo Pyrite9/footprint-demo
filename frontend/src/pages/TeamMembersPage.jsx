@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useParams } from 'react-router'
 import { getMe } from '../api/auth'
 import { assignRole, changeLeader, changeRole, getInviteCode, getLeaderHistories, getRoleHistories, getTeam, getTeamMembers, issueInviteCode } from '../api/teams'
@@ -26,6 +26,11 @@ function TeamMembersPage() {
     // 발급처럼 화면을 연 뒤에 하는 일의 오류입니다. 불러오기 오류(error)와 나눠서, 실패해도 화면은 그대로 둡니다.
     const [actionError, setActionError] = useState(null)
     const [issuing, setIssuing] = useState(false)
+    // 초대 링크 복사 결과 문구입니다. 비어 있으면 아무것도 보이지 않습니다.
+    const [copyMessage, setCopyMessage] = useState('')
+    // 복사 문구를 지우는 timer와 마지막으로 보인 문구입니다. 바뀌어도 화면을 다시 그릴 필요가 없어서 state가 아니라 ref에 둡니다.
+    const copyTimerRef = useRef(null)
+    const lastCopyMessageRef = useRef('')
     // 오른쪽 상세에 연 조원의 조 참여 번호입니다. 조 홈의 "역할 지정"에서 왔으면 그 조원을 바로 엽니다.
     const [selectedId, setSelectedId] = useState(location.state?.selectedId ?? null)
     const [roleHistories, setRoleHistories] = useState([])
@@ -70,6 +75,11 @@ function TeamMembersPage() {
         }
     }, [teamId, selectedId])
 
+    // 화면을 떠나면 아직 남은 복사 문구 timer를 지웁니다. 떠난 화면의 state를 바꾸지 않게 하기 위해서입니다.
+    useEffect(() => {
+        return () => clearTimeout(copyTimerRef.current)
+    }, [])
+
     // 조원을 오른쪽 상세에 엽니다. 이전 조원의 입력값과 이력은 지웁니다.
     function handleSelect(teamMemberId) {
         setActionError(null)
@@ -82,11 +92,36 @@ function TeamMembersPage() {
     // 초대 코드를 새로 발급합니다.
     function handleIssueInviteCode() {
         setActionError(null)
+        // 다시 발급하면 이전 링크를 복사했다는 문구는 더 맞지 않아서 지웁니다.
+        clearTimeout(copyTimerRef.current)
+        setCopyMessage('')
         setIssuing(true)
         issueInviteCode(teamId)
             .then((data) => setInviteCode(data.inviteCode))
             .catch((err) => setActionError(err.message))
             .finally(() => setIssuing(false))
+    }
+
+    // 초대 링크를 클립보드에 복사합니다. 성공 문구는 2초 뒤에 지우고, 실패 문구는 직접 복사할 때까지 남깁니다.
+    // navigator.clipboard는 보안 context(https, localhost)에만 있습니다. 없을 때 나는 오류도 .catch로 받으려고 .then 안에서 부릅니다.
+    function handleCopyInviteLink(inviteLink) {
+        Promise.resolve()
+            .then(() => navigator.clipboard.writeText(inviteLink))
+            .then(() => showCopyMessage('링크를 복사했습니다.', true))
+            // 브라우저가 권한을 거부했거나 보안 context가 아니면 여기로 옵니다.
+            .catch(() => showCopyMessage('복사하지 못했습니다. 위의 링크를 직접 선택해 복사하세요.', false))
+    }
+
+    // 복사 결과 문구를 보여 줍니다. 버튼을 다시 누르면 이전 timer를 지우고 새로 셉니다.
+    function showCopyMessage(message, clearLater) {
+        clearTimeout(copyTimerRef.current)
+        // 화면 읽기 프로그램(VoiceOver)은 직전과 같은 문구를 다시 읽지 않아서, 같으면 읽히지 않는 공백(줄바꿈 없는 공백)을 붙여 다르게 만듭니다.
+        const text = message === lastCopyMessageRef.current ? message + '\u00A0' : message
+        lastCopyMessageRef.current = text
+        setCopyMessage(text)
+        if (clearLater) {
+            copyTimerRef.current = setTimeout(() => setCopyMessage(''), 2000)
+        }
     }
 
     // 조원의 역할을 저장합니다. 역할이 없으면 지정(POST), 있으면 변경(PUT)입니다.
@@ -142,7 +177,7 @@ function TeamMembersPage() {
                     <div className="page-head">
                         <h1>{isProfessor ? `${team.name} 조원과 조장` : '조원과 역할'}</h1>
                     </div>
-                    {isLeader && isRecording && <InviteLinkPanel inviteCode={inviteCode} onIssue={handleIssueInviteCode} issuing={issuing} />}
+                    {isLeader && isRecording && <InviteLinkPanel inviteCode={inviteCode} onIssue={handleIssueInviteCode} issuing={issuing} onCopy={handleCopyInviteLink} copyMessage={copyMessage} />}
                     <TeamMemberList
                         members={members}
                         selectedId={selectedId}

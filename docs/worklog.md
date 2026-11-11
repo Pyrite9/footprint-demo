@@ -1941,3 +1941,50 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 다시 읽음 표시는 200으로 처음 시각 유지
   - 알림 화면 주소 `/notifications`, 종 버튼 자리
   - 알림을 지우거나 보관 기간을 두지 않음. X-2 보관 기간을 정할 때 같이 볼 것
+
+## 2026.11.12 X-4 합류 전 미리보기, 초대 링크 복사 버튼
+- 결정:
+  - 새 API `GET /teams/join/{inviteCode}`(학생). 응답은 `{ assignmentTitle, teamName, leaderName }` 세 칸뿐임. 조원 수 같은 건수, 조원 목록, 조 번호, 과제 단계는 넣지 않음. 초대 코드를 아는 사람에게 필요한 최소만 줌. 선택지: 조 번호와 단계까지 줌. 화면이 쓰지 않는 값이라 고르지 않음
+  - **미리보기는 합류와 같은 검사를 같은 순서로 하고 같은 오류를 돌려줌.** 초대 코드(404) → 학생인지(403) → 같은 과제의 조 참여(같은 조면 200, 다른 조면 409) → 기록 단계인지(400). 미리보기가 200이면 곧바로 누른 합류도 200임. 선택지: 미리보기는 늘 200으로 조 정보를 주고 `joinable`, `alreadyMember` 같은 칸을 더함. 칸이 늘고, 합류할 수 없는 학생에게도 조장 이름을 주게 되어 고르지 않음
+  - 이미 그 조의 조원이면 평가 단계여도 200임. 합류 API가 그 경우 200이라 맞춤. 화면은 같은 "합류" 버튼을 보여 주고, 누르면 그 조 화면으로 감
+  - 검사 코드는 `TeamService`의 private 메서드 `checkJoinable` 하나로 모아 `join`과 `findJoinPreview`가 함께 씀. 이미 그 조의 조원이면 true, 새로 합류할 수 있으면 false, 안 되면 예외임. 두 곳에 같은 검사를 따로 두면 한쪽만 고쳐질 수 있어서 모음. `join`의 동작과 오류는 그대로임(`TeamRuleTests` 통과)
+  - Service는 조장의 조 참여 기록(`TeamMember`)을 돌려주고 Controller가 `TeamJoinPreviewResponse.from(leader)`로 바꿈. 과제 상세의 `TeamSummaryResponse.from(leader)`와 같은 방식임
+  - 접근 범위 검사(`TeamAccessChecker`)는 하지 않음. 아직 조원이 아닌 학생이 부르는 API라서 합류 API와 같이 "초대 코드를 아는가"가 권한임
+  - 주소 `GET /teams/join/{inviteCode}`는 `docs/api-draft.md` 추천안 그대로 둠. 코드 자리에 `members`처럼 다른 조 주소의 끝 글자를 넣으면 Spring이 `GET /teams/{teamId}/members`를 골라 400 `INVALID_INPUT`이 됨(테스트로 확인 후 테스트는 지움). 서버가 발급하는 코드는 UUID, 시작 데이터 코드는 `demo-team-1` 같은 값이라 겹치지 않아서 주소를 바꾸지 않음. 선택지: `GET /invite-codes/{inviteCode}`처럼 겹치지 않는 주소. 추천안 주소를 바꿀 만큼의 문제가 아니라 고르지 않음. 가짜 API는 이 경우 404로 답함(실제와 다름. 아래 "읽을 때 볼 곳")
+  - 화면 `JoinPage`: 열면 미리보기를 불러 과제, 조, 조장을 `dl.props`로 보여 주고 "합류" 버튼을 따로 누르게 함. 미리보기가 실패하면 "이 링크로 합류할 수 없습니다"와 서버 문구, "내 과제로 가기"만 보여 주고 합류 버튼은 없음. 합류 버튼의 오류는 미리보기 오류와 나눔(`joinError`)
+  - 화면 안에서 다른 초대 링크로 옮겨 가면 같은 `JoinPage`가 다시 쓰여 이전 오류가 남는 문제를 브라우저에서 찾아 고침. 결과를 받을 때마다 이전 미리보기·오류를 지우고, `ignore` 변수로 늦게 온 옛 응답을 버림(`TeamMembersPage`의 역할 이력과 같은 방식)
+  - 복사 버튼: 조장 화면 `InviteLinkPanel`의 링크 아래에 "링크 복사" 버튼과 결과 문구 칸을 둠. 복사 결과 문구, timer는 `TeamMembersPage`가 갖고 props로 내림. "page만 state를 가짐" 규칙을 지킴. 다시 발급하면 문구를 지움
+  - 성공 문구 "링크를 복사했습니다."는 2초 뒤 지움. 실패 문구 "복사하지 못했습니다. 위의 링크를 직접 선택해 복사하세요."는 지우지 않음. 직접 복사하는 동안 읽혀야 해서임
+  - 프론트엔드 웹 가이드를 따라 정한 곳. 이 세션에서는 `modern-web-guidance` 스킬로 `npx modern-web-guidance search`, `retrieve`를 실행해 가이드를 받음
+    - `copy-button`: 결과 문구 칸은 `role="status"`이고 버튼 밖에 둠, 문구가 생기기 전부터 빈 칸으로 그림("a live region inside one is not reliably announced"). 버튼은 문구가 보이는 동안에도 막지 않음("DO NOT disable the button while showing feedback"). 다시 누르면 이전 timer를 지우고 새로 셈
+    - `copy-button`: 실패도 화면에 보임("clipboard access can be denied: show the failure too"). `navigator.clipboard`가 없는 비보안 context의 오류도 같은 `.catch`로 받으려고 `Promise.resolve().then(() => navigator.clipboard.writeText(...))`로 부름
+    - `copy-button`: 직전과 같은 문구면 끝에 ` `을 붙임. VoiceOver가 같은 문구를 다시 읽지 않는 문제 때문임("VoiceOver skips a message identical to the previous one")
+    - `copy-button`에서 따르지 않은 것: Invoker Commands(`command`, `commandfor`) 대신 React `onClick`을 씀. Invoker Commands는 Baseline "Newly available"(2025-12)이라 가이드가 주는 대체 경로(click에서 같은 복사 함수 호출)를 처음부터 씀. `async`/`await` 대신 `.then`을 씀(rule-check 금지 패턴, 동작은 같음). `document.execCommand('copy')` 대체는 넣지 않음. 가이드가 "Only as a last resort"로 두고, 비보안 context의 해법은 https라고 함. 아이콘 바꾸기, `data-copied` 속성은 글자 버튼이라 두지 않음
+- 만든 파일:
+  - 백엔드: `dto/TeamJoinPreviewResponse`, 테스트 `JoinPreviewRuleTests`
+- 고친 파일:
+  - 백엔드: `service/TeamService`(`findJoinPreview`, `findTeamByInviteCode`, `checkJoinable`, `join` 정리), `controller/TeamController`
+  - 가짜 API: `frontend/mock/middleware.cjs`(`checkJoinable`, `findTeamByInviteCodeOrSendError`, `handleGetJoinPreview`, `handleJoinTeam` 정리, 주소 연결). `frontend/db.json`은 고치지 않음. 시작 조에 이미 초대 코드와 조장이 있음
+  - 화면: `api/teams.js`(`getJoinPreview`), `pages/JoinPage.jsx`, `pages/TeamMembersPage.jsx`, `components/InviteLinkPanel.jsx`
+  - 문서: `docs/api-draft.md`, `docs/postman/`(요청 3개), `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`
+- 확인:
+  - `gradlew.bat build` 성공. 테스트 146개, 실패 0(`JoinPreviewRuleTests` 5개 더함)
+  - `npm run build`, `npm run lint` 성공
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 139개, 확인 318개, 실패 0. "2. 조 운영"에 미리보기 요청 3개(조원 200, 교수 403, 같은 과제의 다른 조 409)
+  - curl로 실제 백엔드와 가짜 API에 같은 경우(유효 코드, 같은 조 조원, 같은 과제의 다른 조, 평가 단계 비조원·조원, 교수, 없는 코드, token 없음)를 보내 상태 코드, `code`, `message`가 같음을 확인. 가짜 API로 새 과제 → 발급 → 다시 발급 → 옛 코드 404 → 새 코드 미리보기 → 합류 → 다시 미리보기 200까지 확인
+  - 브라우저에서 실제 백엔드로 확인: 로그인하지 않고 초대 링크를 열면 로그인 뒤 그 링크로 돌아오고 과제·조·조장이 보임. 합류 버튼을 누르면 조 화면으로 감. 없는 코드와 다른 조 코드는 오류 화면
+  - 복사 버튼: 앱 안 브라우저는 클립보드 권한을 주지 않아 실제 클릭이 실패 문구로 끝남(실패 경로 확인). 성공 경로는 `navigator.clipboard.writeText`를 바꿔 끼워 문구, 같은 문구의 ` `, 2초 뒤 지움, 실제로 넘긴 링크 값을 확인함. `navigator.clipboard`를 없애도 실패 문구가 나옴
+  - 시험 뒤 `frontend/db.json`을 되돌림
+  - rule-check: 금지 패턴 없음. Controller가 DTO를 돌려주고 변환은 Controller에 있음. 조회만 하는 `findJoinPreview`에는 `@Transactional`이 없음(다른 조회와 같음). component(`InviteLinkPanel`)에 state 없음
+- 읽을 때 볼 곳:
+  - `TeamService.checkJoinable`의 반환값. true(이미 조원)와 false(새로 합류)를 받아 `join`만 저장으로 이어 감. 미리보기는 반환값을 버리고 예외만 씀
+  - `TeamMembersPage`의 `useRef` 두 개(`copyTimerRef`, `lastCopyMessageRef`). 바뀌어도 화면을 다시 그릴 필요가 없는 값이라 state가 아님. 화면을 떠날 때 timer를 지우는 `useEffect` 정리 함수도 같이 볼 것
+  - `Promise.resolve().then(() => navigator.clipboard.writeText(...))`. `navigator.clipboard`가 없으면 `.writeText`를 부르는 순간 오류가 나는데, `.then` 안이라 `.catch`로 감
+  - `JoinPage`의 `ignore` 변수와 결과마다 이전 값을 지우는 부분
+  - 실제 백엔드와 가짜 API의 차이 하나: 코드 자리가 `members`, `invite-code` 같은 글자이면 실제는 400, 가짜는 404임. 발급되는 코드로는 생기지 않음
+- 내가 채운 가정:
+  - 미리보기의 오류 규칙(합류와 같은 검사·순서·오류)과 이미 조원이면 평가 단계여도 200
+  - 응답 칸 이름 `assignmentTitle`, `teamName`, `leaderName`, DTO 이름 `TeamJoinPreviewResponse`
+  - 화면 문구("초대 링크를 확인하는 중입니다.", "이 링크로 합류할 수 없습니다", "링크 복사", "링크를 복사했습니다.", "복사하지 못했습니다. 위의 링크를 직접 선택해 복사하세요.")는 내가 씀
+  - 성공 문구 2초, 실패 문구는 남김
+  - 클립보드 실패 원인(권한 거부, 비보안 context)을 문구로 나누지 않음. 어느 쪽이든 할 일은 직접 복사라서임

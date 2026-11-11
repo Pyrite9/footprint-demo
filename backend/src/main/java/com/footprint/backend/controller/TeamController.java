@@ -6,6 +6,7 @@ import com.footprint.backend.dto.LeaderHistoryResponse;
 import com.footprint.backend.dto.RoleAssignRequest;
 import com.footprint.backend.dto.RoleChangeRequest;
 import com.footprint.backend.dto.RoleHistoryResponse;
+import com.footprint.backend.dto.TeamJoinPreviewResponse;
 import com.footprint.backend.dto.TeamJoinRequest;
 import com.footprint.backend.dto.TeamMemberResponse;
 import com.footprint.backend.dto.TeamResponse;
@@ -95,6 +96,13 @@ public class TeamController {
         return teamService.findLeaderHistories(teamId, memberId).stream()
                 .map(LeaderHistoryResponse::from)
                 .toList();
+    }
+
+    // 합류하기 전에 초대 코드의 과제 제목, 조 이름, 조장 이름을 돌려줍니다. 합류는 하지 않습니다.
+    // 서버가 발급하는 코드는 UUID라서 "/{teamId}/members" 같은 주소의 끝 글자(members 등)와 겹치지 않습니다.
+    @GetMapping("/join/{inviteCode}")
+    public TeamJoinPreviewResponse findJoinPreview(@AuthenticationPrincipal Long memberId, @PathVariable String inviteCode) {
+        return TeamJoinPreviewResponse.from(teamService.findJoinPreview(inviteCode, memberId));
     }
 
     // 초대 코드로 조에 합류하고 합류한 조를 돌려줍니다.

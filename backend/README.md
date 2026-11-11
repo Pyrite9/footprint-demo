@@ -76,7 +76,7 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 - 테스트가 실제 PostgreSQL과 MinIO에 접속하므로 **빌드 전에 `infra`의 `docker compose up -d`가 켜져 있어야 함.** 꺼져 있으면 테스트가 실패함
 - 테스트는 `src/test/resources/application-test.yml`의 설정으로 돌아감. 데이터베이스는 `footprint_test` 스키마, 파일은 `footprint-test` 버킷을 씀
 - **빌드해도 개발 데이터(`public` 스키마, `footprint` 버킷)는 지워지지 않음.** 빌드할 때마다 시험 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓임
-- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `EvaluationDraftRuleTests`(평가 임시 저장), `EvidenceRuleTests`(근거 패널), `RecordRuleTests`(기록 열람), `EvaluationResultRuleTests`(평가 결과), `PhaseRuleTests`(과제 단계), `NotificationRuleTests`(알림)
+- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `EvaluationDraftRuleTests`(평가 임시 저장), `EvidenceRuleTests`(근거 패널), `RecordRuleTests`(기록 열람), `EvaluationResultRuleTests`(평가 결과), `PhaseRuleTests`(과제 단계), `NotificationRuleTests`(알림), `JoinPreviewRuleTests`(합류 전 미리보기)
 - 테스트가 끝나면 데이터베이스 변경을 되돌림(`@Transactional`). 그래서 어떤 순서로 돌아도 시작 데이터가 그대로임
 - 실행 로그의 `Using generated security password: ...`는 Spring Security가 기본으로 만드는 계정. 이 프로젝트는 쓰지 않으므로 무시할 것
 

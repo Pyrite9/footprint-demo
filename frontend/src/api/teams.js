@@ -20,6 +20,12 @@ export function issueInviteCode(teamId) {
   return request(`/teams/${teamId}/invite-code`, { method: 'POST' })
 }
 
+// 합류하기 전에 초대 코드의 { assignmentTitle, teamName, leaderName }을 가져옵니다. 합류는 하지 않습니다.
+// 주소 안에 넣는 값이라 encodeURIComponent로 /, ? 같은 글자를 주소용 글자로 바꿉니다.
+export function getJoinPreview(inviteCode) {
+  return request(`/teams/join/${encodeURIComponent(inviteCode)}`)
+}
+
 // 초대 코드로 조에 합류하고 합류한 조 { id, name, assignmentId, assignmentTitle, phase, startDate, endDate }를 돌려줍니다.
 export function joinTeam(inviteCode) {
   return request('/teams/join', { method: 'POST', body: { inviteCode } })

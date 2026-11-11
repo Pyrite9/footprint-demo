@@ -346,8 +346,8 @@
       ]
     },
     {
-      "name": "2. 조 운영 (T-1, T-2, X-3)",
-      "description": "조장이 초대 코드를 발급하고, 조원이 그 코드로 합류하고, 조장이 역할을 지정합니다.",
+      "name": "2. 조 운영 (T-1, T-2, X-3, X-4)",
+      "description": "조장이 초대 코드를 발급하고, 조원이 합류 전에 미리 본 뒤 그 코드로 합류하고, 조장이 역할을 지정합니다.",
       "item": [
         {
           "name": "초대 코드 발급 (조장)",
@@ -406,6 +406,102 @@
                 "exec": [
                   "pm.test('200 응답', () => pm.response.to.have.status(200));",
                   "pm.test('방금 발급한 코드', () => pm.expect(pm.response.json().inviteCode).to.eql(pm.collectionVariables.get('inviteCode')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "합류 전 미리보기 (조원)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/join/{{inviteCode}}",
+            "description": "합류하기 전에 과제 제목, 조 이름, 조장 이름만 받습니다. 합류는 하지 않습니다. 조원 수, 조원 목록, 조 번호는 없습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{memberToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "pm.test('과제 제목', () => pm.expect(pm.response.json().assignmentTitle).to.eql('Postman 시험 과제'));",
+                  "pm.test('조 이름', () => pm.expect(pm.response.json().teamName).to.eql('1조'));",
+                  "pm.test('조장 이름', () => pm.expect(pm.response.json().leaderName).to.eql('김민준'));",
+                  "pm.test('세 칸만 있음', () => pm.expect(Object.keys(pm.response.json()).sort()).to.eql(['assignmentTitle', 'leaderName', 'teamName']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "미리보기 - 교수는 403 (교수)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/join/{{inviteCode}}",
+            "description": "합류처럼 학생만 미리 봅니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 응답', () => pm.response.to.have.status(403));",
+                  "pm.test('code는 FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "미리보기 - 같은 과제의 다른 조면 409 (다른 조 학생)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/join/{{inviteCode}}",
+            "description": "student06은 같은 과제의 2조 조장입니다. 합류처럼 409입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 응답', () => pm.response.to.have.status(409));",
+                  "pm.test('code는 DUPLICATE', () => pm.expect(pm.response.json().code).to.eql('DUPLICATE'));"
                 ]
               }
             }

@@ -353,19 +353,12 @@ function handleIssueInviteCode(req, res, loginMember, teamId) {
   return res.json({ inviteCode })
 }
 
-// POST /teams/join: 초대 코드로 조에 합류합니다. 이미 그 조의 조원이면 그대로 그 조를 돌려줍니다.
-function handleJoinTeam(req, res, loginMember) {
-  const db = req.app.db
-  const { inviteCode } = req.body
-  if (isBlank(inviteCode)) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
-  const team = db.get('teams').find({ inviteCode }).value()
-  if (!team) {
-    return sendError(res, 404, 'NOT_FOUND', '초대 코드가 올바르지 않습니다')
-  }
+// 실제 TeamService.checkJoinable과 같습니다. 합류할 수 없으면 오류를 보내고 undefined입니다.
+// 이미 그 조의 조원이면 true, 새로 합류할 수 있으면 false를 돌려줍니다. 미리보기와 합류가 함께 씁니다.
+function checkJoinable(db, res, team, loginMember) {
   if (loginMember.memberType !== 'STUDENT') {
-    return sendError(res, 403, 'FORBIDDEN', '학생만 조에 합류할 수 있습니다')
+    sendError(res, 403, 'FORBIDDEN', '학생만 조에 합류할 수 있습니다')
+    return undefined
   }
 
   // 같은 과제의 조들 중 하나에 이미 있는지 봅니다.
@@ -374,10 +367,45 @@ function handleJoinTeam(req, res, loginMember) {
     .find((teamMember) => teamMember.memberId === loginMember.id && sameAssignmentTeamIds.includes(teamMember.teamId))
     .value()
   if (existing) {
-    if (existing.teamId === team.id) return res.json(toTeamResponse(db, team))
-    return sendError(res, 409, 'DUPLICATE', '이미 이 과제의 다른 조에 있습니다')
+    if (existing.teamId === team.id) return true
+    sendError(res, 409, 'DUPLICATE', '이미 이 과제의 다른 조에 있습니다')
+    return undefined
   }
-  if (!checkRecording(db, res, team)) return
+  if (!checkRecording(db, res, team)) return undefined
+  return false
+}
+
+// 초대 코드로 조를 찾습니다. 없거나 다시 발급되어 무효가 된 코드이면 404를 보내고 undefined입니다.
+function findTeamByInviteCodeOrSendError(db, res, inviteCode) {
+  const team = db.get('teams').find({ inviteCode }).value()
+  if (!team) sendError(res, 404, 'NOT_FOUND', '초대 코드가 올바르지 않습니다')
+  return team
+}
+
+// GET /teams/join/{inviteCode}: 합류하기 전에 과제 제목, 조 이름, 조장 이름만 돌려줍니다. 합류는 하지 않습니다.
+// 실제 TeamJoinPreviewResponse와 같은 모양입니다. 합류와 같은 검사를 같은 순서로 합니다.
+function handleGetJoinPreview(req, res, loginMember, inviteCode) {
+  const db = req.app.db
+  const team = findTeamByInviteCodeOrSendError(db, res, inviteCode)
+  if (!team || checkJoinable(db, res, team, loginMember) === undefined) return
+  const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
+  const leader = db.get('teamMembers').find({ teamId: team.id, leader: true }).value()
+  const leaderMember = db.get('members').find({ id: leader.memberId }).value()
+  return res.json({ assignmentTitle: assignment.title, teamName: team.name, leaderName: leaderMember.name })
+}
+
+// POST /teams/join: 초대 코드로 합류합니다. 이미 그 조의 조원이면 그대로 그 조를 돌려줍니다.
+function handleJoinTeam(req, res, loginMember) {
+  const db = req.app.db
+  const { inviteCode } = req.body
+  if (isBlank(inviteCode)) {
+    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
+  }
+  const team = findTeamByInviteCodeOrSendError(db, res, inviteCode)
+  if (!team) return
+  const alreadyMember = checkJoinable(db, res, team, loginMember)
+  if (alreadyMember === undefined) return
+  if (alreadyMember) return res.json(toTeamResponse(db, team))
 
   db.get('teamMembers')
     .push({ id: nextId(db, 'teamMembers'), teamId: team.id, memberId: loginMember.id, leader: false, roleName: null, roleAssignedAt: null })
@@ -1443,6 +1471,14 @@ function handleRequest(req, res, next) {
 
   if (req.method === 'POST' && req.path === '/teams/join') {
     return handleJoinTeam(req, res, loginMember)
+  }
+
+  // 아래 /teams/{teamId}/... 주소보다 먼저 봅니다. 실제 백엔드는 코드 자리에 members 같은 글자가 오면 그 주소로 가지만(400),
+  // 서버가 발급하는 코드는 UUID라 겹치지 않아서 가짜 API는 그 동작을 따라 하지 않습니다.
+  const joinPreviewCodeText = matchId(/^\/teams\/join\/([^/]+)$/, req.path)
+  if (req.method === 'GET' && joinPreviewCodeText !== null) {
+    // 주소 안의 글자는 %로 바뀌어 올 수 있어서 원래 글자로 되돌립니다. 실제 백엔드(@PathVariable)도 되돌려서 받습니다.
+    return handleGetJoinPreview(req, res, loginMember, decodeURIComponent(joinPreviewCodeText))
   }
 
   const teamIdText = matchId(/^\/teams\/([^/]+)$/, req.path)

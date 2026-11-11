@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-// 조 정보와 조원 목록을 조회하고, 초대 코드 발급, 초대 코드로 합류, 역할 지정·변경, 역할 이력 조회, 조장 교체를 처리합니다.
+// 조 정보와 조원 목록을 조회하고, 초대 코드 발급, 합류 전 미리보기, 초대 코드로 합류, 역할 지정·변경, 역할 이력 조회, 조장 교체를 처리합니다.
 @Service
 public class TeamService {
 
@@ -79,26 +79,24 @@ public class TeamService {
         return team;
     }
 
+    // 합류하기 전에 초대 코드의 조를 미리 봅니다. 그 조의 조장 기록을 돌려주고, 합류는 하지 않습니다.
+    // 합류(join)와 같은 검사를 같은 순서로 해서, 미리보기가 성공하면 합류 버튼도 성공합니다.
+    public TeamMember findJoinPreview(String inviteCode, Long memberId) {
+        Team team = findTeamByInviteCode(inviteCode);
+        checkJoinable(team, memberId);
+        return teamMemberRepository.findByTeamIdAndLeaderTrue(team.getId())
+                .orElseThrow(() -> new NotFoundException("조장이 없습니다. teamId=" + team.getId()));
+    }
+
     // 초대 코드로 그 조에 합류합니다. 이미 그 조의 조원이면 아무것도 바꾸지 않고 그 조를 돌려줍니다.
     @Transactional
     public Team join(String inviteCode, Long memberId) {
-        Team team = teamRepository.findByInviteCode(inviteCode)
-                .orElseThrow(() -> new NotFoundException("초대 코드가 올바르지 않습니다"));
+        Team team = findTeamByInviteCode(inviteCode);
+        boolean alreadyMember = checkJoinable(team, memberId);
+        if (alreadyMember) {
+            return team;
+        }
         Member member = memberService.findById(memberId);
-        if (member.getMemberType() != MemberType.STUDENT) {
-            throw new ForbiddenException("학생만 조에 합류할 수 있습니다");
-        }
-
-        // 한 학생은 같은 과제에서 한 조에만 있습니다. 같은 과제의 조 참여 기록이 있는지 먼저 봅니다.
-        Optional<TeamMember> existing = teamMemberRepository.findByTeamAssignmentIdAndMemberId(team.getAssignment().getId(), memberId);
-        if (existing.isPresent()) {
-            if (existing.get().getTeam().getId().equals(team.getId())) {
-                return team;
-            }
-            throw new DuplicateException("이미 이 과제의 다른 조에 있습니다");
-        }
-        // 위에서 이미 조원인 경우를 돌려보낸 뒤에 검사합니다. 조원이 다시 눌러도 아무것도 바뀌지 않아 막을 이유가 없습니다.
-        assignmentPhaseChecker.checkRecording(team.getAssignment());
 
         // 위 검사를 두 요청(같은 학생, 같은 과제의 두 조)이 거의 동시에 통과하면, 두 번째 요청은 DB의 unique 제약에 걸립니다.
         // saveAndFlush는 INSERT를 지금 바로 보내서 그 오류를 여기서 잡아 409로 바꿀 수 있게 합니다.
@@ -186,6 +184,33 @@ public class TeamService {
     public List<LeaderHistory> findLeaderHistories(Long teamId, Long memberId) {
         Team team = findById(teamId, memberId);
         return leaderHistoryRepository.findByTeamIdOrderByIdDesc(team.getId());
+    }
+
+    // 초대 코드로 조를 찾습니다. 없는 코드와 다시 발급되어 무효가 된 코드는 NotFoundException을 던집니다.
+    private Team findTeamByInviteCode(String inviteCode) {
+        return teamRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new NotFoundException("초대 코드가 올바르지 않습니다"));
+    }
+
+    // 이 회원이 그 조에 합류할 수 있는지 검사합니다. 합류할 수 없으면 예외를 던집니다.
+    // 이미 그 조의 조원이면 true, 새로 합류할 수 있으면 false를 돌려줍니다. 미리보기와 합류가 함께 씁니다.
+    private boolean checkJoinable(Team team, Long memberId) {
+        Member member = memberService.findById(memberId);
+        if (member.getMemberType() != MemberType.STUDENT) {
+            throw new ForbiddenException("학생만 조에 합류할 수 있습니다");
+        }
+
+        // 한 학생은 같은 과제에서 한 조에만 있습니다. 같은 과제의 조 참여 기록이 있는지 먼저 봅니다.
+        Optional<TeamMember> existing = teamMemberRepository.findByTeamAssignmentIdAndMemberId(team.getAssignment().getId(), memberId);
+        if (existing.isPresent()) {
+            if (existing.get().getTeam().getId().equals(team.getId())) {
+                return true;
+            }
+            throw new DuplicateException("이미 이 과제의 다른 조에 있습니다");
+        }
+        // 위에서 이미 조원인 경우를 돌려보낸 뒤에 검사합니다. 조원이 다시 눌러도 아무것도 바뀌지 않아 막을 이유가 없습니다.
+        assignmentPhaseChecker.checkRecording(team.getAssignment());
+        return false;
     }
 
     // 그 조의 조원을 찾습니다. 없거나 다른 조의 조원이면 NotFoundException을 던집니다.
