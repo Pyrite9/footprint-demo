@@ -37,6 +37,113 @@ function isBlank(value) {
   return typeof value !== 'string' || value.trim() === ''
 }
 
+// ---- 400 응답의 틀린 칸(X-7). 실제 백엔드 GlobalExceptionHandler와 같은 문장을 만듭니다. ----
+
+// 앞 문장 뒤에 틀린 칸들을 ". "과 ", "로 이어 붙입니다. 칸이 없으면 앞 문장만 돌려줍니다. 실제 withFields와 같습니다.
+function withFields(sentence, fields) {
+  return fields.length === 0 ? sentence : sentence + '. ' + fields.join(', ')
+}
+
+// 칸의 타입이 틀렸을 때의 이유입니다. 실제 typeReasonOf와 같은 문장입니다. object는 목록 안의 평가 하나처럼 { }로 받는 칸입니다.
+const TYPE_REASONS = {
+  string: '문자열이어야 합니다',
+  integer: '정수여야 합니다',
+  date: 'yyyy-MM-dd 형식의 날짜여야 합니다',
+  list: '배열이어야 합니다',
+  object: '형식이 올바르지 않습니다',
+}
+
+// 실제 백엔드(Jackson)가 JSON을 Java 타입으로 읽는 것을 흉내 냅니다. shape는 받을 모양입니다.
+// shape: 'string' | 'integer' | 'date' | { list: 원소의 shape } | { fields: { 칸 이름: shape } }
+// 읽으면 { value }, 타입이 틀린 칸이 있으면 { field: '칸 이름: 이유' }를 돌려줍니다. JSON에 적힌 순서대로 보다가 처음 틀린 칸에서 멈춥니다.
+// Jackson처럼 글자 칸에 온 숫자와 true/false는 글자로 바꿔 받고, 정수 칸에 온 "5", 4.5, true는 거절합니다. 날짜 칸의 ""도 거절합니다.
+function readValue(value, shape, path) {
+  if (value === null || value === undefined) return { value: null }
+  if (shape === 'string') {
+    if (typeof value === 'string') return { value }
+    if (typeof value === 'number' || typeof value === 'boolean') return { value: String(value) }
+    return { field: path + ': ' + TYPE_REASONS.string }
+  }
+  if (shape === 'integer') {
+    return Number.isInteger(value) ? { value } : { field: path + ': ' + TYPE_REASONS.integer }
+  }
+  if (shape === 'date') {
+    return isValidDate(value) ? { value } : { field: path + ': ' + TYPE_REASONS.date }
+  }
+  if (shape.list) {
+    if (!Array.isArray(value)) return { field: path + ': ' + TYPE_REASONS.list }
+    const items = []
+    for (let index = 0; index < value.length; index++) {
+      const result = readValue(value[index], shape.list, path + '[' + index + ']')
+      if (result.field) return result
+      items.push(result.value)
+    }
+    return { value: items }
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) return { field: path + ': ' + TYPE_REASONS.object }
+  // 빠진 칸은 null입니다. Java record에서 빠진 칸이 null이 되는 것과 같습니다.
+  const object = {}
+  Object.keys(shape.fields).forEach((name) => { object[name] = null })
+  // Object.keys는 JSON에 적힌 순서대로 칸 이름을 돌려줍니다. 받을 모양에 없는 칸은 Jackson처럼 읽지 않고 넘어갑니다.
+  for (const name of Object.keys(value)) {
+    if (!Object.hasOwn(shape.fields, name)) continue
+    const result = readValue(value[name], shape.fields[name], path === '' ? name : path + '.' + name)
+    if (result.field) return result
+    object[name] = result.value
+  }
+  return { value: object }
+}
+
+// 요청 body를 fields 모양으로 읽어 돌려줍니다. 읽지 못하면 실제 handleHttpMessageNotReadable과 같은 400을 보내고 null을 돌려줍니다.
+// body가 없거나 JSON 객체가 아니면(예: []) 칸을 알 수 없어서 앞 문장만 보냅니다.
+function readBodyOrSendError(req, res, fields) {
+  const hasBody = req.headers['transfer-encoding'] !== undefined || Number(req.headers['content-length']) > 0
+  if (!hasBody || typeof req.body !== 'object' || req.body === null || Array.isArray(req.body)) {
+    sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
+    return null
+  }
+  const result = readValue(req.body, { fields }, '')
+  if (result.field) {
+    sendError(res, 400, 'INVALID_INPUT', withFields(NOT_READABLE_MESSAGE, [result.field]))
+    return null
+  }
+  return result.value
+}
+
+// 아래 check 함수들은 실제 백엔드의 @Valid 검사를 흉내 냅니다. 걸린 칸마다 '칸 이름: 이유'를 errors에 더합니다.
+// @NotBlank(글자)와 @NotEmpty(목록)입니다.
+function checkNotBlank(errors, name, text) {
+  if (isBlank(text)) errors.push(name + ': 비어 있습니다')
+}
+
+function checkNotEmpty(errors, name, list) {
+  if (list == null || list.length === 0) errors.push(name + ': 비어 있습니다')
+}
+
+// @NotNull입니다.
+function checkNotNull(errors, name, value) {
+  if (value == null) errors.push(name + ': 값이 없습니다')
+}
+
+// @Size(max)입니다. 값이 없으면 통과합니다.
+function checkMaxLength(errors, name, text, max) {
+  if (text != null && text.length > max) errors.push(name + ': ' + max + '자 이하여야 합니다')
+}
+
+// @Min, @Max입니다. 값이 없으면 통과합니다.
+function checkRange(errors, name, number, min, max) {
+  if (number != null && number < min) errors.push(name + ': ' + min + ' 이상이어야 합니다')
+  if (number != null && number > max) errors.push(name + ': ' + max + ' 이하여야 합니다')
+}
+
+// 걸린 칸이 있으면 실제 handleMethodArgumentNotValid와 같은 문장으로 400을 보내고 true를 돌려줍니다.
+// 실제 백엔드처럼 '칸 이름: 이유' 글자를 문자 코드 순으로 정렬합니다. sort()를 비교 함수 없이 부르면 문자 코드 순입니다.
+function sendIfNotValid(res, errors) {
+  if (errors.length === 0) return false
+  sendError(res, 400, 'INVALID_INPUT', withFields(NOT_VALID_MESSAGE, [...errors].sort()))
+  return true
+}
+
 // 서버의 지금 시각을 "2026-11-05T14:03:22" 모양(초까지, 시간대 표시 없음)으로 만듭니다. 실제 백엔드의 LocalDateTime 응답과 같은 모양입니다.
 function nowLocalDateTime() {
   const now = new Date()
@@ -62,10 +169,13 @@ function findLoginMember(req) {
 
 // POST /auth/login: 이메일과 비밀번호를 확인하고 token을 돌려줍니다.
 function handleLogin(req, res) {
-  const { email, password } = req.body
-  if (isBlank(email) || isBlank(password)) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const body = readBodyOrSendError(req, res, { email: 'string', password: 'string' })
+  if (!body) return
+  const { email, password } = body
+  const errors = []
+  checkNotBlank(errors, 'email', email)
+  checkNotBlank(errors, 'password', password)
+  if (sendIfNotValid(res, errors)) return
 
   const member = req.app.db.get('members').find({ email }).value()
   // 실제 백엔드처럼 이메일이 없을 때와 비밀번호가 틀렸을 때 같은 메시지를 줍니다.
@@ -91,10 +201,12 @@ function readGooglePayload(credential) {
 
 // POST /auth/google: 구글 ID token으로 로그인합니다. 처음 온 계정이면 회원으로 저장합니다.
 function handleGoogleLogin(req, res) {
-  const { credential } = req.body
-  if (isBlank(credential)) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const body = readBodyOrSendError(req, res, { credential: 'string' })
+  if (!body) return
+  const { credential } = body
+  const errors = []
+  checkNotBlank(errors, 'credential', credential)
+  if (sendIfNotValid(res, errors)) return
 
   const payload = readGooglePayload(credential)
   if (!payload || payload.email_verified !== true || isBlank(payload.email)) {
@@ -129,20 +241,18 @@ function handleMe(req, res, loginMember) {
 // POST /assignments: 교수가 과제, 조, 조장을 한 번에 만듭니다. 검사 순서는 실제 백엔드와 같습니다.
 function handleCreateAssignment(req, res, loginMember) {
   const db = req.app.db
-  const { title, leaderEmails } = req.body
-  // 실제 백엔드(Jackson)는 빈 글자 ""로 온 날짜를 null로 읽습니다. 그래서 아래 2번 검사(@NotNull)에 걸립니다.
-  const startDate = req.body.startDate === '' ? null : req.body.startDate
-  const endDate = req.body.endDate === '' ? null : req.body.endDate
-
-  // 1. 날짜가 틀렸거나 leaderEmails가 목록이 아니면 실제 백엔드는 JSON을 읽는 단계에서 거절합니다.
-  if ((startDate != null && !isValidDate(startDate)) || (endDate != null && !isValidDate(endDate))
-    || (leaderEmails != null && !Array.isArray(leaderEmails))) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
-  }
+  // 1. 날짜가 틀렸거나("" 포함) leaderEmails가 목록이 아니면 실제 백엔드는 JSON을 읽는 단계에서 거절합니다.
+  const body = readBodyOrSendError(req, res, { title: 'string', startDate: 'date', endDate: 'date', leaderEmails: { list: 'string' } })
+  if (!body) return
+  const { title, startDate, endDate, leaderEmails } = body
   // 2. @NotBlank @Size(max = 255), @NotNull, @NotEmpty 검사입니다.
-  if (isBlank(title) || title.length > 255 || !startDate || !endDate || !Array.isArray(leaderEmails) || leaderEmails.length === 0) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const errors = []
+  checkNotBlank(errors, 'title', title)
+  checkMaxLength(errors, 'title', title, 255)
+  checkNotNull(errors, 'startDate', startDate)
+  checkNotNull(errors, 'endDate', endDate)
+  checkNotEmpty(errors, 'leaderEmails', leaderEmails)
+  if (sendIfNotValid(res, errors)) return
   // 3. 여기부터는 Service의 검사입니다.
   if (loginMember.memberType !== 'PROFESSOR') {
     return sendError(res, 403, 'FORBIDDEN', '교수만 과제를 만들 수 있습니다')
@@ -397,10 +507,12 @@ function handleGetJoinPreview(req, res, loginMember, inviteCode) {
 // POST /teams/join: 초대 코드로 합류합니다. 이미 그 조의 조원이면 그대로 그 조를 돌려줍니다.
 function handleJoinTeam(req, res, loginMember) {
   const db = req.app.db
-  const { inviteCode } = req.body
-  if (isBlank(inviteCode)) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const body = readBodyOrSendError(req, res, { inviteCode: 'string' })
+  if (!body) return
+  const { inviteCode } = body
+  const errors = []
+  checkNotBlank(errors, 'inviteCode', inviteCode)
+  if (sendIfNotValid(res, errors)) return
   const team = findTeamByInviteCodeOrSendError(db, res, inviteCode)
   if (!team) return
   const alreadyMember = checkJoinable(db, res, team, loginMember)
@@ -416,11 +528,14 @@ function handleJoinTeam(req, res, loginMember) {
 // POST /teams/{teamId}/members/{teamMemberId}/role: 조장이 역할이 없는 조원에게 역할을 지정합니다.
 function handleAssignRole(req, res, loginMember, teamId, teamMemberId) {
   const db = req.app.db
-  const { roleName } = req.body
+  const body = readBodyOrSendError(req, res, { roleName: 'string' })
+  if (!body) return
+  const { roleName } = body
   // @NotBlank @Size(max = 255) 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다.
-  if (isBlank(roleName) || roleName.length > 255) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const errors = []
+  checkNotBlank(errors, 'roleName', roleName)
+  checkMaxLength(errors, 'roleName', roleName, 255)
+  if (sendIfNotValid(res, errors)) return
   const team = findTeamOrSendError(db, res, teamId)
   if (!team || !checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
 
@@ -441,11 +556,14 @@ function handleAssignRole(req, res, loginMember, teamId, teamMemberId) {
 // PUT /teams/{teamId}/members/{teamMemberId}/role: 조장이 조원의 역할을 바꾸고 이전 역할을 이력으로 남깁니다. 검사 순서는 실제 백엔드와 같습니다.
 function handleChangeRole(req, res, loginMember, teamId, teamMemberId) {
   const db = req.app.db
-  const { roleName } = req.body
+  const body = readBodyOrSendError(req, res, { roleName: 'string' })
+  if (!body) return
+  const { roleName } = body
   // @NotBlank @Size(max = 255) 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다.
-  if (isBlank(roleName) || roleName.length > 255) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const errors = []
+  checkNotBlank(errors, 'roleName', roleName)
+  checkMaxLength(errors, 'roleName', roleName, 255)
+  if (sendIfNotValid(res, errors)) return
   const team = findTeamOrSendError(db, res, teamId)
   if (!team || !checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
 
@@ -487,14 +605,13 @@ function handleGetRoleHistories(req, res, loginMember, teamId, teamMemberId) {
 // PUT /teams/{teamId}/leader: 과제를 만든 교수가 조장을 바꾸고 이력을 남깁니다. 검사 순서는 실제 백엔드와 같습니다.
 function handleChangeLeader(req, res, loginMember, teamId) {
   const db = req.app.db
-  const { teamMemberId } = req.body
   // 숫자로 읽을 수 없으면 실제 백엔드는 JSON을 읽는 단계에서, 빠졌으면 @NotNull 검사에서 400입니다. 둘 다 권한 검사보다 먼저입니다.
-  if (teamMemberId != null && !Number.isInteger(teamMemberId)) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
-  }
-  if (teamMemberId == null) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const body = readBodyOrSendError(req, res, { teamMemberId: 'integer' })
+  if (!body) return
+  const { teamMemberId } = body
+  const errors = []
+  checkNotNull(errors, 'teamMemberId', teamMemberId)
+  if (sendIfNotValid(res, errors)) return
   const team = findTeamOrSendError(db, res, teamId)
   if (!team) return
   const assignment = db.get('assignments').find({ id: team.assignmentId }).value()
@@ -614,8 +731,9 @@ function handleUploadDeliverable(req, res, next, loginMember, teamId) {
       return sendError(res, 400, 'INVALID_INPUT', '파일은 20MB까지 올릴 수 있습니다')
     }
     const filePart = findFilePart(body, boundaryMatch[1])
+    // 실제 handleMissingServletRequestPart와 같은 문장입니다.
     if (!filePart) {
-      return sendError(res, 400, 'INVALID_INPUT', '파일이 없습니다')
+      return sendError(res, 400, 'INVALID_INPUT', withFields(NOT_VALID_MESSAGE, ['file: 값이 없습니다']))
     }
     if (filePart.content.length === 0) {
       return sendError(res, 400, 'INVALID_INPUT', '빈 파일은 올릴 수 없습니다')
@@ -704,14 +822,15 @@ function toContributionResponse(db, contribution) {
 // POST /teams/{teamId}/contributions: 조장이 항목명과 담당 조원을 정해 기여 항목을 등록합니다.
 function handleCreateContribution(req, res, loginMember, teamId) {
   const db = req.app.db
-  const { title, teamMemberId } = req.body
   // 숫자로 읽을 수 없으면 실제 백엔드는 JSON을 읽는 단계에서, 나머지는 @NotBlank @Size @NotNull 검사에서 400입니다. 모두 권한 검사보다 먼저입니다.
-  if (teamMemberId != null && !Number.isInteger(teamMemberId)) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
-  }
-  if (isBlank(title) || title.length > 255 || teamMemberId == null) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const body = readBodyOrSendError(req, res, { title: 'string', teamMemberId: 'integer' })
+  if (!body) return
+  const { title, teamMemberId } = body
+  const errors = []
+  checkNotBlank(errors, 'title', title)
+  checkMaxLength(errors, 'title', title, 255)
+  checkNotNull(errors, 'teamMemberId', teamMemberId)
+  if (sendIfNotValid(res, errors)) return
   const team = findTeamOrSendError(db, res, teamId)
   if (!team || !checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
 
@@ -747,11 +866,14 @@ function handleGetContributions(req, res, loginMember, teamId) {
 // POST /contributions/{contributionId}/report: 담당 조원이 완료 보고합니다. 한 번만 할 수 있습니다.
 function handleReportContribution(req, res, loginMember, contributionId) {
   const db = req.app.db
-  const { memo } = req.body
+  const body = readBodyOrSendError(req, res, { memo: 'string' })
+  if (!body) return
+  const { memo } = body
   // @NotBlank @Size(max = 2000) 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다.
-  if (isBlank(memo) || memo.length > 2000) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const errors = []
+  checkNotBlank(errors, 'memo', memo)
+  checkMaxLength(errors, 'memo', memo, 2000)
+  if (sendIfNotValid(res, errors)) return
   const contribution = db.get('contributions').find({ id: contributionId }).value()
   if (!contribution) {
     return sendError(res, 404, 'NOT_FOUND', '기여 항목이 없습니다. id=' + contributionId)
@@ -933,19 +1055,28 @@ function toEvaluationStatusResponse(myEvaluations) {
   return { submitted: true, submittedAt: myEvaluations[0].submittedAt }
 }
 
-// 점수에 정수가 아닌 값(4.5, "5" 등)이 있으면 true입니다. 실제 백엔드는 이 값을 Integer로 읽지 못해서 다른 문구의 400을 돌려줍니다.
-function hasNotIntegerScore(evaluations) {
-  return Array.isArray(evaluations) && evaluations.some((item) => item !== null && typeof item === 'object'
-    && SCORE_FIELDS.some((field) => item[field] != null && !Number.isInteger(item[field])))
-}
+// 동료평가 요청 body의 모양입니다. 실제 EvaluationSubmitRequest, EvaluationDraftSaveRequest와 같습니다(readBodyOrSendError에 넘김).
+// 점수에 4.5, "5" 같은 값이 있으면 실제 백엔드처럼 JSON을 읽는 단계에서 400입니다.
+const EVALUATION_ITEM_FIELDS = { targetTeamMemberId: 'integer', comment: 'string' }
+SCORE_FIELDS.forEach((field) => { EVALUATION_ITEM_FIELDS[field] = 'integer' })
+const EVALUATIONS_BODY = { evaluations: { list: { fields: EVALUATION_ITEM_FIELDS } } }
 
-// 평가 하나가 실제 백엔드의 @NotNull, @Min(1), @Max(5), @Size(max = 2000) 검사를 통과하면 true입니다.
-function isValidEvaluationItem(item) {
-  if (item === null || typeof item !== 'object') return false
-  if (typeof item.targetTeamMemberId !== 'number') return false
-  const scoresValid = SCORE_FIELDS.every((field) => Number.isInteger(item[field]) && item[field] >= 1 && item[field] <= 5)
-  const commentValid = item.comment == null || (typeof item.comment === 'string' && item.comment.length <= 2000)
-  return scoresValid && commentValid
+// 평가 목록의 원소마다 실제 백엔드의 @NotNull, @Min(1), @Max(5), @Size(max = 2000) 검사를 합니다.
+// scoreRequired가 true이면 제출(점수 @NotNull), false이면 임시 저장(점수가 빠져도 됨)입니다.
+function checkEvaluationItems(errors, evaluations, scoreRequired) {
+  evaluations.forEach((item, index) => {
+    const path = 'evaluations[' + index + ']'
+    if (item === null) {
+      errors.push(path + ': 값이 없습니다')
+      return
+    }
+    checkNotNull(errors, path + '.targetTeamMemberId', item.targetTeamMemberId)
+    SCORE_FIELDS.forEach((field) => {
+      if (scoreRequired) checkNotNull(errors, path + '.' + field, item[field])
+      checkRange(errors, path + '.' + field, item[field], 1, 5)
+    })
+    checkMaxLength(errors, path + '.comment', item.comment, 2000)
+  })
 }
 
 // 임시 저장 행을 실제 EvaluationDraftResponse 모양으로 바꿉니다.
@@ -953,15 +1084,6 @@ function toEvaluationDraftResponse(draft) {
   const scores = {}
   SCORE_FIELDS.forEach((field) => { scores[field] = draft[field] })
   return { targetTeamMemberId: draft.targetId, ...scores, comment: draft.comment, savedAt: draft.savedAt }
-}
-
-// 임시 저장 하나가 실제 백엔드의 검사를 통과하면 true입니다. 제출과 달리 점수는 빠지거나 null이어도 됩니다.
-function isValidEvaluationDraftItem(item) {
-  if (item === null || typeof item !== 'object') return false
-  if (typeof item.targetTeamMemberId !== 'number') return false
-  const scoresValid = SCORE_FIELDS.every((field) => item[field] == null || (Number.isInteger(item[field]) && item[field] >= 1 && item[field] <= 5))
-  const commentValid = item.comment == null || (typeof item.comment === 'string' && item.comment.length <= 2000)
-  return scoresValid && commentValid
 }
 
 // GET /teams/{teamId}/evaluations/draft: 내가 이 조에서 임시 저장한 내용을 돌려줍니다. 교수는 조원이 아니라서 403입니다.
@@ -977,12 +1099,14 @@ function handleGetMyEvaluationDrafts(req, res, loginMember, teamId) {
 // PUT /teams/{teamId}/evaluations/draft: 이전 임시 저장을 모두 지우고 보낸 내용으로 바꿉니다. 검사 순서는 실제 백엔드와 같습니다.
 function handleSaveEvaluationDrafts(req, res, loginMember, teamId) {
   const db = req.app.db
-  const { evaluations } = req.body
-  if (hasNotIntegerScore(evaluations)) return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
+  const body = readBodyOrSendError(req, res, EVALUATIONS_BODY)
+  if (!body) return
+  const { evaluations } = body
   // 1. @NotNull @Valid 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다. 빈 목록은 통과합니다.
-  if (!Array.isArray(evaluations) || !evaluations.every(isValidEvaluationDraftItem)) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const errors = []
+  checkNotNull(errors, 'evaluations', evaluations)
+  if (evaluations !== null) checkEvaluationItems(errors, evaluations, false)
+  if (sendIfNotValid(res, errors)) return
   // 2. 여기부터는 Service의 검사입니다.
   const team = findTeamOrSendError(db, res, teamId)
   if (!team) return
@@ -1033,12 +1157,14 @@ function handleGetMyEvaluationStatus(req, res, loginMember, teamId) {
 // POST /teams/{teamId}/evaluations: 자신을 뺀 조원 전원의 평가를 한 번에 저장합니다. 검사 순서는 실제 백엔드와 같습니다.
 function handleSubmitEvaluations(req, res, loginMember, teamId) {
   const db = req.app.db
-  const { evaluations } = req.body
-  if (hasNotIntegerScore(evaluations)) return sendError(res, 400, 'INVALID_INPUT', NOT_READABLE_MESSAGE)
+  const body = readBodyOrSendError(req, res, EVALUATIONS_BODY)
+  if (!body) return
+  const { evaluations } = body
   // 1. @NotEmpty @Valid 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다.
-  if (!Array.isArray(evaluations) || evaluations.length === 0 || !evaluations.every(isValidEvaluationItem)) {
-    return sendError(res, 400, 'INVALID_INPUT', NOT_VALID_MESSAGE)
-  }
+  const errors = []
+  checkNotEmpty(errors, 'evaluations', evaluations)
+  if (evaluations !== null) checkEvaluationItems(errors, evaluations, true)
+  if (sendIfNotValid(res, errors)) return
   // 2. 여기부터는 Service의 검사입니다.
   const team = findTeamOrSendError(db, res, teamId)
   if (!team) return
@@ -1411,10 +1537,12 @@ function matchId(pattern, path) {
   return match ? match[1] : null
 }
 
-// 실제 백엔드처럼 주소의 {id} 자리가 숫자가 아니면 400을 보냅니다. 숫자이면 숫자로 바꿔 돌려줍니다.
-function parseIdOrSendError(res, value) {
-  if (!/^\d+$/.test(value)) {
-    sendError(res, 400, 'INVALID_INPUT', '주소의 값이 올바르지 않습니다')
+// 실제 백엔드처럼 주소의 {id} 자리가 정수가 아니면 400을 보냅니다. 정수이면 숫자로 바꿔 돌려줍니다.
+// name은 실제 Controller의 @PathVariable 이름(예: teamId)이고, 실제 handleMethodArgumentTypeMismatch처럼 message에 적습니다.
+// 실제 백엔드는 -1도 Long으로 읽어 "없음"(404)으로 답하므로 앞의 -도 받습니다.
+function parseIdOrSendError(res, name, value) {
+  if (!/^-?\d+$/.test(value) || !Number.isSafeInteger(Number(value))) {
+    sendError(res, 400, 'INVALID_INPUT', withFields('주소의 값이 올바르지 않습니다', [name + ': ' + TYPE_REASONS.integer]))
     return null
   }
   return Number(value)
@@ -1450,21 +1578,21 @@ function handleRequest(req, res, next) {
 
   const readNotificationIdText = matchId(/^\/notifications\/([^/]+)\/read$/, req.path)
   if (req.method === 'POST' && readNotificationIdText !== null) {
-    const notificationId = parseIdOrSendError(res, readNotificationIdText)
+    const notificationId = parseIdOrSendError(res, 'notificationId', readNotificationIdText)
     if (notificationId === null) return
     return handleReadNotification(req, res, loginMember, notificationId)
   }
 
   const assignmentIdText = matchId(/^\/assignments\/([^/]+)$/, req.path)
   if (req.method === 'GET' && assignmentIdText !== null) {
-    const assignmentId = parseIdOrSendError(res, assignmentIdText)
+    const assignmentId = parseIdOrSendError(res, 'assignmentId', assignmentIdText)
     if (assignmentId === null) return
     return handleGetAssignment(req, res, loginMember, assignmentId)
   }
 
   const startEvaluationIdText = matchId(/^\/assignments\/([^/]+)\/start-evaluation$/, req.path)
   if (req.method === 'POST' && startEvaluationIdText !== null) {
-    const assignmentId = parseIdOrSendError(res, startEvaluationIdText)
+    const assignmentId = parseIdOrSendError(res, 'assignmentId', startEvaluationIdText)
     if (assignmentId === null) return
     return handleStartEvaluation(req, res, loginMember, assignmentId)
   }
@@ -1483,21 +1611,21 @@ function handleRequest(req, res, next) {
 
   const teamIdText = matchId(/^\/teams\/([^/]+)$/, req.path)
   if (req.method === 'GET' && teamIdText !== null) {
-    const teamId = parseIdOrSendError(res, teamIdText)
+    const teamId = parseIdOrSendError(res, 'teamId', teamIdText)
     if (teamId === null) return
     return handleGetTeam(req, res, loginMember, teamId)
   }
 
   const membersTeamIdText = matchId(/^\/teams\/([^/]+)\/members$/, req.path)
   if (req.method === 'GET' && membersTeamIdText !== null) {
-    const teamId = parseIdOrSendError(res, membersTeamIdText)
+    const teamId = parseIdOrSendError(res, 'teamId', membersTeamIdText)
     if (teamId === null) return
     return handleGetTeamMembers(req, res, loginMember, teamId)
   }
 
   const inviteCodeTeamIdText = matchId(/^\/teams\/([^/]+)\/invite-code$/, req.path)
   if (inviteCodeTeamIdText !== null && (req.method === 'GET' || req.method === 'POST')) {
-    const teamId = parseIdOrSendError(res, inviteCodeTeamIdText)
+    const teamId = parseIdOrSendError(res, 'teamId', inviteCodeTeamIdText)
     if (teamId === null) return
     if (req.method === 'GET') return handleGetInviteCode(req, res, loginMember, teamId)
     return handleIssueInviteCode(req, res, loginMember, teamId)
@@ -1505,7 +1633,7 @@ function handleRequest(req, res, next) {
 
   const deliverablesTeamIdText = matchId(/^\/teams\/([^/]+)\/deliverables$/, req.path)
   if (deliverablesTeamIdText !== null && (req.method === 'GET' || req.method === 'POST')) {
-    const teamId = parseIdOrSendError(res, deliverablesTeamIdText)
+    const teamId = parseIdOrSendError(res, 'teamId', deliverablesTeamIdText)
     if (teamId === null) return
     if (req.method === 'GET') return handleGetDeliverables(req, res, loginMember, teamId)
     return handleUploadDeliverable(req, res, next, loginMember, teamId)
@@ -1513,28 +1641,28 @@ function handleRequest(req, res, next) {
 
   const deleteIdText = matchId(/^\/deliverables\/([^/]+)$/, req.path)
   if (req.method === 'DELETE' && deleteIdText !== null) {
-    const deliverableId = parseIdOrSendError(res, deleteIdText)
+    const deliverableId = parseIdOrSendError(res, 'deliverableId', deleteIdText)
     if (deliverableId === null) return
     return handleDeleteDeliverable(req, res, loginMember, deliverableId)
   }
 
   const downloadIdText = matchId(/^\/deliverables\/([^/]+)\/download$/, req.path)
   if (req.method === 'GET' && downloadIdText !== null) {
-    const deliverableId = parseIdOrSendError(res, downloadIdText)
+    const deliverableId = parseIdOrSendError(res, 'deliverableId', downloadIdText)
     if (deliverableId === null) return
     return handleDownloadDeliverable(req, res, loginMember, deliverableId)
   }
 
   const myEvaluationTeamIdText = matchId(/^\/teams\/([^/]+)\/evaluations\/mine$/, req.path)
   if (req.method === 'GET' && myEvaluationTeamIdText !== null) {
-    const teamId = parseIdOrSendError(res, myEvaluationTeamIdText)
+    const teamId = parseIdOrSendError(res, 'teamId', myEvaluationTeamIdText)
     if (teamId === null) return
     return handleGetMyEvaluationStatus(req, res, loginMember, teamId)
   }
 
   const evaluationDraftTeamIdText = matchId(/^\/teams\/([^/]+)\/evaluations\/draft$/, req.path)
   if ((req.method === 'GET' || req.method === 'PUT') && evaluationDraftTeamIdText !== null) {
-    const teamId = parseIdOrSendError(res, evaluationDraftTeamIdText)
+    const teamId = parseIdOrSendError(res, 'teamId', evaluationDraftTeamIdText)
     if (teamId === null) return
     if (req.method === 'GET') return handleGetMyEvaluationDrafts(req, res, loginMember, teamId)
     return handleSaveEvaluationDrafts(req, res, loginMember, teamId)
@@ -1542,14 +1670,14 @@ function handleRequest(req, res, next) {
 
   const evaluationsTeamIdText = matchId(/^\/teams\/([^/]+)\/evaluations$/, req.path)
   if (req.method === 'POST' && evaluationsTeamIdText !== null) {
-    const teamId = parseIdOrSendError(res, evaluationsTeamIdText)
+    const teamId = parseIdOrSendError(res, 'teamId', evaluationsTeamIdText)
     if (teamId === null) return
     return handleSubmitEvaluations(req, res, loginMember, teamId)
   }
 
   const contributionsTeamIdText = matchId(/^\/teams\/([^/]+)\/contributions$/, req.path)
   if ((req.method === 'GET' || req.method === 'POST') && contributionsTeamIdText !== null) {
-    const teamId = parseIdOrSendError(res, contributionsTeamIdText)
+    const teamId = parseIdOrSendError(res, 'teamId', contributionsTeamIdText)
     if (teamId === null) return
     if (req.method === 'POST') {
       return handleCreateContribution(req, res, loginMember, teamId)
@@ -1559,21 +1687,21 @@ function handleRequest(req, res, next) {
 
   const reportIdText = matchId(/^\/contributions\/([^/]+)\/report$/, req.path)
   if (req.method === 'POST' && reportIdText !== null) {
-    const contributionId = parseIdOrSendError(res, reportIdText)
+    const contributionId = parseIdOrSendError(res, 'contributionId', reportIdText)
     if (contributionId === null) return
     return handleReportContribution(req, res, loginMember, contributionId)
   }
 
   const cancelIdText = matchId(/^\/contributions\/([^/]+)\/cancel$/, req.path)
   if (req.method === 'POST' && cancelIdText !== null) {
-    const contributionId = parseIdOrSendError(res, cancelIdText)
+    const contributionId = parseIdOrSendError(res, 'contributionId', cancelIdText)
     if (contributionId === null) return
     return handleCancelContribution(req, res, loginMember, contributionId)
   }
 
   const deliverableConfirmationsIdText = matchId(/^\/deliverables\/([^/]+)\/confirmations$/, req.path)
   if ((req.method === 'GET' || req.method === 'POST') && deliverableConfirmationsIdText !== null) {
-    const deliverableId = parseIdOrSendError(res, deliverableConfirmationsIdText)
+    const deliverableId = parseIdOrSendError(res, 'deliverableId', deliverableConfirmationsIdText)
     if (deliverableId === null) return
     if (req.method === 'POST') {
       return handleConfirmDeliverable(req, res, loginMember, deliverableId)
@@ -1583,7 +1711,7 @@ function handleRequest(req, res, next) {
 
   const contributionConfirmationsIdText = matchId(/^\/contributions\/([^/]+)\/confirmations$/, req.path)
   if ((req.method === 'GET' || req.method === 'POST') && contributionConfirmationsIdText !== null) {
-    const contributionId = parseIdOrSendError(res, contributionConfirmationsIdText)
+    const contributionId = parseIdOrSendError(res, 'contributionId', contributionConfirmationsIdText)
     if (contributionId === null) return
     if (req.method === 'POST') {
       return handleConfirmContribution(req, res, loginMember, contributionId)
@@ -1593,30 +1721,30 @@ function handleRequest(req, res, next) {
 
   const cancelConfirmationIdText = matchId(/^\/confirmations\/([^/]+)\/cancel$/, req.path)
   if (req.method === 'POST' && cancelConfirmationIdText !== null) {
-    const confirmationId = parseIdOrSendError(res, cancelConfirmationIdText)
+    const confirmationId = parseIdOrSendError(res, 'confirmationId', cancelConfirmationIdText)
     if (confirmationId === null) return
     return handleCancelConfirmation(req, res, loginMember, confirmationId)
   }
 
   const leaderTeamIdText = matchId(/^\/teams\/([^/]+)\/leader$/, req.path)
   if (req.method === 'PUT' && leaderTeamIdText !== null) {
-    const teamId = parseIdOrSendError(res, leaderTeamIdText)
+    const teamId = parseIdOrSendError(res, 'teamId', leaderTeamIdText)
     if (teamId === null) return
     return handleChangeLeader(req, res, loginMember, teamId)
   }
 
   const leaderHistoriesTeamIdText = matchId(/^\/teams\/([^/]+)\/leader-histories$/, req.path)
   if (req.method === 'GET' && leaderHistoriesTeamIdText !== null) {
-    const teamId = parseIdOrSendError(res, leaderHistoriesTeamIdText)
+    const teamId = parseIdOrSendError(res, 'teamId', leaderHistoriesTeamIdText)
     if (teamId === null) return
     return handleGetLeaderHistories(req, res, loginMember, teamId)
   }
 
   const roleMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/role$/)
   if ((req.method === 'POST' || req.method === 'PUT') && roleMatch) {
-    const teamId = parseIdOrSendError(res, roleMatch[1])
+    const teamId = parseIdOrSendError(res, 'teamId', roleMatch[1])
     if (teamId === null) return
-    const teamMemberId = parseIdOrSendError(res, roleMatch[2])
+    const teamMemberId = parseIdOrSendError(res, 'teamMemberId', roleMatch[2])
     if (teamMemberId === null) return
     if (req.method === 'PUT') {
       return handleChangeRole(req, res, loginMember, teamId, teamMemberId)
@@ -1626,7 +1754,7 @@ function handleRequest(req, res, next) {
 
   const evaluationResultMatch = req.path.match(/^\/teams\/([^/]+)\/evaluations(\/status|\/export)?$/)
   if (req.method === 'GET' && evaluationResultMatch) {
-    const teamId = parseIdOrSendError(res, evaluationResultMatch[1])
+    const teamId = parseIdOrSendError(res, 'teamId', evaluationResultMatch[1])
     if (teamId === null) return
     if (evaluationResultMatch[2] === '/status') return handleGetEvaluationSubmissions(req, res, loginMember, teamId)
     if (evaluationResultMatch[2] === '/export') return handleExportEvaluations(req, res, loginMember, teamId)
@@ -1635,25 +1763,25 @@ function handleRequest(req, res, next) {
 
   const recordsMatch = req.path.match(/^\/teams\/([^/]+)\/records$/)
   if (req.method === 'GET' && recordsMatch) {
-    const teamId = parseIdOrSendError(res, recordsMatch[1])
+    const teamId = parseIdOrSendError(res, 'teamId', recordsMatch[1])
     if (teamId === null) return
     return handleGetRecords(req, res, loginMember, teamId)
   }
 
   const evidenceMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/evidence$/)
   if (req.method === 'GET' && evidenceMatch) {
-    const teamId = parseIdOrSendError(res, evidenceMatch[1])
+    const teamId = parseIdOrSendError(res, 'teamId', evidenceMatch[1])
     if (teamId === null) return
-    const teamMemberId = parseIdOrSendError(res, evidenceMatch[2])
+    const teamMemberId = parseIdOrSendError(res, 'teamMemberId', evidenceMatch[2])
     if (teamMemberId === null) return
     return handleGetEvidence(req, res, loginMember, teamId, teamMemberId)
   }
 
   const roleHistoriesMatch = req.path.match(/^\/teams\/([^/]+)\/members\/([^/]+)\/role-histories$/)
   if (req.method === 'GET' && roleHistoriesMatch) {
-    const teamId = parseIdOrSendError(res, roleHistoriesMatch[1])
+    const teamId = parseIdOrSendError(res, 'teamId', roleHistoriesMatch[1])
     if (teamId === null) return
-    const teamMemberId = parseIdOrSendError(res, roleHistoriesMatch[2])
+    const teamMemberId = parseIdOrSendError(res, 'teamMemberId', roleHistoriesMatch[2])
     if (teamMemberId === null) return
     return handleGetRoleHistories(req, res, loginMember, teamId, teamMemberId)
   }

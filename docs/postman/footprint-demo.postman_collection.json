@@ -1986,7 +1986,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('400 응답', () => pm.response.to.have.status(400));",
-                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));",
+                  "pm.test('message에 틀린 칸', () => pm.expect(pm.response.json().message).to.eql('입력값이 올바르지 않습니다. title: 비어 있습니다'));"
                 ]
               }
             }
@@ -2230,7 +2231,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('400 응답', () => pm.response.to.have.status(400));",
-                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));",
+                  "pm.test('message에 틀린 칸', () => pm.expect(pm.response.json().message).to.eql('입력값이 올바르지 않습니다. memo: 비어 있습니다'));"
                 ]
               }
             }
@@ -4558,7 +4560,7 @@
     },
     {
       "name": "6. 오류 예시",
-      "description": "오류는 모두 { code, message } 모양입니다. code는 NOT_FOUND, INVALID_INPUT, UNAUTHORIZED, FORBIDDEN, DUPLICATE, SERVER_ERROR 여섯 가지입니다(SERVER_ERROR는 여기서 재현하지 않습니다).",
+      "description": "오류는 모두 { code, message } 모양입니다. code는 NOT_FOUND, INVALID_INPUT, UNAUTHORIZED, FORBIDDEN, DUPLICATE, SERVER_ERROR 여섯 가지입니다(SERVER_ERROR는 여기서 재현하지 않습니다). 400의 message 끝에는 틀린 칸을 \"칸 이름: 이유\"로 붙입니다.",
       "item": [
         {
           "name": "token 없이 부르면 401",
@@ -4747,7 +4749,7 @@
               }
             ],
             "url": "{{baseUrl}}/assignments",
-            "description": "필수 값이 비면 400입니다.",
+            "description": "필수 값이 비면 400입니다. message에 틀린 칸을 모두 적고, 칸은 글자 순으로 정렬합니다.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -4775,7 +4777,89 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('400 응답', () => pm.response.to.have.status(400));",
-                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));"
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));",
+                  "pm.test('message에 틀린 칸', () => pm.expect(pm.response.json().message).to.eql('입력값이 올바르지 않습니다. endDate: 값이 없습니다, leaderEmails: 비어 있습니다, startDate: 값이 없습니다, title: 비어 있습니다'));",
+                  "pm.test('body는 code, message 두 칸뿐', () => pm.expect(Object.keys(pm.response.json())).to.have.members(['code', 'message']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "숫자 칸에 글자를 넣으면 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/teams/{{teamId}}/leader",
+            "description": "칸의 타입이 틀리면 JSON을 읽는 단계에서 400입니다. 처음 틀린 칸 하나를 적습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teamMemberId\": \"5\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));",
+                  "pm.test('message에 틀린 칸', () => pm.expect(pm.response.json().message).to.eql('요청 body의 형식이 올바르지 않습니다. teamMemberId: 정수여야 합니다'));",
+                  "pm.test('body는 code, message 두 칸뿐', () => pm.expect(Object.keys(pm.response.json())).to.have.members(['code', 'message']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "주소의 번호가 숫자가 아니면 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/teams/abc",
+            "description": "주소 자리의 이름(teamId)을 적습니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 응답', () => pm.response.to.have.status(400));",
+                  "pm.test('code가 INVALID_INPUT', () => pm.expect(pm.response.json().code).to.eql('INVALID_INPUT'));",
+                  "pm.test('message에 틀린 칸', () => pm.expect(pm.response.json().message).to.eql('주소의 값이 올바르지 않습니다. teamId: 정수여야 합니다'));",
+                  "pm.test('body는 code, message 두 칸뿐', () => pm.expect(Object.keys(pm.response.json())).to.have.members(['code', 'message']));"
                 ]
               }
             }

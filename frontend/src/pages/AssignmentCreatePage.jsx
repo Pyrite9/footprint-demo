@@ -47,7 +47,9 @@ function AssignmentCreatePage() {
         // 응답을 기다리는 동안 버튼을 막아 같은 과제가 두 번 만들어지지 않게 합니다.
         setSubmitting(true)
 
-        createAssignment({ title, startDate, endDate, leaderEmails })
+        // 비운 날짜 칸은 ""가 아니라 null로 보냅니다. 서버는 ""를 날짜 형식 오류로 보고 그 칸 하나만 알려 주지만,
+        // null이면 "값이 없습니다"로 다른 빈 칸과 함께 모두 알려 줍니다(400 응답의 틀린 칸).
+        createAssignment({ title, startDate: startDate || null, endDate: endDate || null, leaderEmails })
             .then((assignment) => {
                 // 왼쪽 레일에 새 과제가 나오도록 틀을 다시 불러옵니다.
                 reloadLayout()

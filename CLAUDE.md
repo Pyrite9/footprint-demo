@@ -98,6 +98,7 @@ docs/       architecture.md, erd.md, api-draft.md, worklog.md, laptop-setup.md, 
 - 목록 응답은 연결된 데이터를 펼친 모양. 예: 조원 목록 `{ "id", "memberId", "name", "roleName", "leader" }`.
 - API 경로는 복수형(`/assignments`, `/teams/{teamId}/members`).
 - 오류 응답은 `ApiErrorResponse { code, message }` 하나. 처리는 `GlobalExceptionHandler` 한 곳. handler 이름은 `handle` + 예외 이름에서 `Exception` 뺀 것.
+- 형식 오류의 400(`@Valid`, body 타입, 주소 타입, 업로드 칸)은 `message` 끝에 틀린 칸을 `칸 이름: 이유`로 붙인다. 칸 이름은 JSON 필드 이름, `@Valid`는 모두 글자 순 정렬, 타입 오류는 첫 칸 하나. 칸을 더하거나 내부 정보(클래스 이름, Jackson 원문)를 넣지 않는다. 가짜 API도 같은 문장(2026.11.12 X-7).
 - `code` 목록: `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409, `SERVER_ERROR` 500(2026.10.26 관리자 결정). 새 code가 필요하면 먼저 묻는다.
 - 전용 예외: `NotFoundException`(404), `DuplicateException`(409), `ForbiddenException`(403), `InvalidInputException`(400, 업무 규칙 위반), `UnauthorizedException`(401, 로그인 실패). `IllegalArgumentException`을 404로 바꾸지 않는다.
 - 시작 데이터는 `config/DataInitializer`(`CommandLineRunner`). 개발 중 `ddl-auto: create`.

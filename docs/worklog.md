@@ -1988,3 +1988,47 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 화면 문구("초대 링크를 확인하는 중입니다.", "이 링크로 합류할 수 없습니다", "링크 복사", "링크를 복사했습니다.", "복사하지 못했습니다. 위의 링크를 직접 선택해 복사하세요.")는 내가 씀
   - 성공 문구 2초, 실패 문구는 남김
   - 클립보드 실패 원인(권한 거부, 비보안 context)을 문구로 나누지 않음. 어느 쪽이든 할 일은 직접 복사라서임
+
+## 2026.11.12 X-7 400 응답에 틀린 칸 담기
+- 결정:
+  - 응답 모양은 그대로 `{ code, message }`임. 칸(`errors` 등)을 더하지 않고, 새 `code`도 만들지 않음. `message` 끝에 `칸 이름: 이유`를 붙임. 앞 문장과는 `. `, 칸끼리는 `, `로 이음. 예: "입력값이 올바르지 않습니다. startDate: 값이 없습니다, title: 비어 있습니다". 선택지: `ApiErrorResponse`에 `fields` 목록 칸을 더함. 오류 응답 모양이 하나라는 규칙(CLAUDE.md)과 TODO.md 추천안에 어긋나서 고르지 않음
+  - **칸 이름은 요청 JSON의 필드 이름**(`title`, `evaluations[0].goalSharing`)임. 선택지: 한국어 이름("과제명"). 칸마다 이름표를 백엔드와 가짜 API 두 곳에 같은 내용으로 둬야 하고, 목록 안 칸(`evaluations[1].goalSharing`)을 한국어로 옮기기 어렵고, `docs/api-draft.md`와 Postman이 쓰는 이름과 달라져서 고르지 않음. 이유 부분은 한국어임. 화면에서 이 문장이 사용자에게 보이는 곳은 과제 만들기에서 칸을 비웠을 때뿐임(다른 입력 화면은 숫자·길이를 화면이 먼저 막음)
+  - **`@Valid`에 걸린 칸은 모두 적고, `칸 이름: 이유` 글자를 문자 코드 순으로 정렬함.** 검사기(Hibernate Validator)가 돌려주는 순서는 정해져 있지 않아서 정렬로 고정함. Java `String.compareTo`와 JavaScript `sort()`(비교 함수 없음)가 같은 UTF-16 문자 코드 순이라 가짜 API가 같은 문장을 냄. 선택지: 첫 칸만 적음. 사용자가 한 칸씩 고치고 다시 보내야 해서 고르지 않음. 선택지: DTO에 적은 순서. 검사기가 순서를 주지 않아 reflection이 필요해서 고르지 않음
+  - 한 칸이 두 검사에 걸리면 둘 다 적음(공백 256자 제목 → "title: 255자 이하여야 합니다, title: 비어 있습니다")
+  - 이유 문장은 검사기 기본 문구 대신 `GlobalExceptionHandler.constraintReasonOf`가 걸린 어노테이션으로 정함: `@NotBlank`·`@NotEmpty` "비어 있습니다", `@NotNull` "값이 없습니다", `@Size` "N자 이하여야 합니다", `@Min` "N 이상이어야 합니다", `@Max` "N 이하여야 합니다". 기본 문구는 서버의 언어 설정(Locale)에 따라 바뀌어서 쓰지 않음. 선택지: DTO 어노테이션마다 `message = "..."`를 적음. 요청 DTO 11개를 모두 고쳐야 하고 가짜 API와 맞출 문장이 흩어져서 고르지 않음
+  - **body 타입 오류는 처음 틀린 칸 하나만 적음.** Jackson이 JSON을 앞에서부터 읽다가 처음 틀린 칸에서 멈추기 때문임. 원인 `MismatchedInputException`의 경로(`getPath`)와 받으려던 타입(`getTargetType`)으로 "evaluations[1].goalSharing: 정수여야 합니다"를 만듦. JSON 문법이 깨졌거나 body가 없거나 객체가 아니면(`[]`, `null`) 경로가 없어 앞 문장만 보냄
+  - 주소 타입 오류는 `@PathVariable` 이름을 적음("주소의 값이 올바르지 않습니다. teamId: 정수여야 합니다"). 업로드의 `file` 칸이 없으면 "파일이 없습니다" 대신 `@NotNull`과 같은 "입력값이 올바르지 않습니다. file: 값이 없습니다"로 바꿈. 형식 오류 문장을 한 모양으로 맞추려는 것임
+  - 서버 내부 정보는 넣지 않음. 칸 이름은 DTO에 있는 필드와 배열 번호뿐임(DTO에 없는 칸은 Jackson이 읽지 않아 경로에 오지 않음). 클래스 이름은 `typeReasonOf`가 한국어로 바꿈
+  - Service의 `InvalidInputException` 문장(예: "종료일이 시작일보다 앞입니다")은 고치지 않음. 모두 사람이 읽는 문장이고 어느 값 때문인지 이미 드러남
+  - 가짜 API: 요청 body를 읽는 공통 함수 `readBodyOrSendError`를 두고, 받을 모양(`'string'`, `'integer'`, `'date'`, `{ list }`, `{ fields }`)을 넘겨 Jackson처럼 JSON에 적힌 순서대로 읽다가 처음 틀린 칸을 알려 줌. `@Valid`는 `checkNotBlank` 같은 작은 함수가 칸마다 문장을 모으고 `sendIfNotValid`가 정렬해 보냄. body가 있는 handler 11개를 모두 이 방식으로 바꿈
+  - probe 테스트(지움)로 실제 Jackson 동작을 확인하고 가짜 API를 맞춤. 그동안 가짜 API가 실제와 달랐던 곳 3개를 같이 고침
+    - 날짜 칸의 `""`: 실제는 형식 오류(400 "요청 body의 형식이 올바르지 않습니다")인데 가짜는 null로 읽었음(`allow-coercion-of-scalars: false` 때문)
+    - 글자 칸의 숫자·`true`: 실제는 글자 `"5"`, `"true"`로 받는데 가짜는 "비어 있음"으로 거절했음
+    - 주소의 `-1`: 실제는 Long으로 읽어 404인데 가짜는 400이었음
+  - 화면: 오류를 보여 주는 곳은 모두 `err.message`를 그대로 보여 줌. 고정 문구로 덮는 곳은 없음. 과제 만들기에서 날짜를 비우면 화면이 `""`를 보내 서버가 형식 오류로 날짜 한 칸만 알려 주던 것을, 빈 날짜는 `null`로 보내게 고침. 이제 빈 제목·시작일·종료일이 한 문장에 모두 나옴
+  - 프론트엔드 웹 가이드: `modern-web-guidance`로 `search`(서버 검증 오류 표시, 빈 날짜 값)와 `retrieve forms`를 실행함. `forms`는 `required`와 제출 전 브라우저 검사, 첫 오류 칸으로 focus 이동을 권함. 이번 단위는 서버 문장이 범위이고, 고친 곳은 보내는 값 한 줄이라 적용하지 않음. 오류 띠는 이미 `role="alert"`라 "use `aria-live` for dynamic error announcements"는 지킴
+- 만든 파일:
+  - 백엔드: 테스트 `InvalidInputMessageRuleTests`(8개)
+- 고친 파일:
+  - 백엔드: `exception/GlobalExceptionHandler`(`handleMethodArgumentNotValid`, `handleMethodArgumentTypeMismatch`, `handleMissingServletRequestPart`, `handleHttpMessageNotReadable`, private `withFields`, `constraintReasonOf`, `typeReasonOf`, `jsonPathOf`)
+  - 가짜 API: `frontend/mock/middleware.cjs`(`withFields`, `TYPE_REASONS`, `readValue`, `readBodyOrSendError`, `check...`, `sendIfNotValid`, `checkEvaluationItems`, `EVALUATIONS_BODY`, `parseIdOrSendError`에 이름 인자. body를 받는 handler 11개). `hasNotIntegerScore`, `isValidEvaluationItem`, `isValidEvaluationDraftItem`은 지움
+  - 화면: `pages/AssignmentCreatePage.jsx`(빈 날짜를 null로)
+  - 문서: `docs/api-draft.md`(공통에 "400의 틀린 칸", 응답이 바뀌는 곳에서 X-7 줄 지움), `docs/postman/`(요청 2개 더함, 400 요청 3개에 message 확인), `CLAUDE.md`, `TODO.md`, `README.md`
+- 확인:
+  - `gradlew.bat build` 성공. 테스트 154개, 실패 0(`InvalidInputMessageRuleTests` 8개 더함). 기존 테스트 중 옛 문장을 기대한 것은 없었음(모두 status와 code만 확인)
+  - `npm run build`, `npm run lint` 성공
+  - 같은 틀린 요청 42개를 실제 백엔드와 가짜 API에 보내 status, code, message, body의 칸 목록을 비교함. 41개 같음. 다른 1개는 X-4의 알려진 차이(`GET /teams/join/members`가 실제 400, 가짜 404)
+  - Newman으로 Postman 모음 실행: 실제 백엔드와 가짜 API 모두 요청 141개, 확인 330개, 실패 0. 시험 뒤 `frontend/db.json`을 되돌림
+  - 브라우저에서 실제 백엔드로 과제 만들기를 빈 칸으로 등록: 고치기 전 "요청 body의 형식이 올바르지 않습니다. startDate: yyyy-MM-dd 형식의 날짜여야 합니다", 고친 뒤 "입력값이 올바르지 않습니다. endDate: 값이 없습니다, startDate: 값이 없습니다, title: 비어 있습니다"가 오류 띠에 그대로 보임
+  - rule-check: 금지 패턴 없음. Service 변경 없음. 새 private 메서드와 가짜 API 함수에 주석 있음
+- 읽을 때 볼 곳:
+  - `constraintReasonOf`의 `error.unwrap(ConstraintViolation.class)`. Spring의 `FieldError` 안에 검사기가 만든 원래 결과가 들어 있고, 거기서 걸린 어노테이션(`@Size` 등)을 꺼냄. `constraint instanceof Size size`는 "Size이면 size라는 이름으로 바로 씀"이라는 Java 16+ 문법임
+  - `handleHttpMessageNotReadable`의 `e.getCause() instanceof MismatchedInputException cause`. Spring이 Jackson 오류를 한 번 감싸서 던지므로 원인(`getCause`)을 봐야 칸 경로가 있음
+  - 가짜 API `readValue`가 자기 자신을 다시 부르는 곳(목록과 객체 안쪽). 실제 Jackson이 안쪽 칸으로 들어가며 읽는 것을 흉내 냄. `Object.hasOwn`은 `toString` 같은 기본 속성 이름을 받을 모양으로 착각하지 않으려고 씀
+  - 정렬은 글자 비교라 `evaluations[10]`이 `evaluations[2]`보다 앞에 옴. 순서는 고정이지만 숫자 순은 아님
+- 내가 채운 가정:
+  - 문장 모양(`. `, `, `, `칸 이름: 이유`)과 이유 문장 9개는 내가 정함
+  - 칸 이름은 JSON 필드 이름, `@Valid`는 모두 나열, 타입 오류는 한 칸
+  - 업로드의 `file` 누락 문장을 "파일이 없습니다"에서 바꿈. 20MB 초과("파일은 20MB까지 올릴 수 있습니다")와 빈 파일("빈 파일은 올릴 수 없습니다")은 그대로 둠
+  - `@Size`의 이유는 "자"로 적음. 지금 `@Size`는 모두 글자 칸에 있음. 목록에 `@Size`를 붙이면 문장을 고쳐야 함
+  - 가짜 API에 남는 차이: `5.0`을 정수로 받음(기존), 아주 큰 수(2^53 이상)의 주소 번호, Java와 JavaScript의 공백 기준 차이(`trim`), 글자 칸에 온 소수의 글자 모양(`5.0` → 실제 "5.0", 가짜 "5"). JSON이 아닌 Content-Type 요청은 이번에 비교하지 않음(실제는 "요청의 형식이 올바르지 않습니다")
