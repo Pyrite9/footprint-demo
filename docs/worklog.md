@@ -2653,3 +2653,17 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - Origin 403 메시지 "허용하지 않은 주소에서 온 요청입니다", 재발급 401 메시지 "로그인이 만료되었습니다. 다시 로그인합니다"
   - 가짜 API cookie 값의 모양(`mock-refresh-<회원 번호>`)
   - 테이블 이름 `refresh_token`
+
+## 2026.11.12 인증-1 뒤처리: Vite proxy의 응답 직접 넘기기 코드를 뺌 (관리자 결정 "빼기")
+- 결정:
+  - `frontend/vite.config.js`의 `selfHandleResponse`와 `configure`(15줄)를 뺌. proxy 설정은 `target`과 `rewrite` 둘만 남음
+  - 이유: 개발 서버에서 20MB를 넘는 업로드가 400 대신 연결 끊김으로 보이는 한 경우만을 위한 코드였고(`req.unpipe()`, `req.resume()`), 초심자가 읽기 어려움. 선택지: 그대로 두기
+  - 바뀌는 동작: 개발 서버(`npm run dev`)에서만 20MB를 넘는 업로드에 400 JSON "파일은 20MB까지 올릴 수 있습니다" 대신 기본 문장 "요청을 처리하지 못했습니다"가 나옴. 20MB 이하 업로드와 다른 요청은 그대로임
+  - 배포한 화면(nginx, 실행 묶음)은 영향 없음. nginx가 직접 400 JSON을 돌려줌
+  - 위 "인증-1" 항목의 "결정"과 "읽을 때 볼 곳"에 있는 `configure` 설명은 그때의 기록이라 그대로 둠
+- 만든·고친 파일: `frontend/vite.config.js`, `docs/worklog.md`
+- 확인:
+  - `frontend`에서 `npm run lint`, `npm run build` 통과
+  - 브라우저 확인은 하지 않음. 남은 설정은 Vite의 기본 proxy 동작(`target`, `rewrite`)임
+- 읽을 때 볼 곳: `vite.config.js`의 `rewrite`. 정규식 `/^\/api/`는 주소 맨 앞의 `/api`만 뗌
+- 내가 채운 가정: 개발 서버의 20MB 초과 업로드에서 기본 문장이 나오는 것은 인증-1 때 잰 `net::ERR_CONNECTION_RESET`을 근거로 적음. 코드를 뺀 뒤 다시 재지는 않음
