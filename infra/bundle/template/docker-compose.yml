@@ -68,6 +68,9 @@ services:
       STORAGE_ENDPOINT: http://minio:9000
       JWT_SECRET: ${JWT_SECRET:?.env에 JWT_SECRET이 없습니다}
       PROFESSOR_EMAILS: ${PROFESSOR_EMAILS:-}
+      # refresh token cookie에 Secure를 붙이지 않습니다. 묶음의 화면은 http://localhost:5173(https 아님)이라,
+      # prod 설정의 기본값(true)대로 붙이면 브라우저에 따라 cookie가 실리지 않아 새로고침할 때마다 로그인 화면으로 갑니다. demo는 원래 false입니다.
+      REFRESH_COOKIE_SECURE: "false"
       # 컨테이너의 기본 시간대는 UTC라서 기록 시각이 9시간 이르게 저장됩니다. 한국 시간으로 맞춥니다.
       TZ: Asia/Seoul
     # 이 컴퓨터(127.0.0.1)에서만 열립니다. 상태 확인과 Postman용입니다.

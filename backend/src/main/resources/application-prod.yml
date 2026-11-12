@@ -8,6 +8,9 @@ footprint:
   # 이메일·비밀번호 로그인을 끕니다. POST /auth/login은 404 NOT_FOUND입니다. 꺼지는 곳: service/AuthService.login
   # 구글 로그인(POST /auth/google)은 그대로입니다.
   password-login: false
+  # refresh token cookie에 Secure를 붙입니다. https로 연 화면에서만 cookie가 실립니다.
+  # http로 여는 곳(실행 묶음 등)은 환경 변수 REFRESH_COOKIE_SECURE=false로 끕니다.
+  refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
 
 # 아래는 상태 확인과 로그(O-8)입니다. 로그는 파일로 남기지 않고 표준 출력으로 내보냅니다. 운영자는 docker logs로 읽습니다.
 # 로그에 남기지 않는 것: 비밀값, token, 구글 ID token, 요청 body(평가 점수·의견, 보고 메모), 이메일 같은 개인정보입니다.

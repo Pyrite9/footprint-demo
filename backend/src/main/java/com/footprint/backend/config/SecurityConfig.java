@@ -37,7 +37,10 @@ public class SecurityConfig {
         http
                 // WebConfig의 CORS 설정을 Security에도 적용합니다. 없으면 브라우저가 먼저 보내는 OPTIONS 요청이 401로 막힙니다.
                 .cors(Customizer.withDefaults())
-                // csrf는 cookie로 로그인할 때의 공격을 막는 장치입니다. 우리는 cookie 대신 token을 header로 보내므로 끕니다.
+                // Spring의 csrf 검사는 cookie로 로그인하는 요청에 숨은 값(csrf token)을 함께 보내게 해서 다른 사이트가 보낸 요청을 막습니다.
+                // 우리 API는 대부분 access token을 header로 받아서 다른 사이트가 대신 보낼 수 없습니다.
+                // cookie(refresh token)를 쓰는 것은 POST /auth/refresh, /auth/logout 둘뿐이고, 둘은 cookie의 SameSite=Strict와
+                // AuthService의 Origin 검사로 막습니다. 그래서 Spring의 csrf는 끕니다.
                 .csrf(csrf -> csrf.disable())
                 // 서버가 session을 만들지 않습니다. 요청마다 token으로 누구인지 확인합니다.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

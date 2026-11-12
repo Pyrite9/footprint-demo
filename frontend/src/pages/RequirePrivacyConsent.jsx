@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
-import { getMe } from '../api/auth'
+import { getMe, logout } from '../api/auth'
 import { removeToken } from '../api/token'
 
 // 개인정보 고지에 동의한 회원만 안쪽 화면을 보게 합니다. 동의 전이면 고지 화면(/privacy)으로 보냅니다(X-2).
@@ -23,9 +23,14 @@ function RequirePrivacyConsent() {
     }, [])
 
     // 내 정보를 받지 못하면 동의했는지 알 수 없으므로 안쪽 화면을 열지 않습니다. 다시 로그인하게 합니다.
+    // 서버에 닿지 못해도 화면은 로그아웃합니다(AppLayout.handleLogout과 같음).
     function handleLoginAgain() {
-        removeToken()
-        navigate('/login')
+        logout()
+            .catch(() => {})
+            .finally(() => {
+                removeToken()
+                navigate('/login')
+            })
     }
 
     if (loading) {

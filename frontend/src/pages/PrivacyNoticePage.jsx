@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { consentToPrivacy, getMe } from '../api/auth'
+import { consentToPrivacy, getMe, logout } from '../api/auth'
 import { removeToken } from '../api/token'
 import {
     PRIVACY_NOTICE_CONSENT_GUIDE,
@@ -46,10 +46,15 @@ function PrivacyNoticePage() {
             })
     }
 
-    // 동의하지 않는 길입니다. token을 지우고 로그인 화면으로 갑니다. 서버에 남는 동의 기록은 없습니다.
+    // 동의하지 않는 길입니다. 로그아웃하고 로그인 화면으로 갑니다. 서버에 남는 동의 기록은 없습니다.
+    // 서버에 닿지 못해도 화면은 로그아웃합니다(AppLayout.handleLogout과 같음).
     function handleLogout() {
-        removeToken()
-        navigate('/login')
+        logout()
+            .catch(() => {})
+            .finally(() => {
+                removeToken()
+                navigate('/login')
+            })
     }
 
     if (loading) {

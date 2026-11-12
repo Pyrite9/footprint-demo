@@ -41,6 +41,8 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 
    macOS는 `curl -X POST 127.0.0.1:8080/auth/login -H "Content-Type: application/json" -d '{"email":"student01@example.com","password":"pass1234"}'`.
 
+   - 응답 body의 `accessToken`은 10분 동안 씀. 같은 응답의 `Set-Cookie` header에 refresh token이 오고, 화면은 이것으로 access token을 다시 받음(`POST /auth/refresh`). 아래 확인에서는 쓰지 않음
+
    받은 token으로 내 정보를 부르면 이름과 회원 유형이 옴. token 없이 부르면 401.
 
    ```powershell
@@ -79,7 +81,7 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 - 테스트는 `src/test/resources/application-test.yml`의 설정으로 돌아감. 데이터베이스는 `footprint_test` 스키마, 파일은 `footprint-test` 버킷을 씀
 - 테스트의 Spring context가 뜰 때마다 `footprint_test` 스키마를 비우고 migration을 처음부터 다시 돌림(`TestFlywayConfig`). 그래서 migration이 Entity와 어긋나면 빌드가 깨짐
 - **빌드해도 개발 데이터(`public` 스키마, `footprint` 버킷)는 지워지지 않음.** 빌드할 때마다 시험 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓임
-- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `SchemaRuleTests`(스키마와 부분 unique 인덱스, 시작 데이터 한 번만), `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `EvaluationDraftRuleTests`(평가 임시 저장), `EvidenceRuleTests`(근거 패널), `RecordRuleTests`(기록 열람), `EvaluationResultRuleTests`(평가 결과), `PhaseRuleTests`(과제 단계), `NotificationRuleTests`(알림), `JoinPreviewRuleTests`(합류 전 미리보기), `DevelopmentSettingsRuleTests`(환경 변수 없이 켠 개발 설정), `ProductionSettingsRuleTests`(운영 설정), `HealthRuleTests`(상태 확인)
+- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `SchemaRuleTests`(스키마와 부분 unique 인덱스, 시작 데이터 한 번만), `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `EvaluationDraftRuleTests`(평가 임시 저장), `EvidenceRuleTests`(근거 패널), `RecordRuleTests`(기록 열람), `EvaluationResultRuleTests`(평가 결과), `PhaseRuleTests`(과제 단계), `NotificationRuleTests`(알림), `RefreshTokenRuleTests`(refresh token 발급·교체·만료·로그아웃), `JoinPreviewRuleTests`(합류 전 미리보기), `DevelopmentSettingsRuleTests`(환경 변수 없이 켠 개발 설정), `ProductionSettingsRuleTests`(운영 설정), `HealthRuleTests`(상태 확인)
 - `ProductionSettingsRuleTests`만 `footprint_prod_test` 스키마를 씀. 운영 설정은 시작 데이터를 넣지 않아서, `footprint_test`를 같이 쓰면 이 테스트가 그 스키마를 비울 때 다른 테스트의 시작 데이터가 사라짐
 - 테스트가 끝나면 데이터베이스 변경을 되돌림(`@Transactional`). 그래서 어떤 순서로 돌아도 시작 데이터가 그대로임
 - 실행 로그의 `Using generated security password: ...`는 Spring Security가 기본으로 만드는 계정. 이 프로젝트는 쓰지 않으므로 무시할 것
@@ -157,7 +159,9 @@ Found non-empty schema(s) "public" but no schema history table. Use baseline() o
 | `MINIO_ROOT_PASSWORD` | MinIO 비밀번호. MinIO를 처음 만들 때 넣은 값과 같아야 함 | 기본값 `change-me-please`이거나 비면 막음 |
 | `PROFESSOR_EMAILS` | 교수로 쓸 학교 이메일(쉼표로 구분) | 비면 막음. 운영 설정에는 시작 계정과 이메일 로그인이 없어서 교수가 될 다른 길이 없음 |
 
-그대로 두어도 되는 환경 변수(기본값이 개발과 같음): `CORS_ALLOWED_ORIGINS`(기본 `http://localhost:5173`. 화면 주소가 다르면 바꿈, 여러 개면 쉼표), `GOOGLE_CLIENT_ID`, `GOOGLE_ALLOWED_DOMAINS`, `POSTGRES_HOST`·`POSTGRES_PORT`·`POSTGRES_DB`·`POSTGRES_USER`, `MINIO_ROOT_USER`, `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `JWT_EXPIRATION_MINUTES`
+그대로 두어도 되는 환경 변수(기본값이 개발과 같음): `CORS_ALLOWED_ORIGINS`(기본 `http://localhost:5173`. 화면 주소가 다르면 바꿈, 여러 개면 쉼표), `GOOGLE_CLIENT_ID`, `GOOGLE_ALLOWED_DOMAINS`, `POSTGRES_HOST`·`POSTGRES_PORT`·`POSTGRES_DB`·`POSTGRES_USER`, `MINIO_ROOT_USER`, `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `JWT_EXPIRATION_MINUTES`(access token 수명, 기본 10분), `REFRESH_TOKEN_HOURS`(refresh token 수명, 기본 24시간)
+
+운영 설정에서 기본값이 달라지는 환경 변수: `REFRESH_COOKIE_SECURE`(개발 `false`, 운영 `true`). `true`면 refresh token cookie가 https 요청에만 실림. http로 여는 실행 묶음은 compose 파일이 `false`로 넣음
 
 - 내 컴퓨터에서 jar로 켜기(PowerShell). 값은 예시가 아니라 직접 만든 무작위 값을 넣을 것
   ```powershell

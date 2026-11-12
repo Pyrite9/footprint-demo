@@ -2594,3 +2594,56 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - nginx와 Vite가 브라우저의 Host를 그대로 넘김
   - nginx의 업로드 상한 20MB와 상한을 넘었을 때의 JSON
   - TODO 구현 순서의 ID 이름 "인증-1"(23은 "인증-2")
+
+## 2026.11.12 인증-2 access token 10분 + refresh token(httpOnly cookie, 교체)
+- 결정:
+  - 명세는 `docs/api-draft.md` "공통"·"인증"(commit `b435555`). 관리자 결정(2026.11.12): JWT 유지, access 10분, refresh 24시간 절대 만료, refresh는 무작위 값 + httpOnly cookie(`SameSite=Strict`) + DB에는 SHA-256, 쓰면 교체, 재사용 감지 없음, access token은 메모리, 탭마다 다른 계정은 포기
+  - 테이블 이름은 `refresh_token`(단수). 명세 초안은 `refresh_tokens`였으나 기존 테이블이 모두 단수(`member`, `notification` 등)라 기존 코드를 따르고 `api-draft.md`에 적음
+  - Service를 둘로 나눔: `RefreshTokenService`(만들기·쓰기·지우기, hash)와 `AuthService`(Origin 검사, 로그인 흐름). 선택지: `AuthService` 하나. 로그인 3가지와 재발급·로그아웃이 한 파일에 섞여 길어져서 나눔
+  - 로그인 결과를 `service/LoginTokens` record(access token, refresh token, 만료 시각)로 돌려줌. Service가 Entity가 아닌 값을 돌려주는 곳이라 응답 DTO가 아니라 service 패키지에 둠. cookie를 만드는 일은 Controller만 함
+  - 교체는 `deleteByTokenHash`가 지운 행 수로 판단함. 같은 cookie로 동시에 재발급하면 먼저 지운 하나만 1을 받고 나머지는 0이라 401. 선택지: 행 잠금(`select ... for update`). 지운 수만 보면 잠금이 필요 없어 고름
+  - 재발급이 401이면 cookie도 지움. Controller가 `HttpServletResponse`에 지우는 `Set-Cookie`를 붙이고 예외를 다시 던짐. 401 body는 다른 오류처럼 `GlobalExceptionHandler`가 만듦. 선택지: 401을 Controller에서 직접 만들기. 오류 응답을 한 곳에서 만드는 규칙과 어긋나서 고르지 않음
+  - Origin 검사: `/auth/refresh`, `/auth/logout`에서 `Origin`이 있고 `cors.allowed-origins`에 없으면 403 `FORBIDDEN`. `AuthService.checkOrigin` 호출로 보임. `Origin`이 없으면(Postman, curl) 통과함
+    - 다른 사이트의 화면이 보낸 요청은 이 검사 전에 Spring CORS가 먼저 403으로 막음(body `Invalid CORS request`, JSON 아님). Spring은 `Origin`과 `Host`가 다르면 CORS 요청으로 보고 허용 목록을 검사하기 때문임. 우리 JSON 403은 Host와 같은 주소지만 허용 목록에 없는 경우에만 나옴. `api-draft.md` 403 줄에 적음
+  - `WebConfig`에 `allowCredentials(true)`. 가짜 API처럼 화면과 주소가 다른 경우를 위해서임. `SecurityConfig`의 csrf 주석을 "SameSite=Strict + Origin 검사"로 고침
+  - cookie `Secure`는 `footprint.refresh-cookie-secure`(개발 `false`, 운영 설정 `true`). 맨 위 `docker-compose.yml`과 실행 묶음 compose는 http로 열고 운영 설정도 쓸 수 있어서 `REFRESH_COOKIE_SECURE: "false"`를 넣음. `ProductionSettingsChecker`에는 넣지 않음(비밀값이 아님)
+  - cookie `Path=/`. 화면은 `/api/auth/refresh`, 가짜 API·Postman은 `/auth/refresh`라 한 경로로 좁히면 한쪽에서 실리지 않음
+  - 화면: `client.js`가 401을 받으면 재발급 뒤 한 번만 다시 보냄. 한 탭의 동시 401은 `refreshing` Promise 하나를 함께 기다림. 탭끼리는 Web Locks(`navigator.locks`)로 차례대로 재발급함. 차례를 기다리는 동안 token이 이미 바뀌었으면 다시 받지 않음. Web Locks가 없으면 차례 없이 보냄
+  - `RequireLogin`은 token이 없으면 바로 로그인 화면으로 보내지 않고 재발급을 먼저 해 봄. 그동안 `<progress>`를 보임
+  - 로그아웃은 서버 실패와 관계없이 화면의 token을 지우고 로그인 화면으로 감(`.finally`)
+  - 가짜 API: cookie 값이 `mock-refresh-<회원 번호>`. 교체와 만료는 하지 않음. CORS는 json-server 기본(요청 Origin을 그대로 돌려주고 credentials 허용)이 이미 맞아서 고치지 않음
+  - `modern-web-guidance`로 token 보관, cookie, 401 재시도, 탭끼리 차례를 찾아봄. 맞는 가이드가 없었음. 보안 분야 가이드의 `__Host-` 이름, `SameSite=Lax`, 로그아웃의 `Clear-Site-Data`는 명세(cookie 이름 `refreshToken`, `Path=/` 대신 묶음 http에서 `Secure`를 끄는 것)와 관리자 결정(`Strict`)에 부딪혀 쓰지 않음
+  - CLAUDE.md "업무 규칙"에 로그인 token 줄을 더함. "기록 시각" 목록에는 넣지 않음. refresh token은 조의 기록이 아니라 지우는 로그인 상태이기 때문임(만든 시각은 서버가 넣음)
+  - Postman 모음에 재발급·로그아웃을 넣지 않음. 계정 4개가 같은 cookie 이름을 써서 Postman에는 마지막 로그인의 cookie만 남음
+- 만든·고친 파일:
+  - 백엔드: `entity/RefreshToken.java`, `repository/RefreshTokenRepository.java`, `service/RefreshTokenService.java`, `service/LoginTokens.java`, `service/AuthService.java`, `controller/AuthController.java`, `config/WebConfig.java`, `config/SecurityConfig.java`, `exception/UnauthorizedException.java`(주석), `resources/application.yml`, `resources/application-prod.yml`, `resources/db/migration/V3__create_refresh_token.sql`, `test/.../RefreshTokenRuleTests.java`
+  - 화면: `src/api/token.js`, `src/api/client.js`, `src/api/auth.js`, `src/components/RequireLogin.jsx`, `src/pages/AppLayout.jsx`, `src/pages/PrivacyNoticePage.jsx`, `src/pages/RequirePrivacyConsent.jsx`, `src/theme.js`(주석), `mock/middleware.cjs`
+  - 설정·문서: `docker-compose.yml`, `infra/bundle/template/docker-compose.yml`, `CLAUDE.md`, `TODO.md`, `README.md`, `backend/README.md`, `frontend/README.md`, `docs/api-draft.md`, `docs/architecture.md`, `docs/erd.md`, `docs/postman/README.md`, `docs/worklog.md`
+- 확인:
+  - `backend`에서 `gradlew.bat build` 통과(테스트 211개, 실패 0. `RefreshTokenRuleTests` 11개 포함). Flyway가 개발 데이터베이스에 V3를 적용함
+  - `frontend`에서 `npm run build`, `npm run lint` 통과
+  - 브라우저(개발 서버 + 백엔드 jar, access token 1분으로 켬 `-Djwt.expiration-minutes=1`):
+    - cookie 없이 열면 재발급 401 한 번 뒤 로그인 화면(StrictMode여도 요청 하나)
+    - 로그인 → 새로고침해도 로그인 유지(재발급 한 번). `document.cookie`에 refresh token이 보이지 않음
+    - 만료 뒤 전체 기록 화면: 요청 7개가 401 → 재발급 1번 → 7개 다시 보내 200
+    - 탭 두 개가 같은 순간 만료되게 맞추고 JSON·파일 다운로드(Blob)·업로드(FormData)를 함께 보냄: 탭마다 재발급 한 번씩 200, 다시 보낸 요청 모두 성공
+    - curl로 같은 cookie를 동시에 4번 재발급: 200 하나, 401 셋
+    - 로그아웃 → 새로고침하면 로그인 화면. 다른 탭도 새로고침하면 로그인 화면
+  - Vite proxy가 브라우저의 `Host`를 그대로 넘기는 것을 proxy 요청 header를 찍어 확인함(인증-1 결정 줄과 같음). proxy를 거친 응답의 `Access-Control-Allow-Origin`은 백엔드가 아니라 Vite 개발 서버 자체의 cors가 붙인 것임
+  - 가짜 API(`.env.local`로 `http://localhost:3001`): 브라우저에서 로그인 → 새로고침 유지 → 로그아웃 → 새로고침하면 로그인 화면. curl로 cookie 없는 재발급 401과 지우는 cookie, preflight의 credentials 허용을 확인함
+  - 브라우저 Network 기록에서 로그아웃 204가 `ERR_ABORTED`로 찍힘. 같은 요청을 `fetch`로 직접 보내면 204로 정상 끝나고, proxy 없는 가짜 API에서도 똑같이 찍혀서 화면 이동으로 기록이 끊긴 것으로 봄
+  - 확인하지 않은 것: 운영 설정(`Secure` cookie)을 https로 켜 보기, 구글 로그인의 cookie(브라우저), 실행 묶음을 `make-bundle.ps1`로 다시 만들기
+- 읽을 때 볼 곳:
+  - `client.js`의 `send`. 401 → `refreshAccessToken` → `sendOnce` 한 번 더. 다시 401이면 로그인 화면. 재시도는 한 번뿐이라 무한 반복이 없음
+  - `refreshing` 변수: Promise를 저장해 두고 여럿이 같은 것을 기다리는 방법. `.finally`에서 비워야 다음 만료 때 다시 재발급함
+  - `navigator.locks.request`: 함수가 돌려준 Promise가 끝날 때까지 lock을 쥠. 그래서 함수가 Promise를 돌려줘야 함
+  - `RefreshTokenRepository.deleteByTokenHash`의 `@Modifying`과 `int` 반환. JPQL delete는 Entity를 거치지 않아서, 테스트에서 시각을 바꾼 뒤 `entityManager.clear()`가 필요했음
+  - `AuthController.refresh`의 try-catch: 예외를 다시 던져도 먼저 붙인 header는 남음
+  - cookie를 지울 때도 `Path` 등 속성이 같아야 같은 cookie로 지워짐(`refreshCookie` 한 곳에서 만듦)
+  - 재발급해도 만료 시각을 이어받아 `Max-Age`가 점점 줄어듦(24시간 절대 만료)
+- 내가 채운 가정:
+  - refresh token 32바이트, Base64 URL(padding 없음)
+  - 만료된 행은 그 회원이 다시 로그인할 때 지움(따로 정리 작업 없음)
+  - Origin 403 메시지 "허용하지 않은 주소에서 온 요청입니다", 재발급 401 메시지 "로그인이 만료되었습니다. 다시 로그인합니다"
+  - 가짜 API cookie 값의 모양(`mock-refresh-<회원 번호>`)
+  - 테이블 이름 `refresh_token`

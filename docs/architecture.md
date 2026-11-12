@@ -60,7 +60,10 @@ flowchart TB
 
 ## 2. JWT 흐름
 
-로그인한 사람이 누구인지 요청마다 어떻게 알아내는지. 서버는 session을 만들지 않음. 그림 두 장으로 나눔.
+로그인한 사람이 누구인지 요청마다 어떻게 알아내는지. 서버는 session을 만들지 않음. 그림 세 장으로 나눔.
+
+- access token(JWT, 10분): 응답 body로 받아 화면의 JS 변수(`api/token.js`)에만 둠. 요청마다 `Authorization` header로 보냄. 서버는 저장하지 않음
+- refresh token(뜻 없는 난수, 24시간): `refreshToken` cookie(`HttpOnly`, `SameSite=Strict`)로만 오감. 서버는 `refresh_token` 테이블에 SHA-256 hash만 저장함. 재발급할 때마다 바뀜(교체)
 
 ### 2-1. 로그인하고 token 받기
 
@@ -89,10 +92,11 @@ sequenceDiagram
     A->>A: hd가 학교 도메인인가 · 처음이면 회원 저장
     alt 성공
         A->>J: createToken
-        J-->>A: token (sub에 회원 id)
-        A-->>AC: token 문자열
-        AC-->>P: 200 · LoginResponse { accessToken }
-        P->>P: saveToken · sessionStorage
+        J-->>A: access token (sub에 회원 id)
+        A->>A: RefreshTokenService.issue · 난수의 hash를 refresh_token에 저장
+        A-->>AC: LoginTokens (access token · refresh token · 만료 시각)
+        AC-->>P: 200 · LoginResponse { accessToken }<br/>Set-Cookie: refreshToken=... HttpOnly
+        P->>P: saveToken · JS 변수(메모리)
     else 구글 검증 실패 401 · 학교 계정 아님 403
         AC-->>P: 401 또는 403 · { code, message }
         P->>P: error state에 message 표시 · /login 이동 없음
@@ -131,14 +135,51 @@ sequenceDiagram
         J--xF: JwtException
         F->>S: 아무것도 적지 않고 넘김
         S-->>CL: 401 · authenticationEntryPoint가 쓴 { code, message }
-        CL->>CL: token을 지우고 /login으로
+        CL->>CL: 재발급하고 같은 요청을 한 번 더 (2-3)
     end
 ```
 
 - 막는 일은 filter가 아님. `SecurityConfig`가 서버를 켤 때 설정한 `authorizeHttpRequests` 단계가 함. filter는 "누가 보냈는지"만 적어 둠
-- token이 아예 없으면 요청이 서버까지 가지 않음. `RequireLogin.jsx`가 화면 단계에서 `/login`으로 보냄
 - token에 `memberType`도 들어 있지만 **참고용.** 권한 검사는 Service가 데이터베이스의 값으로 함
-- token은 `sessionStorage`에 둠. 탭마다 따로라서 한 탭은 교수, 다른 탭은 학생으로 동시에 로그인할 수 있음
+
+### 2-3. access token이 만료됐을 때와 새로고침했을 때
+
+```mermaid
+sequenceDiagram
+    participant R as RequireLogin.jsx
+    participant CL as api/client.js
+    participant L as navigator.locks
+    participant AC as AuthController
+    participant A as AuthService
+    participant RS as RefreshTokenService
+
+    alt 새로고침 · 메모리에 access token 없음
+        R->>CL: refresh() (api/auth.js) · 그동안 loading
+    else 요청이 401 · access token 만료
+        CL->>CL: 진행 중인 재발급이 있으면 그 Promise를 함께 기다림
+    end
+    CL->>L: request("footprint-refresh-token") · 탭끼리 한 번에 하나
+    L->>AC: POST /auth/refresh · Cookie: refreshToken
+    AC->>A: refresh(Origin, cookie 값)
+    A->>A: checkOrigin · 허용한 화면 주소인가 (아니면 403)
+    A->>RS: use · hash로 행 찾기 → 만료 확인 → 지운 행의 수가 1인가
+    alt 성공
+        RS-->>A: 지운 행 (회원 · 만료 시각)
+        A->>RS: issue · 같은 만료 시각으로 새 행
+        AC-->>CL: 200 { accessToken } · Set-Cookie 새 refresh token
+        CL->>CL: saveToken · 원래 요청을 한 번만 다시 보냄
+    else cookie 없음 · 이미 쓴 값 · 로그아웃한 값 · 만료
+        AC-->>CL: 401 · Set-Cookie Max-Age=0 (cookie 지움)
+        CL->>CL: token을 지우고 /login?expired=1 (새로고침이면 RequireLogin이 /login으로)
+    end
+```
+
+- 한 탭 안: 화면 하나가 요청 여러 개를 보내 모두 401을 받아도 재발급은 하나만 나감. `client.js`의 `refreshing` 변수가 진행 중인 재발급 Promise를 들고 있음
+- 탭끼리: refresh token은 쓰면 바뀌어서, 두 탭이 같은 값으로 동시에 재발급하면 늦은 쪽이 401임. Web Locks API로 차례를 지켜 뒤의 탭은 앞의 탭이 받은 새 cookie로 재발급함
+- 서버 쪽 마지막 장치: 같은 값으로 두 요청이 동시에 와도 `delete` 한 쪽만 지운 행의 수가 1임(`RefreshTokenRepository.deleteByTokenHash`)
+- 만료 시각은 처음 로그인의 것을 물려받음(절대 만료). 로그인한 지 24시간이 지나면 재발급이 401이고 다시 로그인함
+- 로그아웃(`POST /auth/logout`)은 그 브라우저의 refresh token 행을 지우고 cookie를 지움. 이미 받은 access token은 만료(최대 10분)까지 서버가 막지 못함
+- 같은 브라우저의 탭은 cookie를 함께 씀. 탭마다 다른 계정으로 로그인할 수 없음
 
 ## 3. 프론트엔드 구조
 
@@ -147,7 +188,7 @@ sequenceDiagram
 ```mermaid
 flowchart TB
     main["main.jsx"] --> app["App.jsx<br/>주소와 화면 짝 짓기"]
-    app --> require["components/RequireLogin.jsx<br/>token 없으면 /login으로"]
+    app --> require["components/RequireLogin.jsx<br/>token 없으면 재발급해 보고, 안 되면 /login으로"]
     require --> consent["pages/RequirePrivacyConsent.jsx<br/>고지 동의 전이면 /privacy로"]
     consent --> layout["pages/AppLayout.jsx<br/>과제 레일 · 메뉴 · Outlet"]
     layout --> page["pages/TeamMembersPage.jsx<br/>데이터 불러오기 · loading · error state"]
@@ -163,8 +204,8 @@ flowchart TB
     page -- "getMe" --> auth["api/auth.js"]
     api --> client["api/client.js<br/>주소 붙이기 · token 붙이기 · 오류 던지기"]
     auth --> client
-    client --> token["api/token.js<br/>sessionStorage"]
-    require -- "getToken" --> token
+    client --> token["api/token.js<br/>JS 변수(메모리)"]
+    require -- "getToken · 없으면 refresh" --> token
     client -- "fetch" --> server["backend 8080"]
 ```
 

@@ -6,7 +6,7 @@
 - 실제 테이블은 `backend/src/main/resources/db/migration`의 SQL 파일이 만듦(Flyway, O-1). Entity를 바꾸면 새 migration 파일도 함께 만듦
 - 실행 구성과 요청의 길은 `architecture.md`
 
-엔티티 12개. 산출물과 평가, 기여 항목의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴. 알림만 회원을 가리킴.
+엔티티 13개. 산출물과 평가, 기여 항목의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴. 알림과 refresh token만 회원을 가리킴.
 
 ```mermaid
 erDiagram
@@ -31,6 +31,7 @@ erDiagram
     TEAM_MEMBER ||--o{ EVALUATION_DRAFT : "대상 target_id"
     MEMBER ||--o{ NOTIFICATION : "받음 recipient_id"
     TEAM ||--o{ NOTIFICATION : "team_id"
+    MEMBER ||--o{ REFRESH_TOKEN : "로그인 member_id"
 
     MEMBER {
         Long id PK "회원 번호"
@@ -141,6 +142,13 @@ erDiagram
         LocalDateTime createdAt "만든 시각 · 서버가 기록"
         LocalDateTime readAt "읽은 시각 · 서버가 기록. 읽기 전에는 null · 다시 읽어도 처음 시각 유지"
     }
+    REFRESH_TOKEN {
+        Long id PK "번호"
+        Long member_id FK "로그인한 회원"
+        String tokenHash "cookie 값의 SHA-256 16진수 64자 · unique · 값 자체는 저장하지 않음"
+        LocalDateTime expiresAt "만료 시각 · 첫 로그인 + 24시간 · 재발급해도 그대로"
+        LocalDateTime createdAt "만든 시각 · 서버가 기록"
+    }
 ```
 
 - 각 열의 오른쪽 칸은 비고. 그 값이 무엇에 쓰이는지 적음. `id`는 모두 데이터베이스가 자동으로 붙이는 번호(`IDENTITY`)임. `EVALUATION` 점수 열의 항목 이름은 `frontend/src/constants/peerEvaluation.js`의 `name`과 같음
@@ -162,5 +170,6 @@ erDiagram
 - `LEADER_HISTORY`는 조장이 바뀔 때마다 한 줄 쌓임. 만든 뒤에는 고치거나 지우지 않음
 - 조장이 조마다 한 명인 것은 DB 제약이 아니라 Service가 지킴. 첫 조장은 과제를 만들 때 `AssignmentService`가 조마다 한 명 넣고, 교체는 `TeamService`가 함. 조장 교체와 역할 지정·변경이 같은 조 행을 잠가 차례로 처리함. 그래서 역할 저장이 옛 `leader` 값을 덮어쓰지 않고, 같은 이전 역할이 이력에 두 줄 남지 않음
 - `NOTIFICATION`은 조 참여가 아니라 회원을 가리킴. 여러 과제의 알림을 한 목록으로 찾기 때문임. 알림을 만드는 사건 하나에 받는 회원마다 한 줄씩 쌓이고 지우지 않음
+- `REFRESH_TOKEN`은 로그인 한 번(브라우저 하나)마다 한 줄. 재발급하면 쓴 줄을 지우고 새 줄을 넣음(교체). 로그아웃하면 그 줄을 지움. 만료된 줄은 그 회원이 다시 로그인할 때 지움. 기록이 아니라 로그인 상태라서 지우는 테이블임(`docs/api-draft.md` "인증")
 - 점수 열은 6개 그대로 저장함. 합계·평균 열은 두지 않음
 - 기록 시각(`evaluationStartedAt`, `roleAssignedAt`, `previousRoleAssignedAt`, `changedAt`, `uploadedAt`, `deletedAt`, `createdAt`, `reportedAt`, `canceledAt`, `confirmedAt`, `submittedAt`, `savedAt`, `readAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음

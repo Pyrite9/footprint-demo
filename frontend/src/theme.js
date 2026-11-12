@@ -5,7 +5,7 @@
 const THEME_KEY = 'theme'
 
 // 사용자가 고른 테마('light' 또는 'dark')를 돌려줍니다. 고른 적이 없으면 null입니다.
-// localStorage는 브라우저를 닫아도 남습니다. 로그인 token(sessionStorage)과 달리 탭끼리 같은 값을 씁니다.
+// localStorage는 브라우저를 닫아도 남고 탭끼리 같은 값을 씁니다. 로그인 token은 여기 두지 않습니다(api/token.js).
 export function getSavedTheme() {
   return localStorage.getItem(THEME_KEY)
 }

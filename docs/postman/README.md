@@ -1,7 +1,7 @@
 # Postman 모음
 
-발자국 데모의 API 44개 중 43개를 요청 149개로 데모 흐름 순서에 맞춰 모음. 요청마다 상태 코드와 응답을 확인하는 test가 붙어 있음
-구글 로그인(`POST /auth/google`)은 넣지 않음. 구글이 발급한 ID token을 Postman에서 받을 수 없기 때문. 모음은 시작 계정의 이메일·비밀번호 로그인을 씀
+발자국 데모의 API 46개 중 43개를 요청 149개로 데모 흐름 순서에 맞춰 모음. 요청마다 상태 코드와 응답을 확인하는 test가 붙어 있음
+구글 로그인(`POST /auth/google`)은 넣지 않음. 구글이 발급한 ID token을 Postman에서 받을 수 없기 때문. 모음은 시작 계정의 이메일·비밀번호 로그인을 씀. 재발급·로그아웃 2개도 넣지 않음(아래 "알아 둘 것")
 
 | 파일 | 내용 |
 |---|---|
@@ -36,6 +36,8 @@
 
 - 변수는 모음에 저장됨(모음을 누르고 Variables 탭). 백엔드 주소 `baseUrl`의 기본값은 `http://127.0.0.1:8080`임. Windows에서 `localhost`가 IPv6로 연결되어 멈추는 일이 있어서 `127.0.0.1`을 씀(`docs/worklog.md`의 "한 번에 실행")
 - token은 요청마다 Authorization 탭의 Bearer Token에 `{{professorToken}}`처럼 들어 있음. 로그인 요청의 Scripts(Post-response) 탭이 받은 token을 저장함
+- 로그인 응답은 refresh token cookie도 줌(인증-2). Postman이 cookie를 저장하지만 모음은 쓰지 않음. access token이 10분이라 모음은 한 번에 끝까지 실행함. 오래 멈췄다가 이어서 실행하면 401이 나므로 폴더 0부터 다시 실행함
+  - 재발급(`/auth/refresh`)과 로그아웃(`/auth/logout`)은 모음에 넣지 않음. 계정 4개가 같은 cookie 이름을 써서 Postman에서는 마지막 로그인의 cookie만 남기 때문. 규칙은 `RefreshTokenRuleTests`가 확인함
 - 산출물 업로드 요청은 Body 탭의 `file` 칸에 `sample-upload.txt`가 지정되어 있음. Postman이 파일을 찾지 못한다고 표시하면 그 칸에서 이 폴더의 `sample-upload.txt`(또는 아무 파일)를 다시 고름
 - 다운로드 요청은 Send 옆 화살표의 "Send and Download"로 파일을 저장할 수 있음
 

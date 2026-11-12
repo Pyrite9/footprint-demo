@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router'
 import { getAssignment, getAssignments } from '../api/assignments'
-import { getMe } from '../api/auth'
+import { getMe, logout } from '../api/auth'
 import { getNotifications } from '../api/notifications'
 import { getTeam } from '../api/teams'
 import { removeToken } from '../api/token'
@@ -73,10 +73,15 @@ function AppLayout() {
         setTheme(next)
     }
 
-    // token을 지우고 로그인 화면으로 갑니다. 서버는 token을 기억하지 않으므로 서버에 알릴 것이 없습니다.
+    // 서버의 refresh token을 지우고(logout), 이 화면의 access token도 지운 뒤 로그인 화면으로 갑니다.
+    // 서버에 닿지 못해도(서버 꺼짐 등) 화면은 로그아웃합니다. 그래서 catch로 오류를 삼키고 finally에서 이동합니다.
     function handleLogout() {
-        removeToken()
-        navigate('/login')
+        logout()
+            .catch(() => {})
+            .finally(() => {
+                removeToken()
+                navigate('/login')
+            })
     }
 
     const isProfessor = me !== null && me.memberType === 'PROFESSOR'

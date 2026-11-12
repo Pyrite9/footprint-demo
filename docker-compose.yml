@@ -23,6 +23,8 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       STORAGE_ENDPOINT: http://minio:9000
+      # refresh token cookie에 Secure를 붙이지 않습니다. 이 화면은 http://localhost:5173(https 아님)이라 infra/.env로 운영 설정을 켜도 false로 둡니다.
+      REFRESH_COOKIE_SECURE: "false"
       # 컨테이너의 기본 시간대는 UTC라서 기록 시각(업로드, 평가 제출)이 9시간 이르게 저장됩니다. 한국 시간으로 맞춥니다.
       TZ: Asia/Seoul
     # 127.0.0.1(IPv4)에만 엽니다. Windows에서는 localhost가 IPv6(::1)로도 연결되는데, 그 연결을 중계하는 WSL 프로그램이

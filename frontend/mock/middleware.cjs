@@ -1,6 +1,7 @@
 // 가짜 API(json-server)에 실제 백엔드와 같은 규칙을 붙입니다. 주소마다 handle 함수 하나가 실제 API 하나를 흉내 냅니다.
 // json-server 0.17.4가 이 파일을 require로 읽기 때문에 이 파일만 CommonJS(require, module.exports)로 씁니다.
 // token은 "mock-token-<회원 id>" 문자열입니다. 실제 JWT와 달리 서명이 없으므로 화면은 token을 풀어 읽지 않습니다.
+// refresh token은 "mock-refresh-<회원 id>" 문자열이고 cookie(refreshToken)로 오갑니다. 실제와 달리 만료, 교체, Origin 검사가 없습니다.
 // 데이터는 db.json에 있습니다. req.app.db는 json-server가 db.json을 읽어 둔 lowdb이고, .write()를 부르면 파일에 저장됩니다.
 
 // crypto, fs, path는 Node.js에 들어 있는 모듈입니다. 초대 코드(UUID)를 만들고, 산출물 파일을 mock/files에 읽고 씁니다.
@@ -14,6 +15,11 @@ const FILES_DIR = path.join(__dirname, 'files')
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 
 const BEARER_TOKEN_PREFIX = 'Bearer mock-token-'
+const REFRESH_COOKIE_NAME = 'refreshToken'
+const REFRESH_TOKEN_PREFIX = 'mock-refresh-'
+// 실제 백엔드의 footprint.refresh-token-hours(24시간)와 같은 cookie 유효 시간입니다. Express의 res.cookie는 밀리초로 받습니다.
+const REFRESH_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000
+const REFRESH_EXPIRED_MESSAGE = '로그인이 만료되었습니다. 다시 로그인합니다'
 const NOT_VALID_MESSAGE = '입력값이 올바르지 않습니다'
 const NOT_READABLE_MESSAGE = '요청 body의 형식이 올바르지 않습니다'
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -167,6 +173,46 @@ function findLoginMember(req) {
   return req.app.db.get('members').find({ id }).value()
 }
 
+// refresh token cookie를 실제 백엔드(AuthController)와 같은 속성으로 내려줍니다. Secure는 붙이지 않습니다(가짜 API는 http).
+// value가 빈 글자이고 maxAge가 0이면 브라우저가 cookie를 지웁니다.
+function setRefreshCookie(res, value, maxAge) {
+  res.cookie(REFRESH_COOKIE_NAME, value, { httpOnly: true, sameSite: 'strict', path: '/', maxAge })
+}
+
+// 로그인에 성공한 회원에게 refresh token cookie와 access token을 보냅니다. 로그인 2개와 재발급이 함께 씁니다.
+function sendLoginTokens(res, member) {
+  setRefreshCookie(res, REFRESH_TOKEN_PREFIX + member.id, REFRESH_COOKIE_MAX_AGE_MS)
+  return res.json({ accessToken: 'mock-token-' + member.id })
+}
+
+// 요청의 Cookie header에서 refresh token 값을 꺼냅니다. 없으면 undefined입니다.
+// json-server에는 cookie를 읽어 주는 도구(cookie-parser)가 없어서 "a=1; refreshToken=..." 글자를 직접 나눕니다.
+function readRefreshCookie(req) {
+  const header = req.headers.cookie ?? ''
+  const pair = header.split(';').map((text) => text.trim()).find((text) => text.startsWith(REFRESH_COOKIE_NAME + '='))
+  return pair ? decodeURIComponent(pair.substring(REFRESH_COOKIE_NAME.length + 1)) : undefined
+}
+
+// POST /auth/refresh: cookie의 refresh token으로 새 access token을 줍니다. 같은 refresh token을 다시 내려줍니다.
+// 실제 백엔드와 다른 점: 만료와 교체(한 번 쓴 값은 401)가 없고, Origin을 보지 않습니다.
+function handleRefresh(req, res) {
+  const value = readRefreshCookie(req)
+  const id = value && value.startsWith(REFRESH_TOKEN_PREFIX) ? Number(value.substring(REFRESH_TOKEN_PREFIX.length)) : NaN
+  const member = req.app.db.get('members').find({ id }).value()
+  if (!member) {
+    // 실제처럼 쓸 수 없는 cookie는 지웁니다.
+    setRefreshCookie(res, '', 0)
+    return sendError(res, 401, 'UNAUTHORIZED', REFRESH_EXPIRED_MESSAGE)
+  }
+  return sendLoginTokens(res, member)
+}
+
+// POST /auth/logout: cookie를 지우고 204를 보냅니다. 가짜 API는 refresh token을 저장하지 않아서 지울 행이 없습니다.
+function handleLogout(req, res) {
+  setRefreshCookie(res, '', 0)
+  return res.status(204).end()
+}
+
 // POST /auth/login: 이메일과 비밀번호를 확인하고 token을 돌려줍니다.
 function handleLogin(req, res) {
   const body = readBodyOrSendError(req, res, { email: 'string', password: 'string' })
@@ -182,7 +228,7 @@ function handleLogin(req, res) {
   if (!member || member.password !== password) {
     return sendError(res, 401, 'UNAUTHORIZED', '이메일 또는 비밀번호가 올바르지 않습니다')
   }
-  return res.json({ accessToken: 'mock-token-' + member.id })
+  return sendLoginTokens(res, member)
 }
 
 // 실제 백엔드의 google.allowed-domains, google.professor-emails와 같은 값입니다. 환경 변수로 바꿀 수 있습니다.
@@ -238,7 +284,7 @@ function handleGoogleLogin(req, res) {
     db.get('members').find({ id: member.id }).assign({ memberType: 'PROFESSOR' }).write()
   }
   // 가짜 token에는 회원 번호만 있고, 내 정보는 요청마다 db에서 읽습니다. 실제 백엔드처럼 권한은 db의 유형으로 봅니다.
-  return res.json({ accessToken: 'mock-token-' + member.id })
+  return sendLoginTokens(res, member)
 }
 
 // 회원을 실제 MemberResponse와 같은 모양으로 바꿉니다. 비밀번호는 넣지 않습니다.
@@ -1580,6 +1626,12 @@ function handleRequest(req, res, next) {
   }
   if (req.method === 'POST' && req.path === '/auth/google') {
     return handleGoogleLogin(req, res)
+  }
+  if (req.method === 'POST' && req.path === '/auth/refresh') {
+    return handleRefresh(req, res)
+  }
+  if (req.method === 'POST' && req.path === '/auth/logout') {
+    return handleLogout(req, res)
   }
 
   // 그 밖의 주소는 실제 백엔드처럼 token이 있어야 합니다.

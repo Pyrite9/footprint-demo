@@ -1,4 +1,4 @@
-import { request } from './client'
+import { refreshAccessToken, request } from './client'
 
 // 이메일과 비밀번호로 로그인합니다. 성공하면 { accessToken }을 돌려줍니다.
 export function login(email, password) {
@@ -20,4 +20,15 @@ export function getMe() {
 // 시각은 서버가 정하므로 body를 보내지 않습니다. 이미 동의했으면 처음 동의한 시각 그대로 돌아옵니다.
 export function consentToPrivacy() {
   return request('/members/me/privacy-consent', { method: 'POST' })
+}
+
+// refresh token(cookie)으로 새 access token을 받아 저장합니다. 화면을 새로 열었을 때(새로고침) RequireLogin이 부릅니다.
+// 받지 못하면(로그인한 적 없음, 만료, 로그아웃) 오류를 던집니다. 여러 곳에서 동시에 불러도 요청은 하나만 나갑니다.
+export function refresh() {
+  return refreshAccessToken()
+}
+
+// 서버의 refresh token을 지우고 cookie도 지웁니다(204). 화면의 access token은 부른 쪽이 지웁니다.
+export function logout() {
+  return request('/auth/logout', { method: 'POST' })
 }

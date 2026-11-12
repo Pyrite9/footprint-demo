@@ -75,7 +75,7 @@ refresh token (2026.11.12 관리자 결정)
   - `Secure`는 설정값 `footprint.refresh-cookie-secure`를 따름. 개발 설정은 false(http), 운영 설정은 true
   - `Path=/`인 이유: 화면은 `/api/auth/refresh`, 가짜 API와 Postman은 `/auth/refresh`로 불러서 한 경로로 좁힐 수 없음
 - 유효 시간 24시간(`footprint.refresh-token-hours`). **로그인한 시각부터 세는 절대 만료**임. 재발급해도 늘어나지 않음
-- 서버는 DB(`refresh_tokens`)에 값의 SHA-256 hash, 회원, 만료 시각, 만든 시각을 저장함. 값 자체는 저장하지 않음
+- 서버는 DB(`refresh_token` 테이블. 다른 테이블처럼 단수형)에 값의 SHA-256 hash(16진수 64글자), 회원, 만료 시각, 만든 시각을 저장함. 값 자체는 저장하지 않음
 - 한 회원이 여러 개를 가질 수 있음(브라우저마다 하나). 로그인할 때 그 회원의 만료된 행을 지움
 - 같은 브라우저의 탭은 cookie를 함께 씀. 탭마다 다른 계정으로 로그인할 수 없음. 다른 탭에서 다른 계정으로 로그인하면 먼저 열린 탭도 다음 재발급부터 그 계정이 됨
 - 가짜 API의 refresh token은 문자열 `mock-refresh-<회원 id>`이고 만료가 없음. cookie 이름과 속성은 같음(`Secure` 없음)
@@ -130,7 +130,7 @@ cookie의 refresh token으로 새 access token을 받음. 요청 body와 `Author
 | 상태 | code | 언제 |
 |---|---|---|
 | 401 | `UNAUTHORIZED` | cookie가 없거나, DB에 없는 값이거나(이미 쓴 것, 로그아웃한 것), 만료됐을 때. 구분하지 않고 같은 메시지 "로그인이 만료되었습니다. 다시 로그인합니다"를 줌 |
-| 403 | `FORBIDDEN` | `Origin` header가 있는데 허용한 화면 주소(`cors.allowed-origins`)가 아닐 때. 메시지 "허용하지 않은 주소에서 온 요청입니다" |
+| 403 | `FORBIDDEN` | `Origin` header가 있는데 허용한 화면 주소(`cors.allowed-origins`)가 아닐 때. 메시지 "허용하지 않은 주소에서 온 요청입니다". 단, `Origin`이 요청을 받은 주소(Host header의 호스트·포트)와 다르면 그보다 먼저 Spring의 CORS 검사가 403으로 막고 body는 JSON이 아닌 글자 `Invalid CORS request`임(다른 API와 같음) |
 
 서버 쪽 규칙
 - 검사 순서: `Origin` → cookie → DB의 행 → 만료 시각
