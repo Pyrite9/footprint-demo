@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -89,8 +90,11 @@ class SchemaRuleTests {
     // migration 파일이 모두 적용되었고 남은 것이 없습니다. Hibernate는 테이블을 만들지 않고 확인만 합니다.
     @Test
     void migrationsBuildTheSchemaAndHibernateOnlyValidates() {
+        // 스키마가 없던 데이터베이스(CI, 처음 clone 한 컴퓨터)에서는 Flyway가 스키마를 직접 만들고 이력에 version 없는 줄을 하나 남깁니다.
+        // 그 줄에 toString을 부르면 NullPointerException이 나서, version이 있는 줄만 봅니다.
         List<String> appliedVersions = Arrays.stream(flyway.info().applied())
                 .map(MigrationInfo::getVersion)
+                .filter(Objects::nonNull)
                 .map(Object::toString)
                 .toList();
 

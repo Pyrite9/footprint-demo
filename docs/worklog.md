@@ -2502,3 +2502,20 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 받는 사람 요구 사항(메모리 4GB, 디스크 약 2.5GB)은 이 PC의 이미지 크기로 어림한 값
   - 받는 사람용 안내의 처음 볼 순서(교수 → student01 → student02 → student10)
   - 시작 계정 비밀번호(`pass1234`)는 저장소에 공개된 시연용 값이라 안내 문서에 적음. 생성한 비밀값은 어디에도 적지 않음
+
+## 2026.11.12 CI 실패 수정 (`SchemaRuleTests`, 스키마가 없던 데이터베이스)
+- 결정:
+  - push 뒤 첫 CI(`03d2702`)에서 backend가 실패함. 200개 중 `SchemaRuleTests.migrationsBuildTheSchemaAndHibernateOnlyValidates` 1개가 `NullPointerException`
+  - 원인: 스키마가 없던 데이터베이스에서는 Flyway가 `footprint_test` 스키마를 직접 만들고 이력 테이블에 version 없는 줄(`<< Flyway Schema Creation >>`)을 남김. 테스트가 그 줄의 version에 `toString`을 불렀음
+  - 이 컴퓨터에서는 통과했음. `footprint_test` 스키마가 O-5 때 Hibernate로 이미 만들어져 있어서 그 줄이 생기지 않았기 때문임. CI와 처음 clone 한 컴퓨터에서는 항상 실패하는 상태였음
+  - 고친 것은 테스트뿐임. version이 있는 줄만 보게 함. 선택지: 스키마를 미리 만들어 두는 설정. 처음 clone 한 컴퓨터에 준비 작업이 생겨서 고르지 않음
+- 고친 파일: `backend/src/test/java/com/footprint/backend/SchemaRuleTests.java`, `docs/worklog.md`
+- 확인:
+  - 재현: 이 컴퓨터에서 `footprint_test` 스키마를 없애고 그 테스트만 돌리니 CI와 같은 줄에서 실패함
+  - 수정 뒤: `footprint_test`, `footprint_prod_test` 스키마를 둘 다 없앤 상태에서 `gradlew.bat cleanTest build`를 두 번 연속 돌려 둘 다 `BUILD SUCCESSFUL`, 테스트 200개 실패 0
+  - CI 재실행은 push 뒤에 확인함
+- 읽을 때 볼 곳:
+  - 이 컴퓨터의 테스트 스키마는 이제 Flyway가 만든 것이라 CI와 같은 상태임. `TestFlywayConfig`의 clean은 Flyway가 만든 스키마를 통째로 지우고 다시 만듦
+  - 이전 단위들이 "두 번 연속 통과"로 확인한 것은 스키마가 이미 있는 상태였음. 빈 데이터베이스에서 시작하는 확인은 CI가 맡음
+- 내가 채운 가정:
+  - 개발 데이터(`public`)는 건드리지 않음. 없앤 것은 빌드마다 비워지는 테스트 전용 스키마 둘뿐임
