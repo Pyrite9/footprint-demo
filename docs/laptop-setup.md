@@ -241,7 +241,7 @@ npm run lint
 
 ### 7-2. 한 번에 실행
 
-`infra`로 켠 컨테이너와 이름이 같아서, 먼저 `infra`를 끄고 맨 위 폴더에서 켬(`README.md` "개발할 때")
+`infra`로 켠 컨테이너와 이름이 같아서, 먼저 `infra`를 끄고 맨 위 폴더에서 켬(`docs/getting-started.md` "개발할 때")
 
 ```bash
 cd footprint-demo/infra

@@ -1,31 +1,88 @@
-# 발자국 데모
+<div align="center">
 
-- 조별과제 과정기록 & 평가지원 서비스 "발자국"
-- 조별과제에서 누가 언제 무엇을 했는지 시각까지 기록으로 남기고, 동료평가 때 그 기록을 근거로 보여 줌
-- 목표: 일정으로 범위를 자르지 않고 기능 15개, 단위 업무 29개와 운영에 필요한 추가 기능 15개를 최대한 완성함(2026.11.04 결정)
-- 흐름: 과제 생성 → 초대 링크로 합류 → 역할 배정 → 산출물·기여 항목 기록 → 완료확인 → 평가 시작 → 근거를 보며 동료평가 → 교수가 평가 결과 열람
-- 서비스 원칙: **판단은 사람, 시스템은 근거만**
-  - 점수, 평균, 합계, 순위, 진척률을 계산하지 않음. 기록을 있는 그대로 보여 줌
-  - 삭제와 취소도 기록을 지우지 않고 "삭제됨", "취소됨"으로 남김
-  - 동료평가·진척·평가 결과 화면에 "업로드 횟수는 기여도가 아닙니다", "점수는 시스템이 계산하지 않습니다"를 고정
+<img src="docs/assets/logo.svg" width="96" height="96" alt="발자국 로고">
 
-## 지금 상태 (2026.11.12)
+# 발자국
 
-- 단위 업무 29개와 고른 추가 기능이 모두 됨. 구현 순서 21개가 끝나 만들 기능은 남지 않음
-- 새로 clone 한 폴더에서 `docker compose up -d --build` 한 번으로 처음부터 끝까지 실행하는 것까지 확인
-- 제출용 실행 묶음(O-3)을 USB에 담음. 저장소 없이 Docker Desktop만 있는 PC에서 인터넷 없이 켜짐(아래 "제출용 실행 묶음")
-- 남은 것(자세히는 `TODO.md` 맨 위 "남은 일 한눈에")
-  - 관리자 작업: 구글 로그인 동의 화면(Google Cloud), 개인정보 고지 문구와 보관 기간의 학교·담당 교수 확인
-  - 확인하지 못한 것: 강단 PC와 macOS에서 묶음 실행
-- 만들지 않는 것: 점수 자동 계산, 평균, 순위, 진척률, LLM 기능
+**조별과제 과정기록 & 평가지원 서비스**
 
-## 화면과 기능
+누가 언제 무엇을 했는지 시각까지 남기고, 동료평가 때 그 기록을 근거로 보여 줌
 
-- 아래 화면은 가짜 API(`frontend` 폴더의 `npm run mock`)의 시작 데이터에 업로드, 기여 항목, 완료확인, 역할 변경, 평가 제출 몇 건을 더해 찍음(2026.11.12, 1280×800, 다크 테마)
+[![CI](https://github.com/Pyrite9/footprint-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/Pyrite9/footprint-demo/actions/workflows/ci.yml) ![Java](https://img.shields.io/badge/Java-21-007396?logo=openjdk&logoColor=white) ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white) ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white) ![Docker Compose](https://img.shields.io/badge/Docker_Compose-v2.24+-2496ED?logo=docker&logoColor=white) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+[빠른 시작](#빠른-시작) · [주요 기능](#주요-기능) · [화면](#화면) · [기술 스택](#기술-스택) · [문서](#문서)
+
+</div>
+
+<br>
+
+![발자국 평가 결과 화면. 평가자별 점수와 의견 옆에 대상 조원의 근거 기록이 열려 있음](docs/screenshots/evaluation-results.png)
+
+## 발자국은
+
+> [!IMPORTANT]
+> **판단은 사람, 시스템은 근거만**
+>
+> 점수, 평균, 합계, 순위, 진척률을 계산하지 않음. 기록을 있는 그대로 보여 주고 판단은 조원과 교수가 함
+
+| 조별과제에서 흔한 일 | 발자국의 방법 |
+|---|---|
+| 누가 무엇을 했는지 말로만 남음 | 산출물 업로드, 기여 항목, 역할 변경을 서버가 정한 시각과 함께 기록함 |
+| 고친 파일이 덮어써져 과정이 사라짐 | 고친 파일도 새로 올리고 역할별 순번을 붙임. 지워도 "삭제됨"으로 줄이 남음 |
+| 회의, 자료 취합처럼 파일이 남지 않는 일이 묻힘 | 기여 항목으로 담당 조원과 완료 보고 메모를 남김 |
+| 기록이 사실인지 알기 어려움 | 다른 조원이 기록마다 완료확인을 남기고, 취소해도 이력에 남음 |
+| 동료평가가 인상으로 매겨짐 | 평가 화면 옆에 그 조원의 근거 기록을 함께 띄움 |
+| 업로드 횟수가 기여도로 오해됨 | 건수와 진척률을 세지 않고 "업로드 횟수는 기여도가 아닙니다"를 화면에 고정함 |
+
+## 주요 기능
+
+- **과정 기록** — 역할별 순번이 붙는 산출물 업로드, 기여 항목과 완료 보고, 역할·조장 교체 이력
+- **서로 확인** — 기록 한 건씩 남기는 완료확인, 조의 모든 기록을 시간순·조원별로 보는 타임라인, 과제 기간 위 역할별 업로드 시점
+- **근거 있는 평가** — 행동기준평정척도(신태섭 2018) 6개 항목 동료평가, 임시 저장, 근거 패널, 교수용 평가 결과와 CSV
+- **조 운영** — 교수의 과제·조·조장 생성, 초대 링크와 합류 전 미리보기, 역할 배정, 평가 단계 전환, 화면 안 알림
+- **학교 계정** — 학교 구글 계정(g.yju.ac.kr) 로그인, 개인정보 고지와 동의
+- **바로 실행** — `docker compose` 한 번으로 전체 실행, 인터넷 없이 켜지는 제출용 묶음, 백업·복구 스크립트
+
+## 사용 흐름
+
+```mermaid
+flowchart LR
+    A["교수<br>과제·조·조장 생성"] --> B["조장<br>초대 링크 발급<br>역할 배정"]
+    B --> C["조원<br>링크로 합류"]
+    C --> D["기록 단계<br>산출물 업로드<br>기여 항목 등록·보고<br>완료확인"]
+    D --> E["교수<br>평가 시작"]
+    E --> F["평가 단계<br>근거를 보며 동료평가"]
+    F --> G["교수<br>평가 결과 열람<br>CSV 내려받기"]
+```
+
+- 기록 단계에서 평가 단계로는 과제를 만든 교수만 바꾸고, 되돌릴 수 없음
+- 평가 단계에서는 기록을 새로 쓰지 못하고 열람만 함
+
+## 화면
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/team-home.png" alt="조 홈 화면"><p align="center"><b>조 홈</b> — 내가 할 일과 최근 산출물</p></td>
+    <td width="50%"><img src="docs/screenshots/deliverable-detail.png" alt="산출물 화면"><p align="center"><b>산출물</b> — 역할별 순번과 완료확인</p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/contributions.png" alt="기여 항목 화면"><p align="center"><b>기여 항목</b> — 파일이 남지 않는 일의 기록</p></td>
+    <td width="50%"><img src="docs/screenshots/records.png" alt="전체 기록 화면"><p align="center"><b>전체 기록</b> — 조의 기록을 있는 그대로</p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/progress.png" alt="진척 화면"><p align="center"><b>진척</b> — 과제 기간 위 역할별 업로드 시점</p></td>
+    <td width="50%"><img src="docs/screenshots/evaluation.png" alt="동료평가 화면"><p align="center"><b>동료평가</b> — 6개 항목과 근거 패널</p></td>
+  </tr>
+</table>
+
+### 화면별 설명
+
+- 화면 17개와 화면 밖의 기능을 펼쳐 봄. 기능 번호(M-1, A-1 등)는 업무 기능도 및 업무 기술서 v1.3과 `TODO.md`의 추가 기능 번호임
+- 사진은 가짜 API(`frontend` 폴더의 `npm run mock`)의 시작 데이터에 업로드, 기여 항목, 완료확인, 역할 변경, 평가 제출 몇 건을 더해 찍음(2026.11.12, 1280×800, 다크 테마)
 - 이름과 이메일은 모두 시작 데이터의 가짜 값임. 계정 표는 `backend/README.md`의 "시작 계정"
 - 화면 맨 왼쪽 세로줄은 내 과제 목록(과제 이름 앞 두 글자), 그 옆은 고른 과제·조의 메뉴, 메뉴 맨 아래는 내 이름·알림·테마 전환(라이트·다크)·로그아웃
 
-| 기능 | 화면 절 |
+| 기능 | 화면 |
 |---|---|
 | M-1 회원 등록, M-2 로그인·로그아웃, X-1 교수 유형 변경 | 1. 로그인 |
 | X-2 개인정보 고지와 동의 | 2. 개인정보 고지 |
@@ -42,9 +99,10 @@
 | E-2 동료평가 입력, E-1 근거 패널 | 15. 동료평가와 근거 패널 |
 | V-2 평가 결과 열람, X-5 평가 결과 CSV | 16. 평가 결과 |
 | X-6 화면 안 알림 | 17. 알림 |
-| X-7, O-1~O-8 | 화면 없음. 아래 "화면 밖의 기능" |
+| X-7, O-1~O-8 | 화면 밖의 기능 |
 
-### 1. 로그인
+<details>
+<summary><b>1. 로그인</b></summary>
 
 ![로그인 화면](docs/screenshots/login.png)
 
@@ -53,7 +111,10 @@
 - 회원 유형은 교수, 학생 둘. 구글 로그인할 때마다 교수 이메일 목록(`PROFESSOR_EMAILS`)에 있는 학생을 교수로 올림(X-1). 조 참여 기록이 있는 학생은 올리지 않고, 교수를 학생으로 내리지 않음
 - 로그인 token은 탭마다 따로 저장됨. 한 탭은 교수, 다른 탭은 학생으로 동시에 쓸 수 있음
 
-### 2. 개인정보 고지
+</details>
+
+<details>
+<summary><b>2. 개인정보 고지</b></summary>
 
 ![개인정보 고지 화면](docs/screenshots/privacy.png)
 
@@ -62,7 +123,10 @@
 - 저장하는 것, 쓰는 목적, 누가 보는지, 보관 기간을 적음
 - 문구와 보관 기간은 학교·담당 교수 확인 전 초안임(`frontend/src/constants/privacyNotice.js`). 화면 맨 위에 초안이라는 안내가 있음
 
-### 3. 내 과제
+</details>
+
+<details>
+<summary><b>3. 내 과제</b></summary>
 
 ![내 과제 화면](docs/screenshots/home.png)
 
@@ -70,7 +134,10 @@
 - 카드마다 과제 이름, 기간, 단계(기록 단계·평가 단계)
 - 카드를 누르면 학생은 자기 조 홈으로, 교수는 조 현황으로 감
 
-### 4. 새 과제 (교수)
+</details>
+
+<details>
+<summary><b>4. 새 과제 (교수)</b></summary>
 
 ![새 과제 화면](docs/screenshots/assignment-create.png)
 
@@ -79,7 +146,10 @@
 - "입력 내용 확인"을 누르면 한 번 더 보여 주고, 확정하면 과제·조·조장을 한 번에 저장함
 - 등록한 과제는 고치거나 지울 수 없음
 
-### 5. 조 현황과 평가 시작 (교수)
+</details>
+
+<details>
+<summary><b>5. 조 현황과 평가 시작 (교수)</b></summary>
 
 ![조 현황 화면](docs/screenshots/assignment-detail.png)
 
@@ -90,7 +160,10 @@
   - 그 과제 모든 조의 조원에게 알림이 감
 - 과제 기간이 지나도 단계를 저절로 바꾸지 않음
 
-### 6. 조 홈
+</details>
+
+<details>
+<summary><b>6. 조 홈</b></summary>
 
 ![조 홈 화면](docs/screenshots/team-home.png)
 
@@ -99,7 +172,10 @@
   - 예: 초대 링크 발급(조장), 역할 지정(조장), 맡은 기여 항목의 완료 보고
 - "최근 산출물": 최근에 올라온 파일. "산출물 전체"로 목록 화면에 감
 
-### 7. 조원과 역할
+</details>
+
+<details>
+<summary><b>7. 조원과 역할</b></summary>
 
 ![조원과 역할 화면](docs/screenshots/role-history.png)
 
@@ -112,7 +188,10 @@
   - 이미 올린 산출물은 올릴 때의 역할로 남음. 역할이 바뀌어도 산출물 순번이 끊기지 않음
 - 조장이 아닌 조원은 조원 목록과 이력만 봄
 
-### 8. 초대 링크로 합류
+</details>
+
+<details>
+<summary><b>8. 초대 링크로 합류</b></summary>
 
 ![합류 전 미리보기 화면](docs/screenshots/join.png)
 
@@ -120,7 +199,10 @@
 - 로그인 전이면 로그인한 뒤 이 화면으로 돌아옴
 - 한 학생은 같은 과제에서 한 조에만 들어감. 이미 그 과제의 조에 있거나 링크가 무효면 미리보기에서 합류와 같은 오류를 보여 줌
 
-### 9. 조장 교체 (교수)
+</details>
+
+<details>
+<summary><b>9. 조장 교체 (교수)</b></summary>
 
 ![조장 교체 화면](docs/screenshots/leader-change.png)
 
@@ -129,7 +211,10 @@
 - 이전 조장, 새 조장, 바뀐 시각을 이력으로 남김. 조장 줄의 "이력 보기"로 교체 이력을 봄
 - 조장은 조마다 한 명. 데이터베이스 인덱스로도 막음
 
-### 10. 산출물
+</details>
+
+<details>
+<summary><b>10. 산출물</b></summary>
 
 ![산출물 화면](docs/screenshots/deliverables.png)
 
@@ -138,7 +223,10 @@
 - "역할별"과 "시간순"으로 바꿔 봄. 역할별 보기에는 지금 그 역할을 맡은 조원과, 이전 역할명으로 올린 파일이 따로 보임
 - 파일 본문은 MinIO에, 데이터베이스에는 위치·이름·크기만 저장함
 
-### 11. 산출물 상세와 완료확인
+</details>
+
+<details>
+<summary><b>11. 산출물 상세와 완료확인</b></summary>
 
 ![산출물 상세 화면](docs/screenshots/deliverable-detail.png)
 
@@ -149,7 +237,10 @@
   - 삭제된 산출물은 새로 확인할 수 없고 이전 확인은 남음
   - 확인 건수는 세지 않음. 교수는 이력만 봄
 
-### 12. 기여 항목
+</details>
+
+<details>
+<summary><b>12. 기여 항목</b></summary>
 
 ![기여 항목 화면](docs/screenshots/contributions.png)
 
@@ -160,7 +251,10 @@
 - "전체 / 보고 전 / 보고됨 / 취소됨"으로 걸러 봄
 - 보고된 항목은 담당 조원이 아닌 조원이 완료확인함(오른쪽 아래)
 
-### 13. 전체 기록
+</details>
+
+<details>
+<summary><b>13. 전체 기록</b></summary>
 
 ![전체 기록 화면](docs/screenshots/records.png)
 
@@ -169,7 +263,10 @@
 - "시간순"과 "조원별"로 바꿔 봄
 - 삭제와 취소는 줄을 지우지 않고 한 줄 더함. 동료평가 제출과 임시 저장은 넣지 않고, 건수도 없음
 
-### 14. 진척
+</details>
+
+<details>
+<summary><b>14. 진척</b></summary>
 
 ![진척 화면](docs/screenshots/progress.png)
 
@@ -178,7 +275,10 @@
 - 기간 밖에 올린 파일은 줄 양 끝에 네모로 놓음(화면의 기획·백엔드 왼쪽 끝은 과제 시작 전에 올린 시작 데이터). 삭제된 파일도 올린 기록으로 남김
 - 진척률과 건수는 없음. 동료평가 화면의 고정 문구 2개를 함께 둠
 
-### 15. 동료평가와 근거 패널
+</details>
+
+<details>
+<summary><b>15. 동료평가와 근거 패널</b></summary>
 
 ![동료평가 화면](docs/screenshots/evaluation.png)
 
@@ -192,7 +292,10 @@
   - 삭제되거나 취소된 기록도 빼지 않고, 건수는 없음
   - 조원은 평가 단계에서만, 과제를 만든 교수는 모든 단계에서 봄
 
-### 16. 평가 결과 (교수)
+</details>
+
+<details>
+<summary><b>16. 평가 결과 (교수)</b></summary>
 
 ![평가 결과 화면](docs/screenshots/evaluation-results.png)
 
@@ -202,7 +305,10 @@
 - 오른쪽에 대상 조원의 근거 패널을 함께 띄움
 - "CSV 내려받기"(X-5): 조 단위. 열은 평가자, 대상, 항목 6개, 의견, 제출 시각. 엑셀에서 한글이 깨지지 않게 하고(UTF-8 BOM), 수식으로 읽힐 글자로 시작하는 이름·의견은 앞에 `'`를 붙임
 
-### 17. 알림
+</details>
+
+<details>
+<summary><b>17. 알림</b></summary>
 
 ![알림 화면](docs/screenshots/notifications.png)
 
@@ -211,7 +317,10 @@
 - 누르면 읽음으로 표시하고 그 화면으로 감. 회원 본인 것만 봄
 - 점수, 평가 의견, 보고 메모, 안 읽은 개수는 담지 않고, 알림은 지우지 않음
 
-### 화면 밖의 기능
+</details>
+
+<details>
+<summary><b>화면 밖의 기능</b></summary>
 
 - X-7 400 응답에 틀린 칸 담기: 입력값이 틀리면 오류 문장 끝에 어느 칸이 왜 틀렸는지 적음(예: "title: 비어 있습니다"). 응답 모양은 그대로임
 - O-1 스키마 관리: Flyway migration이 테이블을 만들고 서버를 다시 켜도 기록이 남음. "유효한 완료확인은 하나", "조장은 조마다 한 명"을 데이터베이스 인덱스로도 막음
@@ -219,7 +328,7 @@
   - 시작 데이터와 이메일·비밀번호 로그인이 꺼짐
   - 비밀값이 저장소에 공개된 기본값이면 서버가 켜지지 않음
   - 환경 변수 없이 켜면 지금처럼 개발 설정임. CORS 허용 주소는 `CORS_ALLOWED_ORIGINS`로 바꿈
-- O-3 배포 구성: Docker compose 기반 로컬 실행 묶음(2026.11.12 관리자 결정). 아래 "제출용 실행 묶음"과 `docs/bundle.md`
+- O-3 배포 구성: Docker compose 기반 로컬 실행 묶음(2026.11.12 관리자 결정). `docs/getting-started.md`의 "제출용 실행 묶음"과 `docs/bundle.md`
 - O-4 백업·복구: `infra/backup`의 스크립트로 DB와 올린 파일을 같은 시점의 묶음으로 백업하고, 빈 환경에만 되살림. 데이터가 있는 곳에는 덮어쓰지 않고 멈춤. `docs/backup-restore.md`
 - O-5 테스트 분리와 보강: 업무 규칙마다 통합 테스트(`backend/src/test`의 `XxxRuleTests`)를 둠. 테스트는 같은 PostgreSQL의 전용 스키마에서 돌아 개발 데이터를 지우지 않음
 - O-6 CI: main push와 PR마다 GitHub Actions(`.github/workflows/ci.yml`)가 백엔드 빌드·테스트, 화면 빌드·lint를 돌림
@@ -228,31 +337,55 @@
   - `GET /actuator/health`를 token 없이 부르면 서버와 데이터베이스가 살아 있는지 `UP`/`DOWN`만 돌려줌. 다른 actuator 주소는 닫혀 있음
   - 로그는 `docker logs`로 읽고, 운영 설정은 SQL을 찍지 않음. 비밀값, token, 이메일, 평가 점수·의견은 로그에 남기지 않음
 
-**서버를 다시 켜도 기록이 남음** (O-1, 2026.11.12)
+</details>
 
-- 테이블은 Flyway가 `backend/src/main/resources/db/migration`의 SQL 파일로 만들고, Hibernate는 Entity와 맞는지 확인만 함(`ddl-auto: validate`)
-- 시작 데이터는 빈 데이터베이스에서 한 번만 들어감. 실행해 보는 사람은 준비 작업 없이 바로 흐름을 볼 수 있음
-- 시작 데이터 상태로 돌아가는 방법과, 2026.11.12 전에 실행해 본 컴퓨터의 한 번 전환은 `backend/README.md`의 "데이터베이스 스키마"
+## 빠른 시작
+
+- 필요한 것: Docker Desktop(Compose v2.24 이상). Java, Node.js는 없어도 됨
+- 포트 5173, 8080, 5432, 9000, 9001을 씀. 같은 포트를 쓰는 다른 서버는 먼저 끌 것
+
+```powershell
+git clone https://github.com/Pyrite9/footprint-demo.git
+cd footprint-demo
+docker compose up -d --build
+```
+
+- 처음에는 이미지를 만드느라 몇 분 걸림
+- 화면 http://localhost:5173 을 열고 "시작 계정으로 로그인 (개발·백업용)"을 펼쳐 아래 계정으로 들어감. 비밀번호는 모두 `pass1234`
+- 끌 때는 `docker compose down`. 올린 파일과 제출한 평가는 다시 켜도 남음
+
+| 계정 | 이름 | 보이는 것 |
+|---|---|---|
+| `professor@example.com` | 이교수 | 과제 생성, 조 현황, 평가 시작, 조장 교체, 평가 결과 |
+| `student01@example.com` | 김민준 | 데모 과제 1조 조장. 초대 링크, 역할 배정, 기여 항목 등록 |
+| `student02@example.com` | 이서연 | 1조 조원. 산출물 업로드, 완료확인, 평가 단계 과제의 동료평가 |
+| `student10@example.com` | 임지아 | 개인정보 고지에 아직 동의하지 않은 계정 |
+
+- 전체 계정과 시작 과제는 `backend/README.md`의 "시작 계정", "시작 과제와 조"
+- 실행 방법 세 가지(제출용 실행 묶음, 한 번에 실행, 개발할 때), 켜기 전에 확인할 것, 비밀값은 [`docs/getting-started.md`](docs/getting-started.md)
+- 백엔드 없이 화면만 돌려 보려면 가짜 API를 씀. [`frontend/README.md`](frontend/README.md)
 
 ## 기술 스택
 
 | 쪽 | 쓴 것 |
 |---|---|
-| 백엔드 | Java 21, Spring Boot 3.5.16, Spring Data JPA, Spring Security(JWT, jjwt 0.13.0), Gradle 8.14.3 |
+| 백엔드 | Java 21, Spring Boot 3.5.16, Spring Data JPA, Spring Security(JWT, jjwt 0.13.0), Flyway, Gradle 8.14.3 |
 | 데이터베이스 | PostgreSQL 17 |
 | 파일 저장 | MinIO(S3 호환). 코드는 AWS SDK v2의 S3 API로만 접근 |
-| 로그인 | Google ID token 검증(google-api-client), 도메인 제한 |
+| 로그인 | Google ID token 검증(google-api-client), 학교 도메인 제한 |
 | 프론트엔드 | Node.js 24, React 19, Vite 8, React Router 7, JavaScript(TypeScript 아님) |
 | 가짜 API | json-server 0.17.4. 백엔드 없이 화면만 돌릴 때 씀 |
-| 한 번에 실행 | Docker Compose(백엔드, nginx, PostgreSQL, MinIO) |
+| 실행·배포 | Docker Compose(백엔드, nginx, PostgreSQL, MinIO), GitHub Actions CI |
 
 **영리한 코드보다 따라 읽을 수 있는 코드**
 
 - 팀원 6명 전원이 Spring Boot·React 초심자라서 둔 기준
 - 안 쓰는 것: MapStruct, QueryDSL, 상태 관리 라이브러리, 공통 부모 클래스, 공통 응답 감싸기 클래스, AOP 권한 검사
 - 권한 검사는 `TeamAccessChecker`를 Service에서 직접 불러 눈에 보이게 함
+- 구조 그림(전체 구조, JWT 흐름, 프론트엔드·백엔드 구조)은 [`docs/architecture.md`](docs/architecture.md)
 
-## 폴더 구조
+<details>
+<summary><b>폴더 구조</b></summary>
 
 ```
 backend/    Spring Boot. 패키지 com.footprint.backend
@@ -273,90 +406,51 @@ frontend/   React
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
   backup/   백업·복구 스크립트(Windows .ps1, macOS·Linux .sh). 만든 묶음은 bundles/에 쌓이고 저장소에 올라가지 않음
   bundle/   제출용 실행 묶음. make-bundle.ps1(만드는 스크립트), template/(묶음에 들어갈 파일 원본). 결과 out/은 저장소에 올라가지 않음
-docs/       구조 그림, API 명세, Postman 모음, 작업 기록, 노트북 설정 지시서, 백업·복구 안내, 실행 묶음 안내
-  screenshots/  README의 "화면과 기능"에 쓰는 화면 사진
+docs/       실행 안내, 구조 그림, ERD, API 명세, Postman 모음, 작업 기록, 노트북 설정 지시서, 백업·복구 안내, 실행 묶음 안내
+  assets/       README 로고
+  screenshots/  README "화면"에 쓰는 화면 사진
 docker-compose.yml  한 번에 실행(백엔드, nginx, infra의 PostgreSQL·MinIO)
 .github/workflows/ci.yml  main push와 PR마다 빌드·테스트·lint를 돌림
-TODO.md     앞으로 할 것
+TODO.md     남은 일, 완성 범위와 규칙
 ```
 
-## 실행 방법 세 가지
+</details>
 
-| | 누가 | 무엇으로 | 안내 |
-|---|---|---|---|
-| 제출용 실행 묶음 | 담당 교수, 강단 PC, 시연 | USB의 묶음 폴더와 Docker Desktop. 저장소·인터넷 필요 없음 | 아래 "제출용 실행 묶음" |
-| 한 번에 실행 | 조원이 저장소 전체를 돌려 볼 때 | 저장소와 Docker Desktop. 이미지를 소스로 빌드 | 아래 "한 번에 실행" |
-| 개발할 때 | 코드를 고칠 때 | DB·MinIO만 Docker, 백엔드·화면은 내 컴퓨터 | 아래 "개발할 때" |
+## 프로젝트 상태
 
-## 제출용 실행 묶음
-
-12.11 발표와 12.15 PBL 제출에 쓰는 폴더 하나짜리 묶음(O-3). 이미지가 tar로 들어 있어 받는 PC에서 빌드와 인터넷 없이 켜짐
-
-- 받는 사람: 묶음 폴더를 PC에 복사 → `start.bat` 더블클릭(macOS·Linux `bash start.sh`) → http://localhost:5173. 안내는 묶음 맨 위 `README.md`(원본 `infra/bundle/template/README.md`)
-- 만드는 사람(관리자): 저장소 맨 위에서 `.\infra\bundle\make-bundle.ps1` → `infra/bundle/out/footprint-demo/`를 USB에 복사 → `SHA256SUMS.txt`로 확인. 자세히는 `docs/bundle.md`
-- 개발 환경과 이름이 달라서(`footprint-bundle-*`) 개발 데이터를 건드리지 않음. 포트 5173, 8080은 같아서 개발용 백엔드·화면 서버는 끈 채로 켬
-- 기본은 시연용(demo, 시작 계정 로그인). 묶음 폴더의 `.env`에서 `FOOTPRINT_MODE=prod`로 바꾸면 운영 설정(구글 로그인만)
-
-## 한 번에 실행 (저장소와 Docker만 있으면 됨)
-
-Java, Node.js 없이 Docker Desktop만으로 백엔드, 화면, PostgreSQL, MinIO, 시작 데이터를 한 번에 켜는 방법. 이미지를 저장소의 소스로 빌드함
-
-```powershell
-docker compose up -d --build
-```
-
-- 처음에는 이미지를 만드느라 몇 분 걸림. 다음부터는 `docker compose up -d`만 쓰면 됨(코드를 바꿨으면 `--build`를 붙일 것)
-- 화면: http://localhost:5173 — 주소는 `127.0.0.1`이 아니라 `localhost`로 열 것. 백엔드가 기본으로 이 주소만 허용함(바꾸려면 `infra/.env`의 `CORS_ALLOWED_ORIGINS`)
-- 백엔드: http://127.0.0.1:8080
-- MinIO 콘솔: http://localhost:9001 — 계정은 `infra/.env`(없으면 `infra/.env.example`의 기본값)
-- 시작 계정과 시작 데이터: `backend/README.md`의 "시작 계정"부터. 비밀번호는 모두 `pass1234`
-- 올린 산출물과 제출한 평가는 백엔드를 다시 켜거나(`docker compose restart backend`) 꺼도 남음. `gradlew build`로도 지워지지 않음. 시작 데이터 상태로 돌아가려면 `backend/README.md`의 "개발 데이터베이스를 처음부터 다시 만들기"
-- 2026.11.12 전에 이 방법으로 켜 본 컴퓨터는 백엔드가 `Found non-empty schema(s) "public"`로 켜지지 않음. 같은 곳의 "한 번 전환"을 먼저 할 것
-
-끄기.
-
-```powershell
-docker compose down
-```
-
-### 켜기 전에 확인할 것
-
-- `docker compose version`이 v2.24 이상일 것. 맨 위 `docker-compose.yml`이 쓰는 `include`와 `env_file`의 `required`가 그 버전부터 됨
-- 학습 저장소(`footprint-study`)의 infra가 켜져 있으면 먼저 끌 것. 포트(5432, 9000, 9001)가 같음
-- 개발 중에 켠 백엔드(8080)와 화면 개발 서버(5173)도 끌 것. 같은 포트를 씀
-- `infra/.env`는 없어도 됨. 없으면 `infra/.env.example`과 같은 기본값을 씀
-
-### 비밀값
-
-- 저장소에 들어 있는 비밀값은 모두 개발용 기본값(`change-me` 등). 제출용 실행 묶음은 처음 켤 때 무작위 값을 만들어 쓰므로 이 값을 쓰지 않음
-- 접속 가능한 주소에 올릴 때는 `JWT_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`를 환경 변수로 반드시 바꿀 것
-- 운영 설정(`SPRING_PROFILES_ACTIVE=prod`)으로 켜면 셋 중 하나라도 공개된 기본값이거나 비었을 때, 또는 `PROFESSOR_EMAILS`가 비었을 때 백엔드가 켜지지 않음. 로그에는 바꿔야 할 이름만 나오고 값은 나오지 않음. 켜는 법과 환경 변수 표는 `backend/README.md`의 "운영 설정으로 켜기"
-- 환경 변수 없이 켜면 개발 설정이라 검사하지 않음. 조원은 할 일이 없음
-
-## 개발할 때
-
-DB와 MinIO만 Docker로 켜고, 백엔드와 화면은 내 컴퓨터에서 실행함.
-
-- DB·MinIO: `infra` 폴더에서 `docker compose up -d`
-- 백엔드: `backend/README.md`
-- 화면: `frontend/README.md`
-
-두 방법은 같은 이름(`footprint-demo`)이라 같은 DB·MinIO 컨테이너를 씀. 한 번에 실행한 뒤 개발로 돌아갈 때는 맨 위 폴더에서 `docker compose down`을 하고 `infra`에서 다시 켤 것. 반대로 개발 중에 한 번에 실행으로 바꿀 때는 `infra`에서 `docker compose down`을 하고 맨 위 폴더에서 켤 것.
+- 2026.11.12 기준 업무 기능도 및 업무 기술서 v1.3의 기능 15개, 단위 업무 29개와 고른 추가 기능이 모두 됨. 구현 순서 21개가 끝나 만들 기능은 남지 않음
+- 새로 clone 한 폴더에서 `docker compose up -d --build` 한 번으로 처음부터 끝까지 실행하는 것까지 확인
+- 제출용 실행 묶음(O-3)을 USB에 담음. 저장소 없이 Docker Desktop만 있는 PC에서 인터넷 없이 켜짐
+- 남은 것(자세히는 `TODO.md` 맨 위 "남은 일 한눈에")
+  - 관리자 작업: 구글 로그인 동의 화면(Google Cloud), 개인정보 고지 문구와 보관 기간의 학교·담당 교수 확인
+  - 확인하지 못한 것: 강단 PC와 macOS에서 묶음 실행
+- 만들지 않는 것: 점수 자동 계산, 평균, 순위, 진척률, LLM 기능
+- 일정: 11.16 조원 코드 합류, 12.11 학기 발표, 12.15 PBL 결과물 제출. 날짜는 범위를 정하는 기준이 아님
 
 ## 문서
 
-- `TODO.md` — 앞으로 만들 것. 완성 범위와 구현 순서, 아직 고르지 않은 제안, 아직 정하지 않은 것, 배포할 때 반드시 할 것, 알려진 한계, 조원과 함께 일할 때
-- `docs/architecture.md` — 구조 그림. 전체 구조, JWT 흐름(로그인, 그 다음 요청), 프론트엔드 구조, 백엔드 구조. **코드를 처음 읽는다면 여기부터**
-- `docs/erd.md` — 데이터 구조. 엔티티 12개의 연결, 열마다 비고, 제약
-- `docs/api-draft.md` — API 명세. 코드보다 이 문서를 먼저 씀
-- `docs/postman/` — API를 데모 흐름 순서로 모은 Postman 모음과 쓰는 방법
-- `docs/worklog.md` — 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정
-- `docs/laptop-setup.md` — 다른 컴퓨터(Arch Linux 노트북)에 이 저장소를 올려 작업하는 설정 지시서
-- `docs/backup-restore.md` — DB와 올린 파일을 한 묶음으로 백업하고 빈 환경에 되살리는 방법, 복구 연습, 백업 파일의 개인정보와 보관 기간
-- `docs/screenshots/` — README "화면과 기능"의 화면 사진. 화면을 바꾸면 같은 데이터로 다시 찍어 바꿈
-- `docs/bundle.md` — 제출용 실행 묶음을 만들고 USB에 담는 방법, 묶음에 든 것, 배포 때 할 일을 묶음에서 처리한 방법
-- `CLAUDE.md` — 이 저장소의 코드 생성 규칙. 스택, 계층, 명명, 금지 목록을 AI 도구와 사람이 같이 지키는 기준
+| 문서 | 내용 |
+|---|---|
+| [`docs/getting-started.md`](docs/getting-started.md) | 실행 방법 세 가지, 켜기 전에 확인할 것, 비밀값 |
+| [`docs/architecture.md`](docs/architecture.md) | 구조 그림. 전체 구조, JWT 흐름, 프론트엔드·백엔드 구조. **코드를 처음 읽는다면 여기부터** |
+| [`docs/erd.md`](docs/erd.md) | 데이터 구조. 엔티티 12개의 연결, 열마다 비고, 제약 |
+| [`docs/api-draft.md`](docs/api-draft.md) | API 명세. 코드보다 이 문서를 먼저 씀 |
+| [`docs/postman/`](docs/postman/) | API를 데모 흐름 순서로 모은 Postman 모음과 쓰는 방법 |
+| [`docs/bundle.md`](docs/bundle.md) | 제출용 실행 묶음을 만들고 USB에 담는 방법 |
+| [`docs/backup-restore.md`](docs/backup-restore.md) | DB와 올린 파일을 한 묶음으로 백업하고 빈 환경에 되살리는 방법 |
+| [`docs/worklog.md`](docs/worklog.md) | 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정 |
+| [`docs/laptop-setup.md`](docs/laptop-setup.md) | 다른 컴퓨터(Arch Linux 노트북)에 이 저장소를 올려 작업하는 설정 |
+| [`backend/README.md`](backend/README.md) | 서버 실행, 테스트, 스키마, 운영 설정, 시작 계정, 구글 로그인 |
+| [`frontend/README.md`](frontend/README.md) | 화면 실행, 가짜 API |
+| [`TODO.md`](TODO.md) | 남은 일, 완성 범위와 규칙, 알려진 한계, 조원과 함께 일할 때 |
+| [`CLAUDE.md`](CLAUDE.md) | 코드 생성 규칙. 스택, 계층, 명명, 금지 목록을 AI 도구와 사람이 같이 지키는 기준 |
+
+## 팀과 기여
+
+- 6명 조별과제 팀의 PBL 결과물. 조원 코드는 이 저장소의 같은 파일에 끼워 넣음
+- 함께 일하는 규칙(처음 읽을 문서, API를 바꿀 때의 순서, 결정 기록)은 `TODO.md` 6절 "조원과 함께 일할 때"
+- 업무 규칙과 코드 규칙은 `CLAUDE.md`. 규칙을 바꾸려면 먼저 정하고 문서를 고친 뒤 코드를 고침
 
 ## 라이선스
 
-MIT. `LICENSE` 참고.
+- MIT. [`LICENSE`](LICENSE) 참고

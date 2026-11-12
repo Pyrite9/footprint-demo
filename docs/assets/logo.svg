@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="발자국 로고">
+  <rect width="96" height="96" rx="22" fill="#2a5bd7"/>
+  <g transform="translate(16 16) scale(2.6667)" fill="#ffffff">
+    <ellipse cx="8.2" cy="8.6" rx="3.3" ry="5.1" transform="rotate(-14 8.2 8.6)"/>
+    <ellipse cx="15.8" cy="15.4" rx="3.3" ry="5.1" transform="rotate(14 15.8 15.4)"/>
+  </g>
+</svg>

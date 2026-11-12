@@ -54,7 +54,7 @@ API 명세가 아직 없으면 코드보다 **`docs/api-draft.md`를 먼저 쓴�
 backend/    Spring Boot. 패키지 com.footprint.backend, rootProject.name = 'footprint-backend'
 frontend/   React. src/pages, src/components, src/api, src/constants
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example, backup/(백업·복구 스크립트), bundle/(제출용 실행 묶음 만들기)
-docs/       architecture.md, erd.md, api-draft.md, worklog.md, laptop-setup.md, backup-restore.md, bundle.md, postman/
+docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.md, laptop-setup.md, backup-restore.md, bundle.md, postman/, screenshots/, assets/
 ```
 
 백엔드 패키지는 계층형: `controller`, `service`, `repository`, `entity`, `dto`, `exception`, `config` (+ 인증은 `security`).
