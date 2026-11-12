@@ -2374,7 +2374,8 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - **복구 연습 환경**: `infra/backup/docker-compose.restore-check.yml`을 `infra/docker-compose.yml` 위에 겹쳐 이름(`footprint-restore-check`), 컨테이너 이름, 포트(5433, 9100, 9101)만 바꿈. `ports: !override`(compose 2.24+)로 포트 목록을 바꿈. 이미지와 healthcheck를 한 곳에서만 고치려고 파일을 따로 복사하지 않음
   - **Git Bash 경로**: `MSYS_NO_PATHCONV=1`로 컨테이너 안 경로(`/tmp/...`)가 Windows 경로로 바뀌는 것을 막고, 컴퓨터 쪽 경로는 `cygpath -m`으로 `E:/...` 모양으로 바꿈. 처음에는 앞의 것만 넣어 `docker cp`가 `E:\e\YJU\...`를 찾다가 실패함
   - **`.ps1`은 UTF-8 BOM으로 저장**. Windows PowerShell 5.1은 BOM이 없으면 한글 주석·문장을 ANSI로 읽어 깨뜨림. `.sh`는 LF, 실행 권한(100755)
-  - **새 `.gitattributes` 한 줄(`*.sh text eol=lf`)**. 관리자 PC의 git 전역 설정이 `core.autocrlf=true`라서, 같은 설정의 Windows 조원이 받으면 `.sh`가 CRLF가 되어 Git Bash에서 `$'': command not found`로 멈춤. `.sh`만 고정하고 다른 파일은 그대로 둠
+  - **새 `.gitattributes` 한 줄(`*.sh text eol=lf`)**. 관리자 PC의 git 전역 설정이 `core.autocrlf=true`라서, 같은 설정의 Windows 조원이 받으면 `.sh`가 CRLF가 되어 Git Bash에서 `$'
+': command not found`로 멈춤. `.sh`만 고정하고 다른 파일은 그대로 둠
   - **예약 실행·원격 보관·암호화는 만들지 않음**. 서버가 정해지는 O-3의 일로 `TODO.md` O-3 줄과 `docs/backup-restore.md` "남은 것"에 적음
   - 백엔드·화면 코드는 고치지 않음. modern-web-guidance는 화면 코드가 없어 쓰지 않음
 - 만든 파일:
@@ -2584,7 +2585,9 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 개발 서버(`npm run dev`) + 백엔드 jar: 브라우저에서 시작 계정 로그인, 산출물 목록, 업로드(작은 파일), 다운로드가 모두 `/api/...`로 나가고 성공함(Network 기록). 19MB 업로드 200, 21MB·60MB 업로드는 400 `INVALID_INPUT` "파일은 20MB까지 올릴 수 있습니다", 그 뒤 요청도 정상
   - Docker: 맨 위 `docker compose up -d --build backend frontend`로 nginx 화면과 백엔드 컨테이너를 켜서 브라우저와 curl·Node로 같은 것을 확인함. 21MB·60MB는 0.1~0.3초 안에 400 JSON, 파일 20,971,000바이트(요청 전체가 20MB 바로 아래)는 200. 직접 부른 백엔드(8080)도 같은 파일에 200
   - 확인하느라 개발 데이터베이스의 1조에 이서연 이름으로 작은 파일과 19MB 파일 몇 개를 올림(시작 데이터 아님. 다시 만들려면 `backend/README.md` "개발 데이터베이스를 처음부터 다시 만들기")
-  - 실행 묶음(`make-bundle.ps1`)은 다시 만들지 않음. 화면 이미지와 nginx 설정이 같아서 위 Docker 확인으로 갈음함
+  - 실행 묶음: 처음 commit 때는 다시 만들지 않음. 인증-2 commit `918e8dc` 뒤에 `make-bundle.ps1`(cache 사용, `-NoCache` 아님)로 다시 만들어 확인함(2026.11.12)
+    - 화면 이미지 `-demo`, `-prod` 둘 다 JS에 `/api`가 들어 있고 백엔드 주소(8080)는 없음. nginx 설정에 `proxy_pass http://backend:8080/;`, `client_max_body_size 20m`, `error_page 413`이 있음
+    - demo 묶음을 `start.ps1`로 켜서 브라우저(`http://localhost:5173`)에서 이서연으로 1조에 올림: 1KB 200, 20,970,000바이트 200(0.4초), 21MB·60MB 400 JSON "파일은 20MB까지 올릴 수 있습니다"(0.1~0.3초). 올린 두 파일 다운로드 200, 크기 같음
 - 읽을 때 볼 곳:
   - `vite.config.js`의 `configure`. 보통 요청은 `req.complete`가 true라 바로 넘김. false인 경우는 큰 업로드가 거절될 때뿐임
   - `nginx.conf`의 `proxy_pass http://backend:8080/;` 끝의 `/`. 이것이 `/api/`를 떼는 부분임. `/`가 없으면 `/api/auth/login`이 그대로 백엔드로 감(404)
@@ -2632,7 +2635,11 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - Vite proxy가 브라우저의 `Host`를 그대로 넘기는 것을 proxy 요청 header를 찍어 확인함(인증-1 결정 줄과 같음). proxy를 거친 응답의 `Access-Control-Allow-Origin`은 백엔드가 아니라 Vite 개발 서버 자체의 cors가 붙인 것임
   - 가짜 API(`.env.local`로 `http://localhost:3001`): 브라우저에서 로그인 → 새로고침 유지 → 로그아웃 → 새로고침하면 로그인 화면. curl로 cookie 없는 재발급 401과 지우는 cookie, preflight의 credentials 허용을 확인함
   - 브라우저 Network 기록에서 로그아웃 204가 `ERR_ABORTED`로 찍힘. 같은 요청을 `fetch`로 직접 보내면 204로 정상 끝나고, proxy 없는 가짜 API에서도 똑같이 찍혀서 화면 이동으로 기록이 끊긴 것으로 봄
-  - 확인하지 않은 것: 운영 설정(`Secure` cookie)을 https로 켜 보기, 구글 로그인의 cookie(브라우저), 실행 묶음을 `make-bundle.ps1`로 다시 만들기
+  - 실행 묶음(`make-bundle.ps1`로 다시 만듦, `VERSION.txt` commit `918e8dc`):
+    - demo: curl로 `/api/auth/login`의 `Set-Cookie`에 `HttpOnly`, `SameSite=Strict`가 있고 `Secure`는 없음(묶음은 http). 재발급하면 값이 바뀌고 `Max-Age`가 이어짐. 로그아웃은 204와 지우는 cookie. 브라우저에서 로그인 → 새로고침해도 유지(재발급 200) → 로그아웃 → 새로고침하면 로그인 화면(재발급 401)
+    - prod(`.env`의 `FOOTPRINT_MODE=prod`, `PROFESSOR_EMAILS`는 가짜 주소): 백엔드 `SPRING_PROFILES_ACTIVE=prod`, `REFRESH_COOKIE_SECURE=false`. 이메일 로그인 404, 맞지 않는 cookie로 재발급하면 401과 지우는 cookie(`Secure` 없음), 허용하지 않은 Origin은 403(Spring CORS), 로그아웃 204. 브라우저는 구글 버튼만 있는 로그인 화면으로 감
+    - 확인한 뒤 묶음을 `docker compose down -v`로 끄고(묶음 volume만 지움) 묶음 폴더의 `.env`를 지움. 개발 DB·MinIO 컨테이너는 켠 채 그대로 둠
+  - 확인하지 않은 것: 운영 설정(`Secure` cookie)을 https로 켜 보기, 구글 로그인의 cookie(브라우저. 관리자의 구글 계정이 필요해서 하지 않음), `-NoCache`로 처음부터 만들기
 - 읽을 때 볼 곳:
   - `client.js`의 `send`. 401 → `refreshAccessToken` → `sendOnce` 한 번 더. 다시 401이면 로그인 화면. 재시도는 한 번뿐이라 무한 반복이 없음
   - `refreshing` 변수: Promise를 저장해 두고 여럿이 같은 것을 기다리는 방법. `.finally`에서 비워야 다음 만료 때 다시 재발급함
