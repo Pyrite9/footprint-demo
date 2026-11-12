@@ -106,6 +106,8 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 
 시작 데이터 상태로 돌아가고 싶을 때나, commit 전 내 migration을 고쳐 다시 돌리고 싶을 때 씀. 개발 데이터(`public` 스키마)만 지우고, volume과 테스트 스키마는 그대로 둠
 
+- 지우기 전의 데이터를 남기려면 먼저 백업함(`docs/backup-restore.md`). 되살릴 때는 그 문서의 "복구하기" 순서를 따름
+
 1. 서버를 끔
 2. 저장소 어디서든 실행. `infra`로 켰든 맨 위 폴더로 켰든 컨테이너 이름이 같음
 

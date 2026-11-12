@@ -41,6 +41,7 @@ flowchart TB
 
 - 화면은 **PostgreSQL이나 MinIO를 직접 부르지 않음.** 모든 데이터는 8080을 거침
 - 파일 본문만 MinIO에 있고, 파일 위치·이름·크기는 PostgreSQL에 있음
+  - 그래서 백업도 둘을 한 묶음으로 담고 함께 되살림(O-4, `infra/backup/`, `docs/backup-restore.md`). 한쪽만 되살리면 목록과 다운로드의 짝이 깨짐
 - PostgreSQL의 테이블은 백엔드가 켜질 때 Flyway가 `backend/src/main/resources/db/migration`의 SQL 파일로 만듦. 이미 적용한 파일은 다시 실행하지 않아서 백엔드를 다시 켜도 데이터가 남음(O-1). 시작 데이터는 빈 데이터베이스에서만 들어감
 - 데모(맨 위 `docker-compose.yml`)에서는 nginx가 컨테이너 안 80번에서 듣고, 밖으로는 5173으로 열림. 사람은 두 경우 모두 5173으로 접속함
 - docker compose로 켠 포트는 `127.0.0.1`에만 열어 둠. 같은 네트워크의 다른 컴퓨터에서는 접속되지 않음. 단, 개발 중 `gradlew bootRun`으로 직접 켠 백엔드 8080은 모든 주소에 열림(`application.yml`에 `server.address`가 없음)

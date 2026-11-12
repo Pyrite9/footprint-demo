@@ -1,0 +1,21 @@
+# 백업 묶음이 실제로 되살아나는지 연습하는 빈 PostgreSQL·MinIO입니다. 개발 환경의 데이터를 건드리지 않습니다.
+# infra/docker-compose.yml 위에 겹쳐 씁니다. 이미지와 healthcheck는 그 파일 그대로이고, 아래 세 가지만 바꿉니다.
+#   - compose 이름(name): volume이 footprint-restore-check_postgres-data처럼 따로 생깁니다
+#   - 컨테이너 이름: 개발 컨테이너(footprint-demo-*)와 겹치지 않게 합니다
+#   - 포트: 개발 환경과 동시에 켤 수 있게 5433, 9100, 9101을 씁니다
+# 켜기(infra 폴더에서): docker compose -f docker-compose.yml -f backup/docker-compose.restore-check.yml up -d --wait
+# 치우기(infra 폴더에서): docker compose -f docker-compose.yml -f backup/docker-compose.restore-check.yml down -v
+#   -v는 이 연습 환경의 volume만 지웁니다. 두 파일을 함께 주지 않으면 개발 환경을 가리키므로 반드시 둘 다 씁니다.
+name: footprint-restore-check
+
+services:
+  postgres:
+    container_name: footprint-restore-check-postgres
+    # !override: 앞 파일의 ports 목록에 더하지 않고 이 목록으로 바꿉니다.
+    ports: !override
+      - "127.0.0.1:5433:5432"
+  minio:
+    container_name: footprint-restore-check-minio
+    ports: !override
+      - "127.0.0.1:9100:9000"
+      - "127.0.0.1:9101:9001"

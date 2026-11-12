@@ -39,11 +39,12 @@
 | X-2 개인정보 고지와 동의 | 구조는 됨. 첫 로그인 뒤 고지 화면을 띄우고 동의 시각을 서버가 저장함. 동의 전에는 다른 화면으로 가지 못함. 고지 문구와 보관 기간은 학교·담당 교수 확인 전 초안(`frontend/src/constants/privacyNotice.js`) |
 | O-1 스키마 관리 | 됨. Flyway migration이 테이블을 만들고 서버를 다시 켜도 기록이 남음. "유효한 완료확인은 하나", "조장은 조마다 한 명"을 데이터베이스 인덱스로도 막음 |
 | O-8 상태 확인과 로그 | 됨. `GET /actuator/health`를 token 없이 부르면 서버와 데이터베이스가 살아 있는지 `UP`/`DOWN`만 돌려줌. 다른 actuator 주소는 닫혀 있음. 로그는 `docker logs`로 읽고, 운영 설정은 SQL을 찍지 않음. 비밀값, token, 이메일, 평가 점수·의견은 로그에 남기지 않음 |
+| O-4 백업·복구 | 됨(내 컴퓨터의 docker compose 기준). `infra/backup`의 스크립트로 DB와 올린 파일을 같은 시점의 묶음으로 백업하고, 빈 환경에만 되살림. 데이터가 있는 곳에는 덮어쓰지 않고 멈춤. 자동 예약과 다른 곳 보관은 O-3. 사용법은 `docs/backup-restore.md` |
 | O-2 운영 설정 분리 | 됨. 환경 변수 `SPRING_PROFILES_ACTIVE=prod` 하나로 운영 설정을 켬. 시작 데이터와 이메일·비밀번호 로그인이 꺼지고, 비밀값이 저장소에 공개된 기본값이면 서버가 켜지지 않음. 환경 변수 없이 켜면 지금처럼 개발 설정임. CORS 허용 주소는 `CORS_ALLOWED_ORIGINS`로 바꿈 |
 
 **아직 만들지 않은 것** (순서와 규칙은 `TODO.md`)
 
-- 운영에 필요한 나머지 추가 기능 2개(배포 구성 O-3, 백업·복구 O-4). 목록은 `TODO.md` 1절
+- 운영에 필요한 나머지 추가 기능 1개(배포 구성 O-3). 백업의 자동 예약과 다른 곳 보관도 여기서 함. 목록은 `TODO.md` 1절
 - 개인정보 고지 문구와 보관 기간의 학교·담당 교수 확인(`TODO.md` 3절)
 
 **만들지 않는 것**: 점수 자동 계산, 평균, 순위, 진척률, LLM 기능
@@ -91,7 +92,8 @@ frontend/   React
   src/constants/   동료평가 6개 항목 문장, 회원 유형, 과제 단계, 개인정보 고지 초안
   mock/            가짜 API(middleware.cjs). 응답 모양을 실제 API와 똑같이 맞춤
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
-docs/       구조 그림, API 명세, Postman 모음, 작업 기록, 노트북 설정 지시서
+  backup/   백업·복구 스크립트(Windows .ps1, macOS·Linux .sh). 만든 묶음은 bundles/에 쌓이고 저장소에 올라가지 않음
+docs/       구조 그림, API 명세, Postman 모음, 작업 기록, 노트북 설정 지시서, 백업·복구 안내
 docker-compose.yml  한 번에 실행(백엔드, nginx, infra의 PostgreSQL·MinIO)
 .github/workflows/ci.yml  main push와 PR마다 빌드·테스트·lint를 돌림
 TODO.md     앞으로 할 것
@@ -152,6 +154,7 @@ DB와 MinIO만 Docker로 켜고, 백엔드와 화면은 내 컴퓨터에서 실�
 - `docs/postman/` — API를 데모 흐름 순서로 모은 Postman 모음과 쓰는 방법
 - `docs/worklog.md` — 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정
 - `docs/laptop-setup.md` — 다른 컴퓨터(Arch Linux 노트북)에 이 저장소를 올려 작업하는 설정 지시서
+- `docs/backup-restore.md` — DB와 올린 파일을 한 묶음으로 백업하고 빈 환경에 되살리는 방법, 복구 연습, 백업 파일의 개인정보와 보관 기간
 - `CLAUDE.md` — 이 저장소의 코드 생성 규칙. 스택, 계층, 명명, 금지 목록을 AI 도구와 사람이 같이 지키는 기준
 
 ## 라이선스

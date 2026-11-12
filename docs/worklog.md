@@ -2349,3 +2349,70 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 운영 설정에서 DB 오류의 값을 뺌(`logServerErrorDetail: false`). 개발 설정은 그대로
   - 접근 로그를 두지 않음. 로그 수준은 두 설정 모두 INFO
   - 가짜 API에 상태 확인 주소를 두지 않고, Postman은 가짜 API에서 그 요청만 건너뜀
+
+## 2026.11.12 O-4 백업·복구 (로컬 compose 기준)
+- 범위: `TODO.md` 순서 21의 O-4만 함. O-3(서버, 도메인, Google Cloud)은 3절 "결과물 제출 형태와 서버"가 정해지지 않아 손대지 않음. 조율 세션이 "로컬 compose 기준 스크립트는 배포 형태와 무관하다"고 보고 O-4를 먼저 하기로 함
+- 결정:
+  - **방식: 컨테이너 안의 도구를 `docker exec`로 부르는 스크립트**. PostgreSQL 컨테이너의 `pg_dump`·`pg_restore`·`psql`, MinIO 컨테이너(`pgsty/minio`)에 들어 있는 `mc`를 씀. **새 컨테이너 이미지와 새 의존성 없음**
+    - 대안 컴퓨터에 `pg_dump`와 `mc` 설치: 조원 6명의 Windows·macOS마다 설치가 필요하고 PostgreSQL 버전(17)을 맞춰야 함
+    - 대안 `minio/mc` 이미지를 따로 띄움: MinIO 이미지에 `mc`가 이미 있어서(`mc version RELEASE.2026-08-04`) 이미지를 늘릴 이유가 없음
+    - 대안 volume 폴더(`/data`)를 통째로 복사: MinIO의 디스크 형식(`xl.meta`)에 묶이고, 켜진 채 복사하면 깨질 수 있음. S3 API(`mc mirror`)로 꺼내면 파일 이름이 곧 key라서 읽기 쉽고 MinIO 버전과 무관함
+  - **스크립트는 두 벌**: `backup.ps1`/`restore.ps1`(Windows PowerShell 5.1에서 돎), `backup.sh`/`restore.sh`(macOS·Linux, Git Bash). 같은 단계와 같은 문장으로 맞춤
+    - 대안 compose 서비스 하나로 두기(`docker compose run backup`): 셸 차이는 없어지지만 컨테이너에서 다른 컨테이너를 부르려면 docker socket을 넘기거나 네트워크·비밀번호를 넘겨야 함. 초심자에게 숨은 동작이 늘어남
+    - 대안 bash 한 벌만(Windows는 Git Bash): 조원이 PowerShell에서 바로 못 씀. 관리자 안내 기준이 PowerShell임
+  - **비밀번호를 스크립트가 다루지 않음**. `psql`·`pg_dump`는 컨테이너 안의 local socket으로 붙어 비밀번호가 필요 없고, `mc`는 `sh -c '... $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD'`처럼 작은따옴표로 넘겨 컨테이너 안에서 풀림. DB 이름·사용자 이름도 컨테이너의 환경 변수(`printenv`)에서 읽음
+    - 지시는 "접속값을 `infra/.env`에서 읽음"이었으나, 컨테이너는 만들 때 `infra/.env`의 값으로 만들어졌으므로 같은 값이고, 이 방식은 연습 환경처럼 다른 컨테이너에도 그대로 맞음. `infra/.env`에서 읽는 것은 버킷 이름(`STORAGE_BUCKET`, 없으면 `footprint`) 하나
+    - `mc alias`는 컨테이너 안에 저장되므로 스크립트 끝에 지움(`mc alias remove`). 버킷이 이미 있어 멈출 때는 대상 컨테이너에 남음(그 컨테이너는 같은 비밀번호를 환경 변수로 이미 가짐)
+  - **묶음 = `infra/backup/bundles/<yyyyMMdd-HHmmss>/` 폴더 하나**: `db.dump`(`pg_dump -n public -Fc`), `files/`(버킷 전체), `manifest.txt`
+    - `-n public`: 개발 DB에 함께 있는 테스트 스키마(`footprint_test`, `footprint_prod_test`)를 뺌
+    - 복구는 `pg_restore -n public`. 처음에 `-n` 없이 되살리다 `schema "public" already exists`로 실패함. 개발 DB의 `public`은 O-1 안내대로 `DROP SCHEMA public; CREATE SCHEMA public;`로 다시 만들어져 주인이 바뀐 탓에 dump에 `CREATE SCHEMA public`이 들어감. `pg_restore -n public`은 스키마 안의 것(테이블, 데이터, 인덱스, 제약)만 되살리고 스키마 생성은 건너뜀(`pg_restore -l`로 확인). `--clean`은 쓰지 않음(DROP 문이 들어가 초심자가 읽기에 위험해 보임)
+    - `manifest.txt` 행 수는 `infra/backup/count-rows.sql` 하나로 셈(`query_to_xml`로 테이블마다 count). 백업과 복구가 같은 파일을 씀
+    - 버킷은 통째로 담음. 데이터베이스가 가리키는 파일만 고르면 SQL과 mc를 엮어야 해서 복잡해지고, 주인 없는 파일은 해가 없음
+  - **순서: 데이터베이스 먼저, 파일 나중.** 그 사이의 업로드는 주인 없는 파일로만 남음. 반대 순서면 "행은 있는데 파일이 없는" 산출물이 생김. **서버를 멈추고 백업하는 것을 권장**하고 강제하지 않음. `bootRun`으로 켠 서버는 스크립트가 알아낼 방법이 마땅치 않아 안내 문장만 출력함
+  - **복구는 빈 대상에만**. 쓰기 전에 `public`의 테이블 수가 0인지, 버킷이 없는지 둘 다 확인하고 하나라도 걸리면 아무것도 바꾸지 않고 멈춤. **덮어쓰기 옵션은 두지 않음**. 지금 데이터를 버리고 되돌리려면 사람이 `docker compose down -v`를 직접 함(문서에 "먼저 지금 데이터도 백업" 경고)
+  - **복구 결과 비교**: 복구 뒤 테이블별 행 수와 파일 개수를 `manifest.txt`와 비교해 다르면 실패로 끝남
+  - **복구 연습 환경**: `infra/backup/docker-compose.restore-check.yml`을 `infra/docker-compose.yml` 위에 겹쳐 이름(`footprint-restore-check`), 컨테이너 이름, 포트(5433, 9100, 9101)만 바꿈. `ports: !override`(compose 2.24+)로 포트 목록을 바꿈. 이미지와 healthcheck를 한 곳에서만 고치려고 파일을 따로 복사하지 않음
+  - **Git Bash 경로**: `MSYS_NO_PATHCONV=1`로 컨테이너 안 경로(`/tmp/...`)가 Windows 경로로 바뀌는 것을 막고, 컴퓨터 쪽 경로는 `cygpath -m`으로 `E:/...` 모양으로 바꿈. 처음에는 앞의 것만 넣어 `docker cp`가 `E:\e\YJU\...`를 찾다가 실패함
+  - **`.ps1`은 UTF-8 BOM으로 저장**. Windows PowerShell 5.1은 BOM이 없으면 한글 주석·문장을 ANSI로 읽어 깨뜨림. `.sh`는 LF, 실행 권한(100755)
+  - **새 `.gitattributes` 한 줄(`*.sh text eol=lf`)**. 관리자 PC의 git 전역 설정이 `core.autocrlf=true`라서, 같은 설정의 Windows 조원이 받으면 `.sh`가 CRLF가 되어 Git Bash에서 `$'': command not found`로 멈춤. `.sh`만 고정하고 다른 파일은 그대로 둠
+  - **예약 실행·원격 보관·암호화는 만들지 않음**. 서버가 정해지는 O-3의 일로 `TODO.md` O-3 줄과 `docs/backup-restore.md` "남은 것"에 적음
+  - 백엔드·화면 코드는 고치지 않음. modern-web-guidance는 화면 코드가 없어 쓰지 않음
+- 만든 파일:
+  - 스크립트: `infra/backup/backup.ps1`, `infra/backup/backup.sh`, `infra/backup/restore.ps1`, `infra/backup/restore.sh`, `infra/backup/count-rows.sql`, `infra/backup/docker-compose.restore-check.yml`
+  - 문서: `docs/backup-restore.md`
+- 고친 파일:
+  - `.gitignore`(`infra/backup/bundles/`), `infra/.env.example`(`STORAGE_BUCKET` 주석 줄)
+  - 새 `.gitattributes`(`*.sh` 줄 끝 LF)
+  - 문서: `TODO.md`(순서 21, O-3·O-4 규칙, 4절 "백업", 5절 새 항목 3개와 기존 항목 보강 1개), `README.md`(지금 상태, 남은 추가 기능 2 → 1, 폴더 구조, 문서 목록), `CLAUDE.md`(고정 스택과 구조의 `infra/`, `docs/` 줄), `backend/README.md`("개발 데이터베이스를 처음부터 다시 만들기"에 백업 안내 한 줄), `docs/architecture.md`(DB·MinIO 짝과 백업 한 줄)
+- 확인 (모두 Windows 11 관리자 PC에서 직접 실행. PowerShell은 Windows PowerShell 5.1.26100, bash는 Git Bash. **macOS·Linux 실제 bash에서는 돌리지 않음**):
+  - 개발 환경은 읽기만 함: 백업 전 개발 DB 행 수를 적어 둠(assignment 5, confirmation 11, contribution 8, deliverable 6(삭제됨 3), evaluation 3, evaluation_draft 0, flyway_schema_history 2, leader_history 6, member 11, notification 24, role_history 3, team 9, team_member 22). 버킷 `footprint` 파일 257개(약 18MB), dump 약 40KB
+  - `backup.ps1`과 `backup.sh`로 각각 묶음을 만듦. 두 `manifest.txt`의 줄(만든 시각 제외)과 `files/` 내용이 같음(`diff -r`). ps1이 쓴 manifest는 BOM·CRLF이고 sh 쪽 비교에서 `\r`을 지워 같게 읽음
+  - 연습 환경(`footprint-restore-check`, 5433/9100)을 빈 volume으로 켜고 `restore.ps1`로 복구: "행 수와 파일 개수(257 개)가 manifest.txt와 같습니다"
+  - 복구본에 백엔드 jar(`POSTGRES_PORT=5433 STORAGE_ENDPOINT=http://localhost:9100 SERVER_PORT=8081`)를 켬: 로그에 `Successfully validated 2 migrations`, `Schema "public" is up to date. No migration necessary.`. `GET /actuator/health` 200 `{"status":"UP"}`. 켠 뒤에도 행 수가 원본과 같음(`DataInitializer`가 시작 데이터를 넣지 않음, member 11 그대로)
+  - 교수 시작 계정으로 로그인해 산출물 목록 5개 조 모두 200. 산출물 6개 다운로드: 삭제 안 된 3개는 200이고 크기(78, 33, 44 byte)와 sha256이 **개발 MinIO의 원본 객체**(`mc cat`으로 읽기만 함)와 같음. 삭제된 3개는 404 `NOT_FOUND` "삭제된 산출물입니다. id=…"
+  - 버킷 전체: 개발 MinIO와 복구본의 객체 257개마다 key와 sha256을 나란히 놓고 비교해 모두 같음
+  - 비어 있지 않은 대상: 복구본과 **개발 환경(기본 컨테이너 이름)** 에 `restore.ps1`·`restore.sh`를 다시 실행하자 넷 다 "멈춤: ... 테이블이 13 개 있습니다"로 멈춤(종료 코드 1). 개발 환경은 그 확인 쿼리만 읽고 멈춤
+  - 버킷만 있는 대상: 연습 환경을 지우고 다시 켠 뒤 `mc mb`로 버킷만 만들고 `restore.sh` → "멈춤: ... 버킷 footprint 이 이미 있습니다". 그때 데이터베이스 테이블 수는 그대로 0(쓰기 전에 멈춤)
+  - 그 버킷을 지우고 `backup.sh`로 만든 묶음을 `restore.sh`로 복구 → 같음. 백엔드를 다시 붙여 health UP, 다운로드 3개 sha256 같음, 삭제 3개 404, 행 수 같음
+  - 스크립트에 `mc alias remove` 줄을 더한 뒤 최종 스크립트로 한 번 더: `backup.ps1`·`backup.sh`, 새 연습 환경마다 `restore.ps1`·`restore.sh` 모두 "같습니다". 개발·연습 MinIO에 `footprint-*` alias가 남지 않음
+  - 정리: 연습 환경은 매번 `docker compose -f docker-compose.yml -f backup/docker-compose.restore-check.yml down -v`로 컨테이너, volume 2개, network를 지움. 끝난 뒤 `footprint-restore-check*` 컨테이너·volume 없음, 8081 비어 있음
+  - 끝난 뒤 개발 환경: `footprint-demo-postgres`, `footprint-demo-minio` 둘 다 healthy, 행 수가 처음과 같음, 파일 257개, 두 컨테이너의 `/tmp` 비어 있음. volume `footprint-demo_*`는 건드리지 않음
+  - 남긴 백업 묶음: `infra/backup/bundles/20261112-093740`(ps1), `infra/backup/bundles/20261112-093744`(sh). gitignore되어 `git status`에 나오지 않음
+  - 백엔드·화면 코드를 고치지 않아 `gradlew build`, `npm run build`, `npm run lint`는 돌리지 않음. 확인에 쓴 jar는 O-8 때 만든 `backend/build/libs/footprint-backend-0.0.1-SNAPSHOT.jar`(그 뒤 `backend` 변경 없음)
+  - **확인 못 함**: macOS·Linux의 bash에서 실행(Git Bash로만 돌림), PowerShell 7, 화면으로 복구본 보기(curl로 API만 봄), 운영 설정(prod)으로 켠 서버의 백업, 서버를 켜 둔 채 업로드하면서 백업하는 경우
+- 읽을 때 볼 곳 (초심자가 막힐 곳):
+  - `docker exec 컨테이너 명령`은 그 명령을 **컨테이너 안에서** 실행함. 그래서 `/tmp/...`는 내 컴퓨터가 아니라 컨테이너의 경로이고, 파일은 `docker cp`로 꺼내거나 넣음
+  - 작은따옴표 안의 `$MINIO_ROOT_PASSWORD`는 내 셸이 풀지 않고 컨테이너의 `sh`가 풂. 큰따옴표로 바꾸면 내 컴퓨터의 (빈) 변수로 풀려 접속이 실패함
+  - `docker cp A B`에서 B가 아직 없는 폴더면 A 폴더의 내용이 B라는 이름으로 복사됨. 있으면 B 안에 A가 들어감. 스크립트가 대상 폴더를 미리 만들지 않는 이유임
+  - `pg_dump -Fc`는 SQL 글자가 아니라 `pg_restore`만 읽는 압축 형식임. 안을 보려면 `pg_restore -l`(목록)이나 `pg_restore -f - 파일`(SQL로 풀어 보기)
+  - PowerShell에서 docker 같은 바깥 프로그램이 실패해도 스크립트는 멈추지 않음. 그래서 `Invoke-Docker`가 `$LASTEXITCODE`를 보고 `throw`함. bash는 `set -e`가 같은 일을 함
+  - 연습 환경의 `down -v`는 `-f` 두 개를 함께 줄 때만 연습 환경을 가리킴. 하나만 주면 개발 환경 volume을 지움
+- 내가 채운 가정:
+  - 스크립트 위치 `infra/backup/`, 묶음 위치 `infra/backup/bundles/`, 폴더 이름 `yyyyMMdd-HHmmss`(내 컴퓨터 시각)
+  - DB 이름·사용자 이름을 `infra/.env`가 아니라 컨테이너 환경 변수에서 읽음. 버킷 이름만 `infra/.env`
+  - 테스트 스키마는 백업하지 않음. 버킷은 주인 없는 파일까지 통째로 담음
+  - 서버를 멈추고 백업하는 것을 권장만 하고 강제하지 않음
+  - 덮어쓰기 옵션을 두지 않음. 비어 있음의 기준은 "public에 테이블 0개, 버킷 없음"
+  - 복구할 버킷 이름은 묶음의 `manifest.txt`를 따름
+  - 연습 환경의 포트 5433, 9100, 9101
+  - 묶음 보관 기간은 X-2 고지 초안의 보관 기간과 같다고 문서에 적음(확정되면 함께 고침)

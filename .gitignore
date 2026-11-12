@@ -30,3 +30,6 @@ Thumbs.db
 # 가짜 API에 올린 산출물 파일 (시작 파일 seed-*만 올린다)
 frontend/mock/files/*
 !frontend/mock/files/seed-*
+
+# 백업 묶음 (O-4). 개인정보(이름, 이메일, 평가 점수·의견, 올린 파일)가 들어 있어서 절대 올리지 않는다
+infra/backup/bundles/
