@@ -2374,8 +2374,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - **복구 연습 환경**: `infra/backup/docker-compose.restore-check.yml`을 `infra/docker-compose.yml` 위에 겹쳐 이름(`footprint-restore-check`), 컨테이너 이름, 포트(5433, 9100, 9101)만 바꿈. `ports: !override`(compose 2.24+)로 포트 목록을 바꿈. 이미지와 healthcheck를 한 곳에서만 고치려고 파일을 따로 복사하지 않음
   - **Git Bash 경로**: `MSYS_NO_PATHCONV=1`로 컨테이너 안 경로(`/tmp/...`)가 Windows 경로로 바뀌는 것을 막고, 컴퓨터 쪽 경로는 `cygpath -m`으로 `E:/...` 모양으로 바꿈. 처음에는 앞의 것만 넣어 `docker cp`가 `E:\e\YJU\...`를 찾다가 실패함
   - **`.ps1`은 UTF-8 BOM으로 저장**. Windows PowerShell 5.1은 BOM이 없으면 한글 주석·문장을 ANSI로 읽어 깨뜨림. `.sh`는 LF, 실행 권한(100755)
-  - **새 `.gitattributes` 한 줄(`*.sh text eol=lf`)**. 관리자 PC의 git 전역 설정이 `core.autocrlf=true`라서, 같은 설정의 Windows 조원이 받으면 `.sh`가 CRLF가 되어 Git Bash에서 `$'
-': command not found`로 멈춤. `.sh`만 고정하고 다른 파일은 그대로 둠
+  - **새 `.gitattributes` 한 줄(`*.sh text eol=lf`)**. 관리자 PC의 git 전역 설정이 `core.autocrlf=true`라서, 같은 설정의 Windows 조원이 받으면 `.sh`가 CRLF가 되어 Git Bash에서 `$'': command not found`로 멈춤. `.sh`만 고정하고 다른 파일은 그대로 둠
   - **예약 실행·원격 보관·암호화는 만들지 않음**. 서버가 정해지는 O-3의 일로 `TODO.md` O-3 줄과 `docs/backup-restore.md` "남은 것"에 적음
   - 백엔드·화면 코드는 고치지 않음. modern-web-guidance는 화면 코드가 없어 쓰지 않음
 - 만든 파일:
