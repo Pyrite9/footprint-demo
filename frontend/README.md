@@ -40,7 +40,12 @@ Invoke-RestMethod -Uri http://localhost:3001/members/me -Headers @{ Authorizatio
 
 ## B. 실제 백엔드로 실행
 
-`backend/README.md`대로 서버를 켠 뒤 `npm run dev`만 실행. `.env`의 기본값이 실제 백엔드(8080)임.
+`backend/README.md`대로 서버를 켠 뒤 `npm run dev`만 실행. `.env`의 기본값(`VITE_API_URL=/api`)이 실제 백엔드임.
+
+- 화면은 백엔드를 화면과 같은 주소의 `/api`로 부름. 개발 서버가 `/api`를 떼고 `http://127.0.0.1:8080`으로 넘김(`vite.config.js`의 `server.proxy`). 예: `http://localhost:5173/api/auth/login` → `http://127.0.0.1:8080/auth/login`
+- 이유: 화면(`localhost:5173`)과 백엔드(`127.0.0.1:8080`)는 브라우저가 다른 site로 봐서 로그인 cookie를 보내지 않음. 같은 주소로 부르면 cookie가 실림
+- 데모의 nginx 컨테이너도 같은 일을 함(`nginx.conf`의 `location /api/`)
+- 브라우저 개발자 도구의 Network 탭에는 `/api/...`로 보임. 백엔드 로그와 `docs/api-draft.md`의 주소는 `/api`를 뗀 주소임
 
 ## 화면 확인
 

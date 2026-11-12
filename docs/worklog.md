@@ -2564,3 +2564,33 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 격자 6장(조 홈, 산출물 상세, 기여 항목, 전체 기록, 진척, 동료평가)
   - "조별과제에서 흔한 일" 표의 문제 6개는 업무 규칙에서 거꾸로 적은 것임. 기능도기술서의 문제 정의와 맞춰 보지 않음
   - 빠른 시작의 계정 4개 고르기와 각 계정 설명
+
+## 2026.11.12 인증-1 화면이 백엔드를 같은 origin의 `/api`로 부르기
+- 결정:
+  - 명세는 `docs/api-draft.md` "공통"의 `/api` 항목(commit `b435555`). 화면의 `VITE_API_URL`을 `/api`로 바꾸고, 앞의 `/api`를 떼는 일은 개발 서버(Vite `server.proxy`)와 화면 컨테이너의 nginx가 함. 백엔드 주소, 8080, CORS 설정은 그대로임
+  - proxy의 target은 `http://127.0.0.1:8080`. `localhost`는 IPv6(`::1`)로 연결되어 큰 업로드 뒤 멈춘 이력이 있어서 쓰지 않음(이 문서의 "한 번에 실행")
+  - nginx의 백엔드 주소는 compose 서비스 이름 `backend`(`http://backend:8080/`). 맨 위 `docker-compose.yml`과 `infra/bundle/template/docker-compose.yml` 모두 서비스 이름이 `backend`라서 설정 하나로 둘 다 됨
+  - nginx는 브라우저가 보낸 `Host`(예: `localhost:5173`)를 그대로 넘김(`proxy_set_header Host $http_host`). 선택지: nginx 기본값(`Host: backend:8080`). 기본값이면 백엔드가 `Origin: http://localhost:5173`과 Host가 달라 이 요청을 CORS 요청으로 검사함. 허용 주소라 동작은 같지만, Vite 개발 서버는 기본으로 Host를 그대로 넘기므로 둘을 같게 맞춤
+  - 업로드: 처음에는 nginx `client_max_body_size`를 백엔드의 `max-swallow-size`와 같은 100MB로 두고 20MB 검사를 백엔드에 맡기려 했음. 실제로 재 보니 백엔드(Tomcat)는 20MB를 넘는 업로드에 약 1MB만 읽고 400을 보낸 뒤 남은 body를 읽지 않음(curl `size_upload` 약 1MB). 브라우저가 백엔드를 직접 부를 때는 브라우저가 보내기를 멈춰서 400을 받지만, proxy는 남은 body를 계속 보내려고 기다림
+    - nginx: 400이 60초(`proxy_send_timeout`) 뒤에 옴. 그래서 nginx 상한을 백엔드 상한과 같은 `20m`으로 두고, 넘으면 `error_page 413`으로 백엔드와 같은 JSON `{"code":"INVALID_INPUT","message":"파일은 20MB까지 올릴 수 있습니다"}`을 400으로 직접 돌려줌. 넘는 요청은 백엔드로 가지 않음. 문장이 `GlobalExceptionHandler.handleMultipart`와 두 곳에 있게 되어 nginx.conf에 "그쪽을 바꾸면 여기도" 주석을 담
+    - Vite 개발 서버(http-proxy-3): 브라우저가 `net::ERR_CONNECTION_RESET`을 받음. 백엔드의 400을 받는 즉시 개발 서버가 응답을 끝내고 아직 올라오는 연결을 닫기 때문임. `Connection: close` header만 떼면 Node `fetch`는 되지만 Chrome은 그대로 끊김. 그래서 `selfHandleResponse: true`로 응답을 직접 넘기고, 요청 body가 아직 남았으면 백엔드로의 pipe를 끊고(`req.unpipe()`) 남은 body를 읽어 버린 뒤(`req.resume()`) `end`에서 응답을 넘김. `unpipe` 없이 `resume`만 하면 백엔드 쪽 pipe가 막혀 `end`가 오지 않음(실제로 멈춤)
+    - 선택지: Vite 쪽도 nginx처럼 `Content-Length`를 보고 미리 400을 돌려주기. 개발 서버에 middleware(plugin)를 하나 더 써야 하고 문장이 세 곳이 되어 고르지 않음
+  - 맨 위 `docker-compose.yml`의 frontend `depends_on`은 그대로 백엔드의 시작만 기다림(healthy까지 기다리지 않음). 백엔드가 켜지기 전의 `/api` 요청은 nginx가 502로 답하고 화면은 기본 문장 "요청을 처리하지 못했습니다"를 보임
+- 만든·고친 파일: `frontend/.env`, `frontend/vite.config.js`, `frontend/nginx.conf`, `frontend/Dockerfile`, `frontend/README.md`, `docker-compose.yml`, `infra/bundle/make-bundle.ps1`, `infra/bundle/template/docker-compose.yml`, `infra/bundle/template/README.md`, `docs/architecture.md`, `docs/bundle.md`, `docs/getting-started.md`, `TODO.md`, `docs/worklog.md`
+  - `infra/bundle/out/`은 `.gitignore`에 있어 추적되지 않음. 손대지 않음. 다음 `make-bundle.ps1`부터 `/api` 이미지가 들어감
+  - `README.md`, `backend/README.md`에는 "화면이 `127.0.0.1:8080`을 부른다"는 설명이 없어서 고치지 않음. 그 문서의 `127.0.0.1:8080`은 모두 Postman·curl·상태 확인임
+- 확인:
+  - `frontend`에서 `npm run build`, `npm run lint` 통과
+  - 개발 서버(`npm run dev`) + 백엔드 jar: 브라우저에서 시작 계정 로그인, 산출물 목록, 업로드(작은 파일), 다운로드가 모두 `/api/...`로 나가고 성공함(Network 기록). 19MB 업로드 200, 21MB·60MB 업로드는 400 `INVALID_INPUT` "파일은 20MB까지 올릴 수 있습니다", 그 뒤 요청도 정상
+  - Docker: 맨 위 `docker compose up -d --build backend frontend`로 nginx 화면과 백엔드 컨테이너를 켜서 브라우저와 curl·Node로 같은 것을 확인함. 21MB·60MB는 0.1~0.3초 안에 400 JSON, 파일 20,971,000바이트(요청 전체가 20MB 바로 아래)는 200. 직접 부른 백엔드(8080)도 같은 파일에 200
+  - 확인하느라 개발 데이터베이스의 1조에 이서연 이름으로 작은 파일과 19MB 파일 몇 개를 올림(시작 데이터 아님. 다시 만들려면 `backend/README.md` "개발 데이터베이스를 처음부터 다시 만들기")
+  - 실행 묶음(`make-bundle.ps1`)은 다시 만들지 않음. 화면 이미지와 nginx 설정이 같아서 위 Docker 확인으로 갈음함
+- 읽을 때 볼 곳:
+  - `vite.config.js`의 `configure`. 보통 요청은 `req.complete`가 true라 바로 넘김. false인 경우는 큰 업로드가 거절될 때뿐임
+  - `nginx.conf`의 `proxy_pass http://backend:8080/;` 끝의 `/`. 이것이 `/api/`를 떼는 부분임. `/`가 없으면 `/api/auth/login`이 그대로 백엔드로 감(404)
+  - `location @upload_too_large`의 `@`는 주소가 아니라 nginx 안에서만 부르는 이름임
+  - 브라우저 Network 탭의 주소(`/api/...`)와 백엔드 로그·`api-draft.md`의 주소(`/api` 없음)가 다름
+- 내가 채운 가정:
+  - nginx와 Vite가 브라우저의 Host를 그대로 넘김
+  - nginx의 업로드 상한 20MB와 상한을 넘었을 때의 JSON
+  - TODO 구현 순서의 ID 이름 "인증-1"(23은 "인증-2")

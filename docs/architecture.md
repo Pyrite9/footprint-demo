@@ -31,7 +31,7 @@ flowchart TB
     mock["json-server<br/>3001 · 가짜 API"]
 
     user --> react
-    react -- "fetch · src/api/client.js" --> boot
+    react -- "fetch /api · src/api/client.js<br/>Vite proxy · nginx가 /api를 뗌" --> boot
     react -. "백엔드 없이 개발할 때" .-> mock
     react -- "구글 버튼 · ID token 받기" --> google
     boot -- "JPA" --> db
@@ -40,18 +40,22 @@ flowchart TB
 ```
 
 - 화면은 **PostgreSQL이나 MinIO를 직접 부르지 않음.** 모든 데이터는 8080을 거침
+- 브라우저는 백엔드를 화면과 같은 주소의 `/api`로 부름(예: `http://localhost:5173/api/auth/login`). 개발은 Vite 개발 서버(`frontend/vite.config.js`의 `server.proxy`), 데모와 실행 묶음은 화면 컨테이너의 nginx(`frontend/nginx.conf`)가 `/api`를 떼고 백엔드로 넘김
+  - 이유: 화면(`localhost:5173`)과 백엔드(`127.0.0.1:8080`)는 브라우저가 다른 site로 봐서 cookie를 보내지 않음. 같은 주소로 부르면 cookie가 실리고 화면 요청에 CORS가 필요 없음
+  - 백엔드의 8080은 그대로 열림. Postman, 상태 확인, 테스트가 씀. 가짜 API(3001)는 화면이 직접 부름
 - 파일 본문만 MinIO에 있고, 파일 위치·이름·크기는 PostgreSQL에 있음
   - 그래서 백업도 둘을 한 묶음으로 담고 함께 되살림(O-4, `infra/backup/`, `docs/backup-restore.md`). 한쪽만 되살리면 목록과 다운로드의 짝이 깨짐
 - PostgreSQL의 테이블은 백엔드가 켜질 때 Flyway가 `backend/src/main/resources/db/migration`의 SQL 파일로 만듦. 이미 적용한 파일은 다시 실행하지 않아서 백엔드를 다시 켜도 데이터가 남음(O-1). 시작 데이터는 빈 데이터베이스에서만 들어감
 - 데모(맨 위 `docker-compose.yml`)에서는 nginx가 컨테이너 안 80번에서 듣고, 밖으로는 5173으로 열림. 사람은 두 경우 모두 5173으로 접속함
 - docker compose로 켠 포트는 `127.0.0.1`에만 열어 둠. 같은 네트워크의 다른 컴퓨터에서는 접속되지 않음. 단, 개발 중 `gradlew bootRun`으로 직접 켠 백엔드 8080은 모든 주소에 열림(`application.yml`에 `server.address`가 없음)
 - 가짜 API(3001)는 Java와 Docker 없이 화면만 만들 때 쓰는 갈래. 실제 API와 응답 모양이 같음
-- 백엔드는 환경 변수 없이 켜면 개발 설정, `SPRING_PROFILES_ACTIVE=prod`면 운영 설정임(O-2). 운영 설정은 `application.yml` 위에 `application-prod.yml`을 덮어써서 시작 데이터와 이메일·비밀번호 로그인을 끄고, 켜기 전에 `ProductionSettingsChecker`가 비밀값을 검사함. 화면이 부를 수 있는 주소(CORS)는 `CORS_ALLOWED_ORIGINS`
+- 백엔드는 환경 변수 없이 켜면 개발 설정, `SPRING_PROFILES_ACTIVE=prod`면 운영 설정임(O-2). 운영 설정은 `application.yml` 위에 `application-prod.yml`을 덮어써서 시작 데이터와 이메일·비밀번호 로그인을 끄고, 켜기 전에 `ProductionSettingsChecker`가 비밀값을 검사함. 백엔드를 직접 부를 수 있는 화면 주소(CORS)는 `CORS_ALLOWED_ORIGINS`
 - 백엔드의 상태 확인 주소는 `GET /actuator/health` 하나임(O-8). token 없이 `UP`/`DOWN`만 돌려주고 데이터베이스에 닿는지 봄(MinIO는 보지 않음). 맨 위 `docker-compose.yml`의 backend healthcheck가 이 주소를 부름. 다른 actuator 주소는 열지 않음
 - 로그는 파일 없이 표준 출력으로만 나감. docker compose로 켜면 `docker logs footprint-demo-backend`로 읽음. 운영 설정은 SQL을 찍지 않음
 - 제출용 실행 묶음(O-3, `docs/bundle.md`)도 위 그림과 같은 컨테이너 4개임. 다른 점
   - 이미지를 소스로 빌드하지 않고 묶음의 tar에서 넣음. compose 이름과 컨테이너 이름이 `footprint-bundle`이라 개발 환경과 섞이지 않음
   - PostgreSQL·MinIO는 호스트 포트를 열지 않음(그림의 5432, 9000, 9001이 밖에서 보이지 않음). 백엔드만 compose 안의 네트워크로 접속함
+  - 화면 컨테이너의 nginx도 compose 안의 네트워크로 백엔드(서비스 이름 `backend`)를 부름
   - 비밀값은 묶음 폴더의 `.env`에 처음 켤 때 무작위로 만든 값. `.env`의 `FOOTPRINT_MODE`(demo·prod)가 백엔드의 Spring profile과 화면 이미지를 고름
 
 ## 2. JWT 흐름

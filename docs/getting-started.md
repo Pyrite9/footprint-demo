@@ -28,8 +28,9 @@ docker compose up -d --build
 ```
 
 - 처음에는 이미지를 만드느라 몇 분 걸림. 다음부터는 `docker compose up -d`만 쓰면 됨(코드를 바꿨으면 `--build`를 붙일 것)
-- 화면: http://localhost:5173 — 주소는 `127.0.0.1`이 아니라 `localhost`로 열 것. 백엔드가 기본으로 이 주소만 허용함(바꾸려면 `infra/.env`의 `CORS_ALLOWED_ORIGINS`)
-- 백엔드: http://127.0.0.1:8080
+- 화면: http://localhost:5173 — 주소는 `127.0.0.1`이 아니라 `localhost`로 열 것. 백엔드와 구글 로그인이 기본으로 이 주소만 허용함(바꾸려면 `infra/.env`의 `CORS_ALLOWED_ORIGINS`)
+- 화면은 백엔드를 같은 주소의 `/api`로 부름. 화면 컨테이너의 nginx가 `/api`를 떼고 백엔드 컨테이너로 넘김(`frontend/nginx.conf`)
+- 백엔드: http://127.0.0.1:8080 — Postman과 상태 확인용. 화면은 이 주소를 직접 부르지 않음
 - MinIO 콘솔: http://localhost:9001 — 계정은 `infra/.env`(없으면 `infra/.env.example`의 기본값)
 - 시작 계정과 시작 데이터: `backend/README.md`의 "시작 계정"부터. 비밀번호는 모두 `pass1234`
 - 올린 산출물과 제출한 평가는 백엔드를 다시 켜거나(`docker compose restart backend`) 꺼도 남음. `gradlew build`로도 지워지지 않음. 시작 데이터 상태로 돌아가려면 `backend/README.md`의 "개발 데이터베이스를 처음부터 다시 만들기"

@@ -41,7 +41,7 @@ $minioImage = "pgsty/minio:RELEASE.2026-08-04T00-00-00Z"
 docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw "Docker가 켜져 있지 않습니다. Docker Desktop을 켠 뒤 다시 실행하세요." }
 
-# 2. 백엔드와 화면 이미지를 새로 만듭니다. 화면이 부르는 백엔드 주소는 묶음의 포트(127.0.0.1:8080)와 같아야 합니다.
+# 2. 백엔드와 화면 이미지를 새로 만듭니다. 화면은 백엔드를 화면과 같은 주소의 /api로 부르고, 화면 이미지의 nginx가 backend 컨테이너로 넘깁니다.
 #    @cacheArgs: 배열을 명령의 인자 여러 개로 펼칩니다. -NoCache가 없으면 빈 배열이라 아무것도 붙지 않습니다.
 $cacheArgs = @()
 if ($NoCache) { $cacheArgs = @("--no-cache") }
@@ -50,9 +50,9 @@ Invoke-Docker build @cacheArgs --platform $platform -t $backendImage (Join-Path 
 Write-Host "2/5 화면 이미지를 만듭니다: $frontendDemoImage, $frontendProdImage"
 $frontendDir = Join-Path $repoDir "frontend"
 Invoke-Docker build @cacheArgs --platform $platform -t $frontendDemoImage `
-    --build-arg VITE_API_URL=http://127.0.0.1:8080 --build-arg VITE_PASSWORD_LOGIN=true $frontendDir
+    --build-arg VITE_API_URL=/api --build-arg VITE_PASSWORD_LOGIN=true $frontendDir
 Invoke-Docker build @cacheArgs --platform $platform -t $frontendProdImage `
-    --build-arg VITE_API_URL=http://127.0.0.1:8080 --build-arg VITE_PASSWORD_LOGIN=false $frontendDir
+    --build-arg VITE_API_URL=/api --build-arg VITE_PASSWORD_LOGIN=false $frontendDir
 
 # 3. PostgreSQL·MinIO 이미지가 이 컴퓨터에 없으면 받습니다. 있으면 그대로 씁니다(개발 환경이 쓰는 것과 같은 이미지).
 foreach ($image in @($postgresImage, $minioImage)) {
