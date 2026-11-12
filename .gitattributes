@@ -1,2 +1,4 @@
 # 셸 스크립트는 어느 컴퓨터에서 받아도 줄 끝을 LF로 둔다. Windows의 core.autocrlf=true가 CRLF로 바꾸면 bash가 줄 끝의 \r을 명령으로 읽어 멈춘다(O-4)
 *.sh text eol=lf
+# Windows 배치 파일은 CRLF로 둔다. cmd.exe는 LF 줄 끝에서 label·goto를 잘못 읽는 일이 있다(O-3)
+*.bat text eol=crlf

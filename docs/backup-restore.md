@@ -147,12 +147,22 @@ PostgreSQL(기록)과 MinIO(올린 파일)를 한 묶음으로 백업하고, 빈
    docker compose -f docker-compose.yml -f backup/docker-compose.restore-check.yml down -v
    ```
 
-## 남은 것 (O-3에서 함)
+## 실행 묶음에서 쓰기 (O-3)
 
-서버와 제출 형태가 정해져야 정할 수 있어서 이번에 만들지 않음
+- 제출용 실행 묶음(`docs/bundle.md`)의 `backup/` 폴더에 같은 스크립트가 들어 있음. 묶음 폴더에서 컨테이너 이름 옵션을 줌
+  ```powershell
+  .\backup\backup.ps1 -PostgresContainer footprint-bundle-postgres -MinioContainer footprint-bundle-minio
+  ```
+  macOS·Linux는 `bash backup/backup.sh --postgres-container footprint-bundle-postgres --minio-container footprint-bundle-minio`
+- 백업 묶음은 묶음 폴더의 `backup/bundles/`에 생김. 버킷 이름은 묶음 폴더의 `.env`에서 읽음(없으면 `footprint`)
+- 복구 순서는 받는 사람용 `README.md` "백업과 복구"(reset → `docker compose up -d --wait postgres minio` → restore → start). 2026.11.12에 실제로 묶음에서 백업·복구해 확인함
+
+## 하지 않는 것
+
+제출 형태가 로컬 실행 묶음으로 정해져(2026.11.12) 아래는 만들지 않음. 묶음은 받는 사람의 PC에서 시연 동안 켜는 것이라 받는 사람이 정함. 접속 가능한 주소에 올리게 되면 다시 정함
 
 - 자동 예약 실행(cron, Windows 작업 스케줄러)과 백업 주기
-- 다른 컴퓨터·저장소에 보관(지금은 같은 컴퓨터의 폴더라 디스크가 고장 나면 함께 잃음)
-- 묶음 암호화(서버에 두면 필요함)
-- 보관 기간이 지난 묶음을 지우는 일(위 "개인정보")
+- 다른 컴퓨터·저장소에 보관. 받는 사람용 안내에 "개인 저장 장치에 옮기고 공유하지 않음"만 적음
+- 묶음 암호화
+- 보관 기간이 지난 묶음을 자동으로 지우는 일. 보관 기간이 X-2 초안이라 정해지지 않음. 안내에 "기간이 지나면 폴더째 지움"을 적음
 - 서버를 멈추지 않고 백업하는 방법(필요해지면 MinIO 버전 관리나 DB 기준 파일 목록으로 맞추는 방식을 검토)

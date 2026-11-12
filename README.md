@@ -11,6 +11,7 @@
 
 - 단위 업무 29개가 모두 됨. 아래 흐름 전체가 동작함
 - 새로 clone 한 폴더에서 `docker compose up -d --build` 한 번으로 처음부터 끝까지 실행하는 것까지 확인
+- 제출용 실행 묶음(O-3)을 USB에 담음. 저장소 없이 Docker Desktop만 있는 PC에서 인터넷 없이 켜짐(아래 "제출용 실행 묶음")
 
 만든 기능 15개.
 
@@ -40,12 +41,14 @@
 | O-1 스키마 관리 | 됨. Flyway migration이 테이블을 만들고 서버를 다시 켜도 기록이 남음. "유효한 완료확인은 하나", "조장은 조마다 한 명"을 데이터베이스 인덱스로도 막음 |
 | O-8 상태 확인과 로그 | 됨. `GET /actuator/health`를 token 없이 부르면 서버와 데이터베이스가 살아 있는지 `UP`/`DOWN`만 돌려줌. 다른 actuator 주소는 닫혀 있음. 로그는 `docker logs`로 읽고, 운영 설정은 SQL을 찍지 않음. 비밀값, token, 이메일, 평가 점수·의견은 로그에 남기지 않음 |
 | O-4 백업·복구 | 됨(내 컴퓨터의 docker compose 기준). `infra/backup`의 스크립트로 DB와 올린 파일을 같은 시점의 묶음으로 백업하고, 빈 환경에만 되살림. 데이터가 있는 곳에는 덮어쓰지 않고 멈춤. 자동 예약과 다른 곳 보관은 O-3. 사용법은 `docs/backup-restore.md` |
+| O-3 배포 구성 | 됨(로컬 실행 묶음). 제출 형태는 Docker compose 기반 로컬 실행 묶음(2026.11.12 관리자 결정). `infra/bundle/make-bundle.ps1`이 이미지를 만들어 폴더 하나에 담고, 받는 사람은 `start.bat`(macOS `bash start.sh`)으로 켬. 비밀값은 처음 켤 때 무작위로 만들고 DB·MinIO 포트는 열지 않음. 시연용(demo)과 운영(prod)을 `.env` 한 줄로 고름. 만드는 법은 `docs/bundle.md` |
 | O-2 운영 설정 분리 | 됨. 환경 변수 `SPRING_PROFILES_ACTIVE=prod` 하나로 운영 설정을 켬. 시작 데이터와 이메일·비밀번호 로그인이 꺼지고, 비밀값이 저장소에 공개된 기본값이면 서버가 켜지지 않음. 환경 변수 없이 켜면 지금처럼 개발 설정임. CORS 허용 주소는 `CORS_ALLOWED_ORIGINS`로 바꿈 |
 
-**아직 만들지 않은 것** (순서와 규칙은 `TODO.md`)
+**남은 것** (자세히는 `TODO.md` 맨 위 "남은 일 한눈에")
 
-- 운영에 필요한 나머지 추가 기능 1개(배포 구성 O-3). 백업의 자동 예약과 다른 곳 보관도 여기서 함. 목록은 `TODO.md` 1절
-- 개인정보 고지 문구와 보관 기간의 학교·담당 교수 확인(`TODO.md` 3절)
+- 만들 기능은 남지 않음. 구현 순서 21개가 모두 됨
+- 관리자 작업: 구글 로그인 동의 화면(Google Cloud), 개인정보 고지 문구와 보관 기간의 학교·담당 교수 확인, push 뒤 CI 확인
+- 확인하지 못한 것: 강단 PC와 macOS에서 묶음 실행
 
 **만들지 않는 것**: 점수 자동 계산, 평균, 순위, 진척률, LLM 기능
 
@@ -93,15 +96,33 @@ frontend/   React
   mock/            가짜 API(middleware.cjs). 응답 모양을 실제 API와 똑같이 맞춤
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
   backup/   백업·복구 스크립트(Windows .ps1, macOS·Linux .sh). 만든 묶음은 bundles/에 쌓이고 저장소에 올라가지 않음
-docs/       구조 그림, API 명세, Postman 모음, 작업 기록, 노트북 설정 지시서, 백업·복구 안내
+  bundle/   제출용 실행 묶음. make-bundle.ps1(만드는 스크립트), template/(묶음에 들어갈 파일 원본). 결과 out/은 저장소에 올라가지 않음
+docs/       구조 그림, API 명세, Postman 모음, 작업 기록, 노트북 설정 지시서, 백업·복구 안내, 실행 묶음 안내
 docker-compose.yml  한 번에 실행(백엔드, nginx, infra의 PostgreSQL·MinIO)
 .github/workflows/ci.yml  main push와 PR마다 빌드·테스트·lint를 돌림
 TODO.md     앞으로 할 것
 ```
 
-## 한 번에 실행 (Docker만 있으면 됨)
+## 실행 방법 세 가지
 
-Java, Node.js 없이 Docker Desktop만으로 백엔드, 화면, PostgreSQL, MinIO, 시작 데이터를 한 번에 켜는 방법.
+| | 누가 | 무엇으로 | 안내 |
+|---|---|---|---|
+| 제출용 실행 묶음 | 담당 교수, 강단 PC, 시연 | USB의 묶음 폴더와 Docker Desktop. 저장소·인터넷 필요 없음 | 아래 "제출용 실행 묶음" |
+| 한 번에 실행 | 조원이 저장소 전체를 돌려 볼 때 | 저장소와 Docker Desktop. 이미지를 소스로 빌드 | 아래 "한 번에 실행" |
+| 개발할 때 | 코드를 고칠 때 | DB·MinIO만 Docker, 백엔드·화면은 내 컴퓨터 | 아래 "개발할 때" |
+
+## 제출용 실행 묶음
+
+12.11 발표와 12.15 PBL 제출에 쓰는 폴더 하나짜리 묶음(O-3). 이미지가 tar로 들어 있어 받는 PC에서 빌드와 인터넷 없이 켜짐
+
+- 받는 사람: 묶음 폴더를 PC에 복사 → `start.bat` 더블클릭(macOS·Linux `bash start.sh`) → http://localhost:5173. 안내는 묶음 맨 위 `README.md`(원본 `infra/bundle/template/README.md`)
+- 만드는 사람(관리자): 저장소 맨 위에서 `.\infra\bundle\make-bundle.ps1` → `infra/bundle/out/footprint-demo/`를 USB에 복사 → `SHA256SUMS.txt`로 확인. 자세히는 `docs/bundle.md`
+- 개발 환경과 이름이 달라서(`footprint-bundle-*`) 개발 데이터를 건드리지 않음. 포트 5173, 8080은 같아서 개발용 백엔드·화면 서버는 끈 채로 켬
+- 기본은 시연용(demo, 시작 계정 로그인). 묶음 폴더의 `.env`에서 `FOOTPRINT_MODE=prod`로 바꾸면 운영 설정(구글 로그인만)
+
+## 한 번에 실행 (저장소와 Docker만 있으면 됨)
+
+Java, Node.js 없이 Docker Desktop만으로 백엔드, 화면, PostgreSQL, MinIO, 시작 데이터를 한 번에 켜는 방법. 이미지를 저장소의 소스로 빌드함
 
 ```powershell
 docker compose up -d --build
@@ -130,7 +151,7 @@ docker compose down
 
 ### 비밀값
 
-- 저장소에 들어 있는 비밀값은 모두 개발용 기본값(`change-me` 등)
+- 저장소에 들어 있는 비밀값은 모두 개발용 기본값(`change-me` 등). 제출용 실행 묶음은 처음 켤 때 무작위 값을 만들어 쓰므로 이 값을 쓰지 않음
 - 접속 가능한 주소에 올릴 때는 `JWT_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`를 환경 변수로 반드시 바꿀 것
 - 운영 설정(`SPRING_PROFILES_ACTIVE=prod`)으로 켜면 셋 중 하나라도 공개된 기본값이거나 비었을 때, 또는 `PROFESSOR_EMAILS`가 비었을 때 백엔드가 켜지지 않음. 로그에는 바꿔야 할 이름만 나오고 값은 나오지 않음. 켜는 법과 환경 변수 표는 `backend/README.md`의 "운영 설정으로 켜기"
 - 환경 변수 없이 켜면 개발 설정이라 검사하지 않음. 조원은 할 일이 없음
@@ -155,6 +176,7 @@ DB와 MinIO만 Docker로 켜고, 백엔드와 화면은 내 컴퓨터에서 실�
 - `docs/worklog.md` — 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정
 - `docs/laptop-setup.md` — 다른 컴퓨터(Arch Linux 노트북)에 이 저장소를 올려 작업하는 설정 지시서
 - `docs/backup-restore.md` — DB와 올린 파일을 한 묶음으로 백업하고 빈 환경에 되살리는 방법, 복구 연습, 백업 파일의 개인정보와 보관 기간
+- `docs/bundle.md` — 제출용 실행 묶음을 만들고 USB에 담는 방법, 묶음에 든 것, 배포 때 할 일을 묶음에서 처리한 방법
 - `CLAUDE.md` — 이 저장소의 코드 생성 규칙. 스택, 계층, 명명, 금지 목록을 AI 도구와 사람이 같이 지키는 기준
 
 ## 라이선스

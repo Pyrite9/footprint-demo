@@ -2416,3 +2416,89 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 복구할 버킷 이름은 묶음의 `manifest.txt`를 따름
   - 연습 환경의 포트 5433, 9100, 9101
   - 묶음 보관 기간은 X-2 고지 초안의 보관 기간과 같다고 문서에 적음(확정되면 함께 고침)
+
+## 2026.11.12 O-3 배포 구성 (제출용 로컬 실행 묶음)
+- 범위: `TODO.md` 순서 21의 O-3. 3절 "결과물 제출 형태와 서버"를 관리자가 조율 세션에서 정함(2026.11.12): (1) 접속 가능한 주소가 아니라 로컬 실행 묶음으로 냄 (2) 묶음은 Docker compose 기반 (3) 묶음은 USB(F:, "Samsung USB", exFAT)에 담음. 그래서 서버, 도메인, Google Cloud 설정은 이 단위에 없음
+- 결정:
+  - **묶음 = 폴더 하나**(`footprint-demo/`). 이미지 5개를 `docker save`로 tar에 넣고, 묶음의 compose는 `build` 대신 `image`와 `pull_policy: never`. 받는 PC에서 인터넷과 빌드 없이 켜짐
+    - 대안 소스와 Dockerfile을 넣고 받는 PC에서 빌드: 인터넷(Gradle·npm 의존성, 기반 이미지)이 필요하고 강단 PC에서 몇 분씩 걸림
+    - 대안 Docker Hub 같은 registry에 올림: 외부 계정·공개 범위 문제가 생기고 강단 PC에 인터넷이 필요함
+  - **이미지 tag는 묶음 버전(만든 날짜)**: `footprint-backend:2026.11.12`, `footprint-frontend:2026.11.12-demo`·`-prod`. PostgreSQL·MinIO는 개발 환경과 같은 `postgres:17`, `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` 그대로(이미 버전이 이름에 보임). 버전은 `-Version`으로 바꿈
+    - 대안 PostgreSQL·MinIO도 묶음 이름으로 다시 tag: 받는 PC에 같은 이름의 다른 `postgres:17`이 있을 때를 막지만 이름이 늘어 읽기 어려움. 같은 17 판이라 그대로 둠(`docs/bundle.md` "알려진 한계")
+  - **amd64만 넣음**(`--platform linux/amd64`로 빌드·저장, compose에 `platform: linux/amd64`). 받는 PC가 Windows라는 가정. Apple Silicon은 변환으로 돌아 느림(안내 문서에 적음). arm64까지 넣으면 묶음이 두 배이고 빌드에 변환이 필요해 넣지 않음
+  - **화면 이미지를 두 가지로 넣음**: `VITE_PASSWORD_LOGIN`이 빌드할 때 화면 파일에 들어가서 demo(폼 있음)·prod(폼 없음) 이미지를 따로 만듦. tar 하나가 약 29MB라 둘 다 넣어도 부담이 작음
+    - 대안 런타임에 설정 파일(`config.js`)을 읽게 화면 코드를 고침: 화면 코드와 nginx 설정이 바뀌고 가짜 API·개발 서버 흐름까지 손대야 함
+  - **실행 방식은 `.env`의 `FOOTPRINT_MODE=demo|prod` 한 줄**. 이 값이 그대로 Spring profile 이름(`SPRING_PROFILES_ACTIVE`)이 되고 화면 이미지 tag의 끝을 고름. `demo` profile에는 설정 파일이 없어서 개발 설정과 같음. `ProductionSettingsChecker`는 `prod`만 봄
+    - 대안 `SPRING_PROFILES_ACTIVE`와 화면 tag를 따로 적게 함: 둘이 어긋나면(백엔드 prod + 폼 있는 화면) 로그인 폼이 404를 받음. 한 줄로 묶음
+    - 기본값은 demo(시연용). 발표는 인터넷 없이도 되는 시작 계정 로그인으로 함. 방식을 바꿀 때는 reset으로 데이터를 지운 뒤 켬(demo의 시작 계정이 prod 데이터베이스에 남지 않게)
+  - **비밀값은 첫 start가 만듦**: `env.template`을 `.env`로 복사하면서 비어 있는 `JWT_SECRET`(32바이트), `POSTGRES_PASSWORD`·`MINIO_ROOT_PASSWORD`(24바이트)를 암호용 난수의 16진수로 채움. PowerShell은 `RandomNumberGenerator`, bash는 `od`로 `/dev/urandom`을 읽음. 값은 화면에 찍지 않음
+    - 16진수: 따옴표, `$`, `=`가 없어 `.env`와 셸 어디서도 escape가 필요 없음
+    - bash에서 `tr -dc ... < /dev/urandom | head`는 `set -o pipefail`에서 tr이 SIGPIPE로 끝나 실패로 잡혀서 `od`를 씀
+    - `.env`는 BOM 없는 UTF-8로 씀(Windows PowerShell의 `Set-Content -Encoding UTF8`은 BOM을 붙임). bash 쪽은 `umask 077`로 다른 사용자가 못 읽게 함
+  - **volume은 있는데 `.env`가 없으면 start가 멈춤**. PostgreSQL 비밀번호는 volume을 처음 만들 때만 읽혀서, 새 `.env`로는 백엔드가 `password authentication failed`로 켜지지 않음(실제 확인). 새 값으로 덮어쓰지 않고 "되살리거나 reset"을 안내함
+  - **compose의 비밀값 자리는 `${이름:?문장}`**: `.env`에 값이 없으면 compose가 그 문장으로 멈춤. `env_file`로 `.env`를 통째로 넘기지 않고 `environment:`에 컨테이너마다 받는 값을 하나씩 적음(어느 값이 어디로 가는지 보이게)
+  - **포트**: 화면 `127.0.0.1:5173`, 백엔드 `127.0.0.1:8080`만 엶. PostgreSQL·MinIO는 `ports`가 없음. 화면 이미지에 백엔드 주소가 들어 있고 CORS·구글 로그인 출처가 `http://localhost:5173`이라 포트를 설정값으로 빼지 않음
+  - **개발 환경과 다른 이름**: compose `footprint-bundle`, 컨테이너 `footprint-bundle-*`, volume `footprint-bundle_*`. 개발 DB·MinIO를 켠 채 묶음을 켤 수 있음(포트가 겹치지 않음). 개발용 백엔드·화면 서버(8080, 5173)와는 동시에 못 켬
+  - **start는 `docker compose up -d --wait --wait-timeout 300`**: 기다리는 반복문을 직접 쓰지 않고 compose가 healthcheck(백엔드 `/actuator/health`)를 기다리게 함
+  - **이미지는 없는 것만 load**: `images/images.txt`(`tar 이름|이미지 이름`)를 보고 `docker image inspect`가 실패하는 이미지만 `docker load`. 받는 PC의 같은 이름 이미지를 덮어쓰지 않음
+  - **stop은 `docker compose stop`**(컨테이너와 로그가 남음). `down`은 쓰지 않음
+  - **reset은 `delete`를 정확히 입력해야** `docker compose down -v`. `.env`, 백업 묶음, 이미지는 남김. `.env`가 없을 때도 지울 수 있게 비밀값 자리에 `unused`를 넘김
+  - **스크립트 세 벌**: Windows `.ps1`(UTF-8 BOM, Windows PowerShell 5.1) + 더블클릭용 `.bat`(ASCII, CRLF, `-ExecutionPolicy Bypass`는 그 실행에만 적용), macOS·Linux `.sh`(LF, `bash start.sh`로 부르게 안내. exFAT에는 실행 권한이 없음)
+    - `.bat`은 영어 주석만 둠. cmd.exe가 UTF-8 한글 줄을 코드 페이지에 따라 잘못 읽을 수 있음
+    - 새 `.gitattributes` 줄 `*.bat text eol=crlf`
+    - `.ps1`에서 `$ErrorActionPreference = "Stop"`을 쓰지 않음. Windows PowerShell 5.1은 그 상태에서 바깥 프로그램의 stderr를 `2>$null`로 돌려도 멈춤. O-4 스크립트처럼 `$LASTEXITCODE`를 직접 봄
+  - **만드는 스크립트는 PowerShell 한 벌**(`infra/bundle/make-bundle.ps1`). bash 판은 두지 않음. 묶음은 관리자 Windows PC에서 한 번 만들고, 같은 일을 두 벌로 고치는 비용이 큼. `-NoCache`로 빌드 cache 없이 만듦
+  - **생성 파일(`images.txt`, `VERSION.txt`, `SHA256SUMS.txt`)은 LF**. 처음에 `WriteAllLines`로 써서 CRLF가 되었고, Git Bash의 `sha256sum -c`가 파일 이름 끝의 `\r`까지 읽어 24개 모두 FAILED가 남. `Write-LfFile`로 고친 뒤 다시 만듦
+  - **`VERSION.txt`에 commit**: commit 하지 않은 변경이 있으면 "(commit 하지 않은 변경 포함)"을 붙임. 처음에 `"built_at=" + (Get-Date ...)`를 배열 안에 써서 쉼표가 `+`보다 먼저 묶여 줄이 둘로 나뉨. 문자열 안의 `$( )`로 고침
+  - **백업(O-4에서 넘어온 일)**: 스크립트를 묶음의 `backup/`에 그대로 넣음(묶음 안에서 `..\.env`가 묶음의 `.env`가 되어 버킷 이름도 맞음). 컨테이너 이름은 옵션으로 줌. 묶음용 감싸기 스크립트는 두지 않음(파일이 3개 늘어서 안내 문서의 명령 한 줄로 대신함)
+    - 하는 것: 수동 백업·복구 안내, 개인정보·보관 기간 안내
+    - 하지 않는 것: 자동 예약(강단 PC는 시연 동안만 켜고, 받는 PC의 작업 스케줄러를 바꾸는 일), 다른 곳 보관·암호화(받는 사람의 저장 장치 선택), 기간 지난 묶음 자동 삭제(보관 기간이 X-2 초안)
+    - 복구 연습용 `docker-compose.restore-check.yml`은 저장소 `infra`가 있어야 쓰여서 넣지 않음
+  - **USB에서 바로 실행보다 PC로 복사를 추천**: `.env`(비밀값)와 백업 묶음(개인정보)이 USB에 남아 넘어가는 것, 처음 load 때 USB 속도, macOS exFAT의 실행 권한·`._` 파일 때문
+  - 백엔드·화면 코드는 고치지 않음. modern-web-guidance는 `frontend/src`를 고치지 않아 쓰지 않음. 새 의존성 없음
+- 만든 파일:
+  - `infra/bundle/make-bundle.ps1`
+  - `infra/bundle/template/`: `docker-compose.yml`, `env.template`, `start.ps1`·`start.sh`·`start.bat`, `stop.ps1`·`stop.sh`·`stop.bat`, `reset.ps1`·`reset.sh`·`reset.bat`, `README.md`(받는 사람용 안내)
+  - `docs/bundle.md`
+- 고친 파일: `.gitignore`(`infra/bundle/out/`), `.gitattributes`(`*.bat`), `TODO.md`(맨 위 "남은 일 한눈에", 1절 머리말과 순서 21, O-3 규칙, 3절 제출 형태를 결정으로 닫음, 4절 항목마다 묶음 처리와 관리자 할 일, 5절 새 한계 3개), `README.md`(지금 상태, O-3 줄, 남은 것, 폴더 구조, 실행 방법 세 가지와 "제출용 실행 묶음", 비밀값, 문서 목록), `CLAUDE.md`(고정 스택과 구조의 `infra/`, `docs/` 줄), `backend/README.md`(운영 설정으로 켜기, 시작 계정), `docs/architecture.md`(실행 묶음 한 묶음), `docs/backup-restore.md`("남은 것"을 "실행 묶음에서 쓰기"와 "하지 않는 것"으로)
+- 확인 (모두 Windows 11 관리자 PC, Docker 29.8.0, Compose v5.5.1, Windows PowerShell 5.1, Git Bash):
+  - 묶음 만들기: `make-bundle.ps1`을 처음 한 번(cache 사용), 이어서 `-NoCache`로 한 번 돌림. `-NoCache`에서 백엔드 `gradlew bootJar`(BUILD SUCCESSFUL), 화면 `npm ci`(274개)와 `npm run build`가 두 이미지 모두 처음부터 됨. 이전 단위에서 확인하지 못한 "소스로 전체 이미지 빌드"가 여기서 됨. 생성 파일 LF 수정 뒤 한 번 더 돌린 결과를 USB에 담아 시험함
+  - 묶음 크기: 약 449MB(파일 25개). `footprint-backend.tar` 190MB, `postgres.tar` 167MB, `minio.tar` 55MB, 화면 tar 둘 각 29MB
+  - 화면 이미지: demo의 JS에는 "시작 계정으로 로그인"이 있고 prod에는 없음. 둘 다 백엔드 주소 `http://127.0.0.1:8080`
+  - USB: 쓰기 전에 F:가 "Samsung USB", exFAT, 64,157,122,560바이트이고 `System Volume Information` 말고 비어 있음을 확인. `F:\footprint-demo\`에 복사한 뒤 `sha256sum -c SHA256SUMS.txt` 24개 모두 OK, 원본과 파일 크기 목록 같음. 받는 사람용 안내의 PowerShell 확인 명령도 USB에서 돌려 다른 파일이 없음
+  - **USB의 묶음만으로 켬**(저장소 폴더를 쓰지 않음, 작업 폴더 `C:\`에서 `F:\footprint-demo\start.ps1`): 묶음 tag 이미지 3개를 `docker rmi`로 지운 뒤 start → 3개가 다시 생기고(load) `.env`가 생기고(값 길이 64/48/48, BOM 없음) 4개 컨테이너 healthy까지 약 31초. `postgres:17`, `pgsty/minio`는 개발 컨테이너가 쓰고 있어 지우지 못해 load를 건너뜀 → **이미지가 하나도 없는 PC와 완전히 같지는 않음**
+  - 켜진 묶음: `/actuator/health` 200 `{"status":"UP"}`, 로그 `profile is active: "demo"`, Flyway 2개 적용. 화면 `http://localhost:5173` 200. 화면(내장 브라우저)에서 `professor@example.com`으로 로그인해 "내 과제"에 시작 과제 2개가 보임
+  - API: student01 로그인 → 1조에 300,000바이트 무작위 파일 업로드 → 다운로드 sha256 같음, 업로드 시각이 한국 시간. 2조 산출물 목록은 403 `FORBIDDEN`, token 없이 401
+  - stop → start: 업로드한 산출물과 다운로드 해시가 그대로, 회원 11명 그대로. 두 번째 start는 load를 건너뜀
+  - 포트: 묶음 postgres·minio의 `HostConfig.PortBindings`가 비어 있음. 호스트의 5432·9000·9001은 개발 컨테이너의 것. 묶음은 `127.0.0.1:8080`, `127.0.0.1:5173`만
+  - 백업: 묶음 폴더에서 `backup.ps1`·`backup.sh`를 묶음 컨테이너 이름으로 돌림 → 파일 4개, 행 수(member 11, deliverable 4), 올린 파일의 sha256이 같음
+  - 복구: 묶음 volume을 지우고 안내 문서 순서(postgres·minio만 켬 → `restore.ps1` → start)대로 → "행 수와 파일 개수(4 개)가 manifest.txt와 같습니다", start 뒤 다운로드 해시 같음
+  - `.env`가 없을 때: volume이 있는 상태에서 `.env`를 옮기고 `start.ps1`·`start.sh` → 둘 다 "데이터는 남아 있는데 설정 파일 .env가 없습니다"로 멈춤(종료 코드 1). `.env`가 새로 생기지 않음
+  - 비밀번호가 다를 때: `.env`를 되돌리고 셸 환경 변수로 다른 `POSTGRES_PASSWORD`를 주어 켬 → 백엔드가 `FATAL: password authentication failed for user "footprint"`로 꺼짐(exit 1). 원래 `.env`로 start하면 healthy, 데이터 그대로
+  - reset: `delete`가 아닌 답(`no`, `nope`)에 ps1·sh 둘 다 "지우지 않았습니다", volume 그대로
+  - 운영 설정: 묶음 volume을 지우고 `.env`를 `FOOTPRINT_MODE=prod`로 → `PROFESSOR_EMAILS`가 비어 ps1·sh 둘 다 미리 멈춤. 가짜 주소(`example.com`)를 넣고 켬 → 로그 `profile is active: "prod"`, `ProductionSettingsChecker` 통과(생성한 비밀값), health UP, 회원 0·과제 0, `POST /auth/login` 404 `NOT_FOUND`, SQL 로그 0줄, 화면 이미지 `-prod`이고 로그인 화면에 구글 버튼만 있음(내장 브라우저)
+  - bash 켜기: volume과 `.env`를 지우고 `bash start.sh` → `.env` 생성(길이 64/48/48), healthy, 회원 11. `bash stop.sh`로 끔
+  - 비밀값 노출: 세 비밀값이 네 컨테이너의 `docker logs`와 start 출력에 없음
+  - 정리: 묶음 컨테이너·volume·network는 `docker compose -f F:/footprint-demo/docker-compose.yml down -v`로 지움(남은 것 없음). USB의 `.env`와 `backup/bundles/`를 지우고 `sha256sum -c` 다시 OK(파일 25개). 개발 환경 `footprint-demo-postgres`·`footprint-demo-minio` 둘 다 healthy, 테이블별 행 수가 시작 전과 같음, 버킷 파일 257개 그대로. `footprint-demo_*` volume은 건드리지 않음
+  - reset의 지우는 경로(`delete` 입력)는 스크립트로 돌리지 않음. `.claude/settings.json`이 `docker compose down`을 "ask"로 묶어 두어, 스크립트로 감싸 부르지 않고 같은 명령을 직접 실행함
+  - 백엔드·화면 코드를 고치지 않아 `gradlew build`, `npm run build`, `npm run lint`는 돌리지 않음
+  - **확인 못 함**: macOS·Apple Silicon, Linux의 실제 bash(Git Bash로만 돌림), Docker가 처음 설치된 PC, 강단 PC, PowerShell 7에서 `make-bundle.ps1`, `.bat` 더블클릭(같은 명령줄을 셸에서 돌림), 구글 로그인(묶음에서 실제 구글 계정으로 로그인하지 않음)
+  - USB의 최종 묶음은 이 commit을 만든 뒤 `-NoCache`로 다시 만들어 담음. 그래서 `VERSION.txt`, `SHA256SUMS.txt`, 이미지 tar의 해시가 위 시험 묶음과 다름(소스는 같음)
+  - 최종 묶음의 짧은 확인(묶음 tag 이미지를 지우고 USB에서 start): 3개 load, `.env` 생성, health UP, 화면 200. 다만 start가 끝난 직후의 시작 계정 로그인 한 번이 401이었고 바로 다음부터 200(5절 "`Started BackendApplication` 로그가 시작 데이터보다 먼저 나옴"과 같은 원인). 코드는 고치지 않고 받는 사람용 안내 "켜기"와 `TODO.md` 5절에 적음
+- 읽을 때 볼 곳 (초심자가 막힐 곳):
+  - `docker compose -f 파일`은 그 파일이 있는 폴더를 project 폴더로 보고 거기의 `.env`를 읽음. 그래서 start를 어느 폴더에서 실행해도 묶음의 `.env`를 씀
+  - `${이름:?문장}`과 `${이름:-기본값}`의 차이: 앞은 없으면 멈추고, 뒤는 없으면 기본값을 씀
+  - volume은 폴더가 아니라 Docker 안에 있음. 묶음 폴더를 지워도 데이터가 남고, `.env`만 지우면 데이터를 열 수 없게 됨
+  - PowerShell의 `@cacheArgs`(splatting)는 배열을 인자 여러 개로 펼침. 빈 배열이면 아무것도 붙지 않음
+  - PowerShell 배열 안에서 `"a" + $b`는 쉼표가 먼저 묶여서 원소 둘이 됨. 문자열 안에 `$( )`로 넣음
+  - `.bat`의 `%~dp0`은 그 `.bat` 파일이 있는 폴더(끝에 `\` 포함)
+- 내가 채운 가정:
+  - 묶음 폴더 이름 `footprint-demo`, compose 이름 `footprint-bundle`, 이미지 이름 `footprint-backend`·`footprint-frontend`, 버전 형식 `yyyy.MM.dd`
+  - 결과 폴더 `infra/bundle/out/`, 원본 폴더 `infra/bundle/template/`
+  - 비밀값 길이(32·24바이트)와 16진수 표현
+  - `FOOTPRINT_MODE`라는 이름과 값 `demo`·`prod`, 기본 demo
+  - reset 확인어 `delete`(한글 입력기 없이 칠 수 있는 영어)
+  - `--wait-timeout 300`초, compose v2.17 이상 요구
+  - 받는 사람 요구 사항(메모리 4GB, 디스크 약 2.5GB)은 이 PC의 이미지 크기로 어림한 값
+  - 받는 사람용 안내의 처음 볼 순서(교수 → student01 → student02 → student10)
+  - 시작 계정 비밀번호(`pass1234`)는 저장소에 공개된 시연용 값이라 안내 문서에 적음. 생성한 비밀값은 어디에도 적지 않음

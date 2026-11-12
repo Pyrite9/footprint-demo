@@ -49,6 +49,10 @@ flowchart TB
 - 백엔드는 환경 변수 없이 켜면 개발 설정, `SPRING_PROFILES_ACTIVE=prod`면 운영 설정임(O-2). 운영 설정은 `application.yml` 위에 `application-prod.yml`을 덮어써서 시작 데이터와 이메일·비밀번호 로그인을 끄고, 켜기 전에 `ProductionSettingsChecker`가 비밀값을 검사함. 화면이 부를 수 있는 주소(CORS)는 `CORS_ALLOWED_ORIGINS`
 - 백엔드의 상태 확인 주소는 `GET /actuator/health` 하나임(O-8). token 없이 `UP`/`DOWN`만 돌려주고 데이터베이스에 닿는지 봄(MinIO는 보지 않음). 맨 위 `docker-compose.yml`의 backend healthcheck가 이 주소를 부름. 다른 actuator 주소는 열지 않음
 - 로그는 파일 없이 표준 출력으로만 나감. docker compose로 켜면 `docker logs footprint-demo-backend`로 읽음. 운영 설정은 SQL을 찍지 않음
+- 제출용 실행 묶음(O-3, `docs/bundle.md`)도 위 그림과 같은 컨테이너 4개임. 다른 점
+  - 이미지를 소스로 빌드하지 않고 묶음의 tar에서 넣음. compose 이름과 컨테이너 이름이 `footprint-bundle`이라 개발 환경과 섞이지 않음
+  - PostgreSQL·MinIO는 호스트 포트를 열지 않음(그림의 5432, 9000, 9001이 밖에서 보이지 않음). 백엔드만 compose 안의 네트워크로 접속함
+  - 비밀값은 묶음 폴더의 `.env`에 처음 켤 때 무작위로 만든 값. `.env`의 `FOOTPRINT_MODE`(demo·prod)가 백엔드의 Spring profile과 화면 이미지를 고름
 
 ## 2. JWT 흐름
 

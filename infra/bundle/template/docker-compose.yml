@@ -1,0 +1,105 @@
+# 발자국 실행 묶음의 compose 파일입니다. 저장소 없이 이 폴더만으로 켜집니다.
+# 저장소의 infra/bundle/template/docker-compose.yml이 원본이고, make-bundle.ps1이 __VERSION__을 묶음 버전으로 바꿔 묶음에 넣습니다.
+# 저장소의 맨 위 docker-compose.yml, infra/docker-compose.yml과 내용이 겹칩니다(이미지, healthcheck). 그쪽을 바꾸면 이 파일도 맞춥니다.
+#
+# 개발 환경(이름 footprint-demo)과 다른 이름을 씁니다. 컨테이너와 volume이 footprint-bundle-*, footprint-bundle_*로 따로 생겨서
+# 같은 컴퓨터에서 개발 데이터를 건드리지 않습니다.
+name: footprint-bundle
+
+# ${이름:?문장}: 이 폴더의 .env에서 값을 읽고, 없으면 그 문장을 보여 주며 멈춥니다. .env는 start 스크립트가 처음 켤 때 만듭니다.
+# ${이름:-기본값}: .env에 없으면 기본값을 씁니다.
+services:
+  postgres:
+    image: postgres:17
+    # 이미지는 묶음의 images 폴더에서 docker load로 넣습니다. 인터넷에서 받지 않습니다(pull_policy: never).
+    pull_policy: never
+    # 이미지는 Intel·AMD(amd64)용입니다. Apple Silicon Mac에서는 Docker Desktop이 변환해서 실행합니다(느림).
+    platform: linux/amd64
+    container_name: footprint-bundle-postgres
+    environment:
+      POSTGRES_DB: footprint
+      POSTGRES_USER: footprint
+      # 이 비밀번호는 volume을 처음 만들 때만 쓰입니다. 그 뒤에 .env를 바꿔도 데이터베이스의 비밀번호는 바뀌지 않습니다.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env에 POSTGRES_PASSWORD가 없습니다}
+    # ports가 없습니다. 데이터베이스는 이 컴퓨터 밖으로도, 이 컴퓨터 안의 다른 프로그램에도 열지 않습니다. 백엔드만 compose 안의 네트워크로 접속합니다.
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U footprint -d footprint"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    pull_policy: never
+    platform: linux/amd64
+    container_name: footprint-bundle-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: footprint
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?.env에 MINIO_ROOT_PASSWORD가 없습니다}
+    # ports가 없습니다. 올린 파일은 백엔드를 거쳐서만 내려받습니다. MinIO 콘솔(9001)도 열지 않습니다.
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    image: footprint-backend:__VERSION__
+    pull_policy: never
+    platform: linux/amd64
+    container_name: footprint-bundle-backend
+    environment:
+      # FOOTPRINT_MODE가 Spring profile 이름이 됩니다.
+      # demo: 시연용. 시작 데이터(시작 계정 11명, 데모 과제)와 이메일·비밀번호 로그인이 됩니다. demo라는 설정 파일은 없어서 개발 설정과 같습니다.
+      # prod: 운영 설정(application-prod.yml). 시작 데이터와 이메일·비밀번호 로그인이 없고 구글 로그인만 됩니다. PROFESSOR_EMAILS가 필요합니다.
+      SPRING_PROFILES_ACTIVE: ${FOOTPRINT_MODE:-demo}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: footprint
+      POSTGRES_USER: footprint
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env에 POSTGRES_PASSWORD가 없습니다}
+      MINIO_ROOT_USER: footprint
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?.env에 MINIO_ROOT_PASSWORD가 없습니다}
+      STORAGE_ENDPOINT: http://minio:9000
+      JWT_SECRET: ${JWT_SECRET:?.env에 JWT_SECRET이 없습니다}
+      PROFESSOR_EMAILS: ${PROFESSOR_EMAILS:-}
+      # 컨테이너의 기본 시간대는 UTC라서 기록 시각이 9시간 이르게 저장됩니다. 한국 시간으로 맞춥니다.
+      TZ: Asia/Seoul
+    # 이 컴퓨터(127.0.0.1)에서만 열립니다. 화면이 부르는 백엔드 주소가 http://127.0.0.1:8080으로 화면 이미지 안에 들어 있어서 포트를 바꿀 수 없습니다.
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    # 상태 확인 주소로 서버가 요청을 받을 수 있는지 봅니다. start 스크립트의 docker compose up --wait가 이 결과가 healthy가 될 때까지 기다립니다.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  frontend:
+    # 화면 이미지는 두 가지입니다. demo는 이메일·비밀번호 로그인 폼이 있고, prod는 없습니다(빌드할 때 정해져서 이미지가 다릅니다).
+    image: footprint-frontend:__VERSION__-${FOOTPRINT_MODE:-demo}
+    pull_policy: never
+    platform: linux/amd64
+    container_name: footprint-bundle-frontend
+    # 화면 주소는 http://localhost:5173입니다. 구글 로그인과 백엔드의 CORS 허용 주소가 이 주소라서 포트를 바꿀 수 없습니다.
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      - backend
+
+# 데이터가 남는 곳입니다. docker volume으로 Docker 안에 저장되고, 이 폴더에는 남지 않습니다.
+# stop 스크립트로 꺼도 남고, reset 스크립트로만 지웁니다.
+volumes:
+  postgres-data:
+  minio-data:

@@ -166,6 +166,7 @@ Found non-empty schema(s) "public" but no schema history table. Use baseline() o
   ```
   macOS는 `SPRING_PROFILES_ACTIVE=prod JWT_SECRET=... ... java -jar build/libs/footprint-backend-0.0.1-SNAPSHOT.jar`
 - docker compose: `infra/.env`의 "운영 설정" 줄(`infra/.env.example`)의 `#`을 지우고 값을 넣음. 화면의 이메일·비밀번호 폼도 숨기려면 `VITE_PASSWORD_LOGIN=false`로 화면 이미지를 다시 만듦(`docker compose --env-file infra/.env up -d --build`)
+- 제출용 실행 묶음(O-3): 묶음 폴더의 `.env`에서 `FOOTPRINT_MODE=prod`와 `PROFESSOR_EMAILS`를 넣고 켬. 비밀값 세 개는 묶음이 처음 켤 때 무작위로 만들어 두어서 따로 넣지 않음. 화면은 폼이 없는 `-prod` 이미지가 골라짐(`docs/bundle.md`). 2026.11.12에 묶음에서 실제로 켜서 시작 데이터 0건, `POST /auth/login` 404, SQL 로그 없음을 확인함
 - 기본값이면 이렇게 멈춤(값은 로그에 나오지 않음)
   ```
   java.lang.IllegalStateException: 운영 설정(prod)으로 켤 수 없습니다. 바꿔야 하는 환경 변수: JWT_SECRET, POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD, PROFESSOR_EMAILS. ...
@@ -230,6 +231,7 @@ Found non-empty schema(s) "public" but no schema history table. Use baseline() o
 
 - 서버가 시작할 때 `config/DataInitializer`가 넣음. **회원이 한 명도 없는 빈 데이터베이스에서만** 넣음. 다시 켜도 다시 넣지 않음
 - 운영 설정(위 "운영 설정으로 켜기")에서는 넣지 않고, 이메일·비밀번호 로그인도 꺼져 있음
+- 제출용 실행 묶음의 시연용 설정(demo)에서도 같은 시작 계정이 들어감. 받는 사람용 안내(`infra/bundle/template/README.md`)에 같은 표가 있으므로, 시작 데이터를 바꾸면 그 표도 고침
 - 시작 데이터 상태로 돌아가려면 위 "개발 데이터베이스를 처음부터 다시 만들기"
 - 비밀번호는 모두 `pass1234`. 데이터베이스에는 BCrypt로 바꾼 값이 저장됨
 - 12.11 데모의 기본 로그인은 구글(학교 계정)이고 시작 계정은 개발·백업용. 화면에서는 로그인 화면 아래 "시작 계정으로 로그인 (개발·백업용)"을 펼쳐서 씀
