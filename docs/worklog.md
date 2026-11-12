@@ -2554,6 +2554,8 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 확인:
   - GitHub의 markdown API로 README를 HTML로 바꿔 다크 테마 GitHub 스타일로 띄워 봄. 배지 한 줄, 격자, 표, 접힌 절, 이미지 경로가 맞게 보임
   - mermaid 그림과 `> [!IMPORTANT]` 알림은 저장소 화면에서만 그려져 이 방법으로는 확인하지 못함. push 뒤 GitHub에서 볼 것
+  - push 뒤 GitHub에서 알림, mermaid, 이미지 32개가 그려지는 것을 확인함. 사용 흐름이 가로 7칸이라 좁은 창에서 글자가 작아서, 관리자 요청으로 "기록 단계"와 "평가 단계" 두 줄(subgraph)로 접음
+  - mermaid는 subgraph 안의 칸이 밖의 칸과 이어지면 안쪽 `direction LR`을 무시하고 세로로 그림. 그래서 두 줄은 칸끼리가 아니라 subgraph끼리(`REC --> EVAL`) 이음. mermaid 10.9.1로 그려 확인함
 - 읽을 때 볼 곳:
   - `<details>` 안에서 markdown을 쓰려면 `<summary>` 다음에 빈 줄이 있어야 함
   - 화면 격자는 HTML `<table>`이라 markdown 표와 문법이 다름. 사진을 바꿀 때는 `src`만 고치면 됨
