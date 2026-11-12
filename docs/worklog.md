@@ -2513,7 +2513,7 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 확인:
   - 재현: 이 컴퓨터에서 `footprint_test` 스키마를 없애고 그 테스트만 돌리니 CI와 같은 줄에서 실패함
   - 수정 뒤: `footprint_test`, `footprint_prod_test` 스키마를 둘 다 없앤 상태에서 `gradlew.bat cleanTest build`를 두 번 연속 돌려 둘 다 `BUILD SUCCESSFUL`, 테스트 200개 실패 0
-  - CI 재실행은 push 뒤에 확인함
+  - push 뒤 CI(`095cfb6`): backend, frontend 둘 다 성공함. `TODO.md`와 `README.md`의 "push 뒤 CI 확인" 줄을 지우고 O-6을 됨으로 고침
 - 읽을 때 볼 곳:
   - 이 컴퓨터의 테스트 스키마는 이제 Flyway가 만든 것이라 CI와 같은 상태임. `TestFlywayConfig`의 clean은 Flyway가 만든 스키마를 통째로 지우고 다시 만듦
   - 이전 단위들이 "두 번 연속 통과"로 확인한 것은 스키마가 이미 있는 상태였음. 빈 데이터베이스에서 시작하는 확인은 CI가 맡음
