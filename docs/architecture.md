@@ -45,6 +45,7 @@ flowchart TB
 - 데모(맨 위 `docker-compose.yml`)에서는 nginx가 컨테이너 안 80번에서 듣고, 밖으로는 5173으로 열림. 사람은 두 경우 모두 5173으로 접속함
 - docker compose로 켠 포트는 `127.0.0.1`에만 열어 둠. 같은 네트워크의 다른 컴퓨터에서는 접속되지 않음. 단, 개발 중 `gradlew bootRun`으로 직접 켠 백엔드 8080은 모든 주소에 열림(`application.yml`에 `server.address`가 없음)
 - 가짜 API(3001)는 Java와 Docker 없이 화면만 만들 때 쓰는 갈래. 실제 API와 응답 모양이 같음
+- 백엔드는 환경 변수 없이 켜면 개발 설정, `SPRING_PROFILES_ACTIVE=prod`면 운영 설정임(O-2). 운영 설정은 `application.yml` 위에 `application-prod.yml`을 덮어써서 시작 데이터와 이메일·비밀번호 로그인을 끄고, 켜기 전에 `ProductionSettingsChecker`가 비밀값을 검사함. 화면이 부를 수 있는 주소(CORS)는 `CORS_ALLOWED_ORIGINS`
 
 ## 2. JWT 흐름
 

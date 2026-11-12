@@ -16,6 +16,9 @@ ENV VITE_API_URL=$VITE_API_URL
 # 구글 로그인 버튼의 OAuth Client ID입니다. 비밀값이 아니고, 백엔드의 google.client-id와 같아야 합니다.
 ARG VITE_GOOGLE_CLIENT_ID=729696424693-ktasf5hijpb7v53ga17j1469e8batb8f.apps.googleusercontent.com
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+# 이메일·비밀번호 로그인 폼을 보일지 정합니다. 운영 설정(백엔드 SPRING_PROFILES_ACTIVE=prod)으로 배포할 때만 false입니다.
+ARG VITE_PASSWORD_LOGIN=true
+ENV VITE_PASSWORD_LOGIN=$VITE_PASSWORD_LOGIN
 RUN npm run build
 
 # 2단계: nginx로 화면 파일을 내려줍니다.

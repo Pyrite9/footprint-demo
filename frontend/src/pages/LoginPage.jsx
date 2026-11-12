@@ -5,7 +5,12 @@ import { removeToken, saveToken } from '../api/token'
 import GoogleLoginButton from '../components/GoogleLoginButton'
 import LoginBrand from '../components/LoginBrand'
 
-// 구글 계정(학교 계정)으로 로그인합니다. 시작 계정의 이메일·비밀번호 로그인은 개발·백업용으로 아래에 접어 둡니다.
+// 이메일·비밀번호 로그인 폼을 보일지 정하는 빌드 변수입니다. 값이 없으면 보입니다.
+// 운영 설정으로 배포하는 화면은 VITE_PASSWORD_LOGIN=false로 빌드해 폼을 숨깁니다. 서버도 운영 설정에서 이 로그인을 404로 끕니다.
+// Vite의 빌드 변수는 문자열이라 'false'라는 글자와 비교합니다.
+const PASSWORD_LOGIN_ENABLED = import.meta.env.VITE_PASSWORD_LOGIN !== 'false'
+
+// 구글 계정(학교 계정)으로 로그인합니다. 시작 계정의 이메일·비밀번호 로그인은 개발·백업용으로 아래에 접어 둡니다(운영 화면에서는 숨김).
 // 성공하면 원래 가려던 주소(없으면 첫 화면)로 이동합니다.
 function LoginPage() {
     const [email, setEmail] = useState('')
@@ -62,14 +67,16 @@ function LoginPage() {
                     <p className="sub">학교 계정(g.yju.ac.kr)으로 로그인합니다.</p>
                     {error && <p className="err" role="alert">{error}</p>}
                     {/* details는 누르면 펼쳐지는 HTML 기본 요소입니다. 펼침 여부를 state로 두지 않아도 됩니다. */}
-                    <details className="login-fallback">
-                        <summary>시작 계정으로 로그인 (개발·백업용)</summary>
-                        <form onSubmit={handleSubmit} className="login-form">
-                            <input className="input" type="email" value={email} placeholder="이메일" aria-label="이메일" onChange={(event) => setEmail(event.target.value)} />
-                            <input className="input" type="password" value={password} placeholder="비밀번호" aria-label="비밀번호" onChange={(event) => setPassword(event.target.value)} />
-                            <button type="submit" className="btn primary">로그인</button>
-                        </form>
-                    </details>
+                    {PASSWORD_LOGIN_ENABLED && (
+                        <details className="login-fallback">
+                            <summary>시작 계정으로 로그인 (개발·백업용)</summary>
+                            <form onSubmit={handleSubmit} className="login-form">
+                                <input className="input" type="email" value={email} placeholder="이메일" aria-label="이메일" onChange={(event) => setEmail(event.target.value)} />
+                                <input className="input" type="password" value={password} placeholder="비밀번호" aria-label="비밀번호" onChange={(event) => setPassword(event.target.value)} />
+                                <button type="submit" className="btn primary">로그인</button>
+                            </form>
+                        </details>
+                    )}
                 </div>
             </main>
         </div>

@@ -2200,3 +2200,80 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 완료확인 인덱스를 산출물·기여 항목 둘로 나눔(규칙 2개에 인덱스 3개)
   - 개발 데이터베이스를 다시 만들 때 MinIO의 이전 파일은 지우지 않고 둠(주인 없는 파일로 남음)
   - 확인 뒤 이 컴퓨터의 `public`을 빈 상태로 둠
+
+## 2026.11.12 O-2 운영 설정 분리
+- 결정:
+  - **운영 설정은 Spring profile `prod`**, 켜는 법은 환경 변수 `SPRING_PROFILES_ACTIVE=prod` 하나임. 환경 변수 없이 켜면 지금과 같은 개발 설정임. 값은 `application-prod.yml` 한 파일에 둠
+    - 대안 `FOOTPRINT_MODE` 같은 자체 환경 변수: Spring이 이미 profile별 설정 파일(`application-<이름>.yml`)을 읽는 규칙이 있어서 따로 만들지 않음
+  - **운영에서 끄는 기능은 설정값 두 개로 둠**: `footprint.seed-data`, `footprint.password-login`. `application.yml`은 `true`, `application-prod.yml`은 `false`. 읽는 곳이 `DataInitializer.run`, `AuthService.login` 첫 줄의 `if` 하나씩이라 "어디서 꺼지는지"가 코드에 보임
+    - 대안 `@Profile("!prod")`로 `DataInitializer`를 통째로 빼기: 버킷 만들기도 같이 빠짐. 운영에서도 버킷은 필요함
+    - 대안 `@ConditionalOnProperty`로 로그인 Controller 빼기: 어노테이션 하나로 주소가 사라져 초심자가 이유를 찾기 어려움(금지 목록의 "숨은 동작"에 가까움)
+    - 두 값은 환경 변수로 받지 않음(`${ENV:...}` 아님). profile로만 바뀌는 스위치라서임. `CLAUDE.md` "코드 규칙 — 백엔드"에 운영 설정 규칙 한 줄을 더함
+  - **운영 설정의 `POST /auth/login`은 404 `NOT_FOUND`**. 메시지 "이메일·비밀번호 로그인은 사용하지 않습니다. 구글 로그인을 사용합니다". 새 code 없음
+    - 401은 "비밀번호가 틀림"으로, 403은 "권한이 모자람"으로 읽힘. 이 서버에 없는 기능이라 "없는 주소"와 같은 404로 정함
+    - `@Valid`가 Service보다 먼저라서 빈 칸이면 400 `INVALID_INPUT`이 먼저 나옴. 형식이 맞으면 회원을 찾기 전에 404임(회원이 있는지 알려 주지 않음). `docs/api-draft.md`에 적음
+  - **비밀값 검사는 `ApplicationListener<ApplicationEnvironmentPreparedEvent>` 하나(`config/ProductionSettingsChecker`)를 `BackendApplication.main`이 `addListeners`로 넣음**
+    - 설정 파일과 환경 변수를 다 읽은 직후, bean을 하나도 만들기 전에 돎. 그래서 공개 비밀번호로 운영 DB에 접속하거나 Flyway가 migration을 돌리기 전에 멈춤(직접 확인: 로그에 Hikari·Flyway 줄이 없음)
+    - 대안 `@Component @Profile("prod")`에서 생성자 검사: bean을 만드는 순서가 정해져 있지 않아 `DataInitializer`(→ JPA → Flyway)가 먼저 만들어질 수 있음. 순서를 강제하려면 `@DependsOn` 같은 숨은 장치가 필요해서 버림
+    - 대안 `application-prod.yml`에 `${JWT_SECRET}`처럼 기본값 없이 적기: 빠진 변수는 막지만, `infra/.env.example`을 그대로 복사해 `POSTGRES_PASSWORD=change-me`를 넣은 경우는 막지 못함
+    - 막는 값: `JWT_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`가 공개된 기본값과 같거나 비었을 때. 공개된 값 3개는 검사 클래스에 상수로 둠(`application.yml`의 기본값을 바꾸면 같이 바꿔야 함. 주석으로 적음)
+    - 오류는 `IllegalStateException` 하나에 바꿔야 할 환경 변수 이름만 담음. 값은 담지 않음. Spring Boot가 "Application run failed"로 로그에 남기고 프로세스가 1로 끝남
+  - **다른 기본값 검토 — 막을 것 / 그대로 둘 것**
+    - 막음: `PROFESSOR_EMAILS`가 빈 값(쉼표만 있어도 빈 값). 운영 설정에는 시작 계정도 이메일·비밀번호 로그인도 없어서 교수가 될 다른 길이 없고, 아무도 과제를 만들 수 없음. 켜진 뒤에야 알게 되는 것보다 켤 때 막는 쪽을 고름
+    - 그대로 둠: `GOOGLE_CLIENT_ID` 기본값(시연용 Client ID). 비밀값이 아니고 화면 번들에도 들어감. 운영용 Client ID를 따로 만들지는 O-3의 Google Cloud 작업에서 정함
+    - 그대로 둠: `GOOGLE_ALLOWED_DOMAINS`(`g.yju.ac.kr`), `JWT_EXPIRATION_MINUTES`(24시간), `POSTGRES_USER`·`MINIO_ROOT_USER`(`footprint`. 비밀번호가 아니라 이름임), `POSTGRES_HOST`·`STORAGE_ENDPOINT`·`STORAGE_BUCKET`
+    - 그대로 둠: `CORS_ALLOWED_ORIGINS` 기본값 `http://localhost:5173`. 보안 문제가 아니고(허용 주소가 좁을수록 안전함), O-3에서 화면과 API를 같은 주소로 묶으면 CORS가 필요 없을 수도 있어 강제하지 않음
+  - **CORS 허용 주소는 `cors.allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}`**. 여러 주소를 쉼표로 받음(`AuthService`의 교수 목록과 같은 방식. Spring이 앞뒤 공백을 지움). `WebConfig` 생성자가 받음
+    - 여러 주소를 받는 이유: 같은 서버를 `localhost`와 `127.0.0.1` 두 주소로 여는 경우와, 도메인과 시연 PC 주소를 함께 쓰는 경우가 있음
+    - 와일드카드(`allowedOriginPatterns`)는 쓰지 않음. 주소를 그대로 적어야 브라우저의 Origin과 비교하는 것이 보임
+  - **화면은 빌드 변수 `VITE_PASSWORD_LOGIN`으로 폼을 숨김**(값이 `false`일 때만 숨김. 없거나 `true`면 보임). `frontend/.env`에 `true`, `frontend/Dockerfile`에 ARG, 맨 위 `docker-compose.yml`에 `${VITE_PASSWORD_LOGIN:-true}`
+    - 대안 "폼을 두고 서버의 404 문장을 보여 줌": 운영 화면에 "시작 계정으로 로그인 (개발·백업용)"이 남아 실제 사용자가 누르게 됨. 백엔드와 같은 스위치를 화면에도 두는 쪽을 고름
+    - 대안 "서버에 로그인 방식을 묻는 API": 새 API와 가짜 API가 생김. 빌드 변수로 충분함
+    - 맨 위 compose의 `${...}`는 `infra/.env`가 아니라 셸 환경 변수나 맨 위 `.env`에서 읽음. `docker compose --env-file infra/.env up -d --build`로 한 파일에 모을 수 있음. 운영 배포의 compose 구성은 O-3에서 정함
+  - **modern-web-guidance**: `autofill-sign-in-form`(검색 "conditionally hide optional sign-in form login page")을 읽음. 이번 변경은 기존 폼을 조건으로 감싸기만 해서 적용할 곳이 없음. 기존 폼에 `autocomplete`(`username`, `current-password`)와 `<label>`이 없는 것은 가이드와 다르지만 손대지 않은 기존 코드라 그대로 둠
+  - **테스트의 운영 설정 context는 `footprint_prod_test` 스키마를 씀.** `footprint_test`를 같이 쓰면 운영 context가 뜰 때 `TestFlywayConfig`가 그 스키마를 비우고 시작 데이터 없이 다시 만들어서, 그 뒤에 도는 다른 테스트(캐시된 공통 context)가 시작 데이터를 찾지 못함
+    - `@SpringBootTest`는 `main`을 거치지 않아서 비밀값 검사가 돌지 않음. 그래서 테스트 DB·MinIO의 공개 비밀번호로도 운영 context가 뜸. 검사는 `BackendApplication.main`을 직접 불러 확인함(검사가 DB 접속 전에 멈추므로 실제 서버가 켜지지 않음). "모든 값을 바꾸면 통과"는 `main`으로 부르면 실제 서버가 켜져서 `MockEnvironment`로 검사 메서드를 직접 부름
+  - **가짜 API는 바꿀 것이 없음.** 가짜 API는 개발용이고 개발 설정의 `POST /auth/login`은 그대로임. 운영 설정의 404는 실제 서버에만 있음
+  - CI(`.github/workflows/ci.yml`)는 바꾸지 않음. 환경 변수 없이 돌아서 개발 설정이고, 새 테스트는 공개된 기본값이 그대로라는 전제(CI에 비밀값 환경 변수 없음)에서 돎
+- 만든 파일:
+  - `backend/src/main/resources/application-prod.yml`
+  - `backend/src/main/java/com/footprint/backend/config/ProductionSettingsChecker.java`
+  - 테스트: `ProductionSettingsRuleTests`(8개), `DevelopmentSettingsRuleTests`(5개)
+- 고친 파일:
+  - 백엔드: `BackendApplication`(검사 넣기), `application.yml`(`footprint.seed-data`, `footprint.password-login`, `cors.allowed-origins`, JWT 주석), `config/DataInitializer`(시작 데이터 스위치), `service/AuthService`(로그인 스위치, 404), `config/WebConfig`(CORS 설정값)
+  - 화면: `frontend/src/pages/LoginPage.jsx`(폼 조건), `frontend/.env`, `frontend/Dockerfile`
+  - 실행 구성: 맨 위 `docker-compose.yml`(주석, 화면 빌드 변수), `infra/.env.example`(운영 설정 줄을 주석으로)
+  - 문서: `CLAUDE.md`(코드 규칙 — 백엔드의 운영 설정 규칙), `docs/api-draft.md`(`POST /auth/login`의 404와 운영 설정), `README.md`(지금 상태, 남은 추가 기능 4 → 3, 비밀값, CORS), `backend/README.md`("운영 설정으로 켜기" 절과 환경 변수 표, 테스트 목록, 시작 계정), `docs/architecture.md`, `TODO.md`(순서 19, O-2 규칙, 4절, 5절)
+- 확인:
+  - `gradlew.bat cleanTest build` 두 번 연속 성공. 두 번 모두 테스트 25개 클래스 189개, 실패 0(기존 176개 + 새 13개). 로그에 `footprint_test`와 `footprint_prod_test`가 각각 비워짐. 빌드 뒤 `public`에 테이블이 생기지 않음(`main`을 부르는 테스트도 DB에 닿지 않음)
+  - `npm run build`, `npm run lint` 성공. `VITE_PASSWORD_LOGIN=false`로 따로 빌드한 번들에는 "시작 계정으로 로그인" 문구가 없음(0건), 기본 빌드에는 있음
+  - `docker compose config --quiet` 통과. 화면 빌드 변수 기본값 `"true"`
+  - 실제 서버(jar), 운영 설정 + 기본 비밀값: `SPRING_PROFILES_ACTIVE=prod`만 주고 켜면 exit 1, 로그에 `바꿔야 하는 환경 변수: JWT_SECRET, POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD, PROFESSOR_EMAILS`. 값(`change-me`)과 Hikari·Flyway 줄은 0건
+  - 실제 서버(jar), 운영 설정 + 임시 비밀값: 개발 DB를 더럽히지 않으려고 임시 비밀번호로 띄운 임시 PostgreSQL(55432)·MinIO(59000) 컨테이너(`--rm`)에 연결함. `The following 1 profile is active: "prod"`, migration 2개 적용 뒤 켜짐. 로그에 비밀값 0건
+    - 회원·과제·조·산출물 0건(시작 데이터 없음)
+    - `POST /auth/login`(시작 계정 이메일) 404 `NOT_FOUND`, 빈 body 400 `INVALID_INPUT`
+    - `POST /auth/google`(가짜 credential) 401 `UNAUTHORIZED`. 주소는 살아 있고 검증기까지 감
+    - CORS: `CORS_ALLOWED_ORIGINS="https://footprint.example.com, http://127.0.0.1:5173"`에서 두 주소 사전 요청 200, `http://localhost:5173`은 403
+    - 끈 뒤 임시 컨테이너는 사라지고 named volume 4개는 그대로임
+  - 실제 서버(jar), 개발 설정(환경 변수 없음): `No active profile set`, 시작 데이터 회원 11명, `professor@example.com`·`student01@example.com` 로그인 200, CORS `http://localhost:5173` 200
+  - Newman(개발 설정 실제 백엔드): 요청 146개, assertion 341개, 실패 0
+  - rule-check: 이번 단위 파일에서 금지 패턴 없음(`@Autowired`는 테스트 생성자 주입). 값을 바꾸는 Service 메서드를 새로 만들지 않음. 새 클래스·public 메서드에 주석 있음. 고칠 것 없었음
+  - **확인 못 함**: CI 실행(push 전), 맨 위 `docker compose up --build`로 이미지를 새로 만들어 운영 설정으로 켜는 것, 실제 구글 ID token으로 운영 설정에서 로그인하는 것(테스트는 검증기를 대역으로 바꿈)
+  - 개발 데이터베이스 `public`은 확인 뒤 시작 데이터와 Newman 기록이 남은 상태임. 빈 상태로 되돌리는 명령(`DROP SCHEMA public CASCADE`)은 자동 실행이 막혀 돌리지 않음. 필요하면 `backend/README.md` "개발 데이터베이스를 처음부터 다시 만들기"
+- 읽을 때 볼 곳 (profile에서 막힐 곳):
+  - `application-prod.yml`은 혼자 읽히지 않음. `application.yml`을 먼저 읽고, prod가 켜지면 같은 이름의 값만 덮어씀. 그래서 prod 파일에는 바뀌는 두 줄만 있음
+  - `@ActiveProfiles({"test", "prod"})`는 뒤에 적은 profile이 앞의 것을 덮어씀. 테스트 설정(스키마)과 운영 설정(스위치)이 겹치지 않아서 둘 다 적용됨
+  - profile은 `SPRING_PROFILES_ACTIVE` 환경 변수, `--spring.profiles.active=prod` 실행 인자, IntelliJ 실행 설정의 "Active profiles" 어느 것으로도 켜짐. 셋 다 같은 것임
+  - `ProductionSettingsChecker`는 `@Component`가 아님. Spring이 찾아서 만드는 bean이 아니라 `main`이 `new`로 만들어 넘김. bean이 만들어지기 전에 돌아야 해서임. 그래서 `@SpringBootTest`에서는 돌지 않음
+  - `environment.getProperty("jwt.secret")`는 `application.yml`의 `${JWT_SECRET:기본값}`을 풀어서 돌려줌. 환경 변수 이름이 아니라 설정 이름으로 묻는 것에 주의
+  - Spring Boot는 `Started BackendApplication` 줄을 찍은 **뒤에** `CommandLineRunner`(시작 데이터)를 돌림. 빈 DB로 켠 직후 바로 로그인하면 401이 날 수 있음(이번 확인에서 한 번 겪음. 기존 동작이라 고치지 않고 `TODO.md` 5절에 적음)
+  - CORS 사전 요청(OPTIONS)이 403이면 브라우저 콘솔에 CORS 오류로 보이고, 화면의 `fetch`는 응답 body를 읽지 못함. 주소 끝의 `/`나 `localhost`·`127.0.0.1` 차이만으로도 다른 주소임
+  - Vite 빌드 변수는 문자열임. `VITE_PASSWORD_LOGIN=false`는 boolean false가 아니라 글자 `'false'`라서 `!== 'false'`로 비교함. 빌드할 때 번들에 박히므로 바꾸면 화면을 다시 빌드해야 함
+- 내가 채운 가정:
+  - profile 이름 `prod`, 스위치 이름 `footprint.seed-data`, `footprint.password-login`, 설정 이름 `cors.allowed-origins`
+  - 운영 설정의 이메일·비밀번호 로그인은 404 `NOT_FOUND`(본문 형식이 틀리면 400이 먼저)
+  - 빈 비밀값도 공개 기본값처럼 막음. `PROFESSOR_EMAILS` 빈 값도 막음
+  - 검사를 bean이 아니라 `main`이 넣는 listener로 둠(DB 접속 전에 멈추게)
+  - Google Client ID, 허용 도메인, CORS 기본값은 운영 설정에서도 막지 않음
+  - 화면 폼은 빌드 변수로 숨김. 맨 위 compose의 화면 빌드 변수는 `infra/.env`가 아니라 셸·맨 위 `.env`(또는 `--env-file`)에서 읽음
+  - 테스트의 운영 context는 별도 스키마 `footprint_prod_test`를 씀(개발 DB에 스키마 하나가 더 남음)

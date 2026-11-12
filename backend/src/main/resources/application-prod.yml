@@ -1,0 +1,10 @@
+# 운영 설정입니다. 환경 변수 SPRING_PROFILES_ACTIVE=prod 하나로 켭니다. 켜면 application.yml을 읽은 뒤 이 파일의 값으로 덮어씁니다.
+# 켜지 않으면(조원이 환경 변수 없이 실행할 때) 이 파일은 읽히지 않고 개발 설정 그대로입니다.
+# 운영 설정에서는 config/ProductionSettingsChecker도 켜집니다. 비밀값이 저장소에 공개된 개발용 기본값이면 서버가 켜지지 않습니다.
+# 필요한 환경 변수 목록은 backend/README.md "운영 설정으로 켜기"에 있습니다.
+footprint:
+  # 시작 데이터(시작 계정 11명, 데모 과제)를 넣지 않습니다. 꺼지는 곳: config/DataInitializer.run
+  seed-data: false
+  # 이메일·비밀번호 로그인을 끕니다. POST /auth/login은 404 NOT_FOUND입니다. 꺼지는 곳: service/AuthService.login
+  # 구글 로그인(POST /auth/google)은 그대로입니다.
+  password-login: false

@@ -79,7 +79,8 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 - 테스트는 `src/test/resources/application-test.yml`의 설정으로 돌아감. 데이터베이스는 `footprint_test` 스키마, 파일은 `footprint-test` 버킷을 씀
 - 테스트의 Spring context가 뜰 때마다 `footprint_test` 스키마를 비우고 migration을 처음부터 다시 돌림(`TestFlywayConfig`). 그래서 migration이 Entity와 어긋나면 빌드가 깨짐
 - **빌드해도 개발 데이터(`public` 스키마, `footprint` 버킷)는 지워지지 않음.** 빌드할 때마다 시험 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓임
-- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `SchemaRuleTests`(스키마와 부분 unique 인덱스, 시작 데이터 한 번만), `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `EvaluationDraftRuleTests`(평가 임시 저장), `EvidenceRuleTests`(근거 패널), `RecordRuleTests`(기록 열람), `EvaluationResultRuleTests`(평가 결과), `PhaseRuleTests`(과제 단계), `NotificationRuleTests`(알림), `JoinPreviewRuleTests`(합류 전 미리보기)
+- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `SchemaRuleTests`(스키마와 부분 unique 인덱스, 시작 데이터 한 번만), `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `EvaluationDraftRuleTests`(평가 임시 저장), `EvidenceRuleTests`(근거 패널), `RecordRuleTests`(기록 열람), `EvaluationResultRuleTests`(평가 결과), `PhaseRuleTests`(과제 단계), `NotificationRuleTests`(알림), `JoinPreviewRuleTests`(합류 전 미리보기), `DevelopmentSettingsRuleTests`(환경 변수 없이 켠 개발 설정), `ProductionSettingsRuleTests`(운영 설정)
+- `ProductionSettingsRuleTests`만 `footprint_prod_test` 스키마를 씀. 운영 설정은 시작 데이터를 넣지 않아서, `footprint_test`를 같이 쓰면 이 테스트가 그 스키마를 비울 때 다른 테스트의 시작 데이터가 사라짐
 - 테스트가 끝나면 데이터베이스 변경을 되돌림(`@Transactional`). 그래서 어떤 순서로 돌아도 시작 데이터가 그대로임
 - 실행 로그의 `Using generated security password: ...`는 Spring Security가 기본으로 만드는 계정. 이 프로젝트는 쓰지 않으므로 무시할 것
 
@@ -131,9 +132,49 @@ Found non-empty schema(s) "public" but no schema history table. Use baseline() o
 - 테스트 스키마(`footprint_test`)는 빌드할 때마다 비우고 다시 만들므로 할 일이 없음
 - 처음 clone 해서 `infra`를 처음 켜는 컴퓨터도 할 일이 없음
 
+## 운영 설정으로 켜기
+
+환경 변수 없이 켜면 **개발 설정**임(조원이 쓰는 방법, 지금까지와 같음). 접속 가능한 주소에 올릴 때만 **운영 설정**(Spring profile `prod`)을 켬(O-2, 2026.11.12)
+
+| | 개발 설정(기본) | 운영 설정(`prod`) |
+|---|---|---|
+| 켜는 법 | 환경 변수 없음 | `SPRING_PROFILES_ACTIVE=prod` |
+| 시작 데이터 | 빈 데이터베이스에 넣음 | 넣지 않음. 버킷만 만듦 |
+| 이메일·비밀번호 로그인 | 됨 | 꺼짐. `POST /auth/login`은 404 `NOT_FOUND` |
+| 구글 로그인 | 됨 | 됨 |
+| 비밀값 검사 | 안 함 | 공개된 기본값이면 켜지지 않음 |
+
+운영 설정에 필요한 환경 변수. 하나라도 빠지면 서버가 켜지지 않고 로그에 이름만 나옴
+
+| 환경 변수 | 무엇 | 검사 |
+|---|---|---|
+| `SPRING_PROFILES_ACTIVE` | `prod` | 운영 설정을 켜는 스위치 |
+| `JWT_SECRET` | token 서명 키. 영문 32자 이상의 무작위 값 | 기본값(`application.yml`)이거나 비면 막음 |
+| `POSTGRES_PASSWORD` | DB 비밀번호. DB를 처음 만들 때 넣은 값과 같아야 함 | 기본값 `change-me`이거나 비면 막음 |
+| `MINIO_ROOT_PASSWORD` | MinIO 비밀번호. MinIO를 처음 만들 때 넣은 값과 같아야 함 | 기본값 `change-me-please`이거나 비면 막음 |
+| `PROFESSOR_EMAILS` | 교수로 쓸 학교 이메일(쉼표로 구분) | 비면 막음. 운영 설정에는 시작 계정과 이메일 로그인이 없어서 교수가 될 다른 길이 없음 |
+
+그대로 두어도 되는 환경 변수(기본값이 개발과 같음): `CORS_ALLOWED_ORIGINS`(기본 `http://localhost:5173`. 화면 주소가 다르면 바꿈, 여러 개면 쉼표), `GOOGLE_CLIENT_ID`, `GOOGLE_ALLOWED_DOMAINS`, `POSTGRES_HOST`·`POSTGRES_PORT`·`POSTGRES_DB`·`POSTGRES_USER`, `MINIO_ROOT_USER`, `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `JWT_EXPIRATION_MINUTES`
+
+- 내 컴퓨터에서 jar로 켜기(PowerShell). 값은 예시가 아니라 직접 만든 무작위 값을 넣을 것
+  ```powershell
+  $env:SPRING_PROFILES_ACTIVE="prod"; $env:JWT_SECRET="..."; $env:POSTGRES_PASSWORD="..."; $env:MINIO_ROOT_PASSWORD="..."; $env:PROFESSOR_EMAILS="..."
+  java -jar build\libsootprint-backend-0.0.1-SNAPSHOT.jar
+  ```
+  macOS는 `SPRING_PROFILES_ACTIVE=prod JWT_SECRET=... ... java -jar build/libs/footprint-backend-0.0.1-SNAPSHOT.jar`
+- docker compose: `infra/.env`의 "운영 설정" 줄(`infra/.env.example`)의 `#`을 지우고 값을 넣음. 화면의 이메일·비밀번호 폼도 숨기려면 `VITE_PASSWORD_LOGIN=false`로 화면 이미지를 다시 만듦(`docker compose --env-file infra/.env up -d --build`)
+- 기본값이면 이렇게 멈춤(값은 로그에 나오지 않음)
+  ```
+  java.lang.IllegalStateException: 운영 설정(prod)으로 켤 수 없습니다. 바꿔야 하는 환경 변수: JWT_SECRET, POSTGRES_PASSWORD, MINIO_ROOT_PASSWORD, PROFESSOR_EMAILS. ...
+  ```
+- 검사는 `BackendApplication.main`이 넣은 `config/ProductionSettingsChecker`가 함. 설정 파일을 읽은 직후, 데이터베이스에 접속하기 전에 돎
+- 이미 만든 DB·MinIO volume의 비밀번호는 `infra/.env`를 바꿔도 바뀌지 않음(처음 만들 때만 읽음). 개발 volume에 운영 설정을 켜지 말고 새 volume으로 시작할 것. 실제 서버·주소·포트는 O-3에서 정함
+- 운영 설정에서 꺼지는 코드 위치: `application-prod.yml`의 값마다 주석으로 적어 둠(`config/DataInitializer.run`, `service/AuthService.login`)
+
 ## 시작 계정
 
 - 서버가 시작할 때 `config/DataInitializer`가 넣음. **회원이 한 명도 없는 빈 데이터베이스에서만** 넣음. 다시 켜도 다시 넣지 않음
+- 운영 설정(위 "운영 설정으로 켜기")에서는 넣지 않고, 이메일·비밀번호 로그인도 꺼져 있음
 - 시작 데이터 상태로 돌아가려면 위 "개발 데이터베이스를 처음부터 다시 만들기"
 - 비밀번호는 모두 `pass1234`. 데이터베이스에는 BCrypt로 바꾼 값이 저장됨
 - 12.11 데모의 기본 로그인은 구글(학교 계정)이고 시작 계정은 개발·백업용. 화면에서는 로그인 화면 아래 "시작 계정으로 로그인 (개발·백업용)"을 펼쳐서 씀

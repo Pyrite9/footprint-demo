@@ -3,6 +3,7 @@ package com.footprint.backend.service;
 import com.footprint.backend.entity.Member;
 import com.footprint.backend.entity.MemberType;
 import com.footprint.backend.exception.ForbiddenException;
+import com.footprint.backend.exception.NotFoundException;
 import com.footprint.backend.exception.UnauthorizedException;
 import com.footprint.backend.repository.MemberRepository;
 import com.footprint.backend.repository.TeamMemberRepository;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 // 로그인을 확인하고 token을 발급합니다. 12.11 데모는 구글 로그인이 기본이고, 이메일·비밀번호 로그인은 시작 계정용(개발·백업)입니다.
+// 운영 설정(prod)에서는 이메일·비밀번호 로그인이 꺼집니다(login 메서드 첫 줄).
 @Service
 public class AuthService {
 
@@ -30,12 +32,15 @@ public class AuthService {
     private final GoogleTokenVerifier googleTokenVerifier;
     private final List<String> allowedDomains;
     private final List<String> professorEmails;
+    private final boolean passwordLoginEnabled;
 
     // allowedDomains와 professorEmails는 application.yml의 쉼표로 구분한 값을 Spring이 목록으로 바꿔 넣어 줍니다.
+    // passwordLoginEnabled는 application.yml의 footprint.password-login입니다. 운영 설정(application-prod.yml)에서는 false입니다.
     public AuthService(MemberRepository memberRepository, TeamMemberRepository teamMemberRepository,
                        PasswordEncoder passwordEncoder, JwtProvider jwtProvider, GoogleTokenVerifier googleTokenVerifier,
                        @Value("${google.allowed-domains}") List<String> allowedDomains,
-                       @Value("${google.professor-emails}") List<String> professorEmails) {
+                       @Value("${google.professor-emails}") List<String> professorEmails,
+                       @Value("${footprint.password-login}") boolean passwordLoginEnabled) {
         this.memberRepository = memberRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.passwordEncoder = passwordEncoder;
@@ -44,10 +49,17 @@ public class AuthService {
         this.allowedDomains = allowedDomains;
         // 대소문자를 가리지 않고 비교하려고 소문자로 바꿔 둡니다.
         this.professorEmails = professorEmails.stream().map(String::toLowerCase).toList();
+        this.passwordLoginEnabled = passwordLoginEnabled;
     }
 
     // 이메일과 비밀번호로 로그인합니다. 성공하면 token 문자열을 돌려줍니다. 실패하면 UnauthorizedException을 던집니다.
     public String login(String email, String password) {
+        // 운영 설정(application-prod.yml의 footprint.password-login: false)에서는 여기서 꺼집니다.
+        // 이 서버에 없는 기능이라 "없는 주소"와 같은 404로 답합니다. 401로 답하면 비밀번호가 틀린 것으로 읽힙니다.
+        if (!passwordLoginEnabled) {
+            throw new NotFoundException("이메일·비밀번호 로그인은 사용하지 않습니다. 구글 로그인을 사용합니다");
+        }
+
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new UnauthorizedException(LOGIN_FAILED_MESSAGE));
 

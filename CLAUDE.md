@@ -106,6 +106,7 @@ docs/       architecture.md, erd.md, api-draft.md, worklog.md, laptop-setup.md, 
 - 스키마는 Flyway migration(`src/main/resources/db/migration`)으로 만들고 `ddl-auto: validate`를 쓴다(2026.11.12 O-1). Entity 칸을 더하거나 바꾸면 같은 commit에 `V<다음 번호>__<영어 소문자 설명>.sql`을 새로 만든다. 이미 commit 된 migration 파일은 고치지 않고 다음 번호로 고친다. 개발 중 스키마를 처음부터 다시 만드는 방법은 `backend/README.md` "데이터베이스 스키마".
 - Hibernate가 만들 수 없는 제약(부분 unique 인덱스 등)은 migration에만 두고, Entity 주석과 `docs/erd.md`에 적는다.
 - 설정값은 `application.yml`에 `${ENV:개발용기본값}` 형태. 조원이 환경 변수 없이 실행돼야 한다. 예: `${JWT_SECRET:...}`.
+- 운영 설정은 Spring profile `prod`(환경 변수 `SPRING_PROFILES_ACTIVE=prod`)다. 운영에서만 다른 값은 `application-prod.yml`에 두고, 그 값을 읽어 기능을 끄는 코드 줄에 "운영 설정에서 꺼지는 곳" 주석을 단다(지금은 `footprint.seed-data` → `DataInitializer.run`, `footprint.password-login` → `AuthService.login`). 공개된 기본값으로 운영하면 안 되는 비밀값을 더하면 `config/ProductionSettingsChecker`에도 더한다(2026.11.12 O-2).
 - 날짜는 `LocalDate`(JSON `yyyy-MM-dd`), 기록 시각은 서버가 `LocalDateTime`으로 저장. 클라이언트가 보낸 시각은 받지 않는다.
 
 ## 코드 규칙 — 프론트엔드

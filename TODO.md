@@ -37,7 +37,7 @@
 | 16 | X-7 | **됨(2026.11.12).** 400 응답에 틀린 칸 담기 | 없음 |
 | 17 | X-1 | **됨(2026.11.12).** 교수 회원 유형 변경 경로 | 없음 |
 | 18 | X-2 | **됨(2026.11.12). 문구와 보관 기간은 확인 전 초안.** 개인정보 고지와 동의 | 고지 동의 |
-| 19 | O-1, O-2 | **O-1 됨(2026.11.12). O-2 남음.** 스키마 관리, 운영 설정 분리. 엔티티가 모두 나온 뒤에 함 | 없음 |
+| 19 | O-1, O-2 | **됨(2026.11.12).** 스키마 관리, 운영 설정 분리. 엔티티가 모두 나온 뒤에 함 | 없음 |
 | 20 | O-8 | 상태 확인과 로그 | 상태 확인 |
 | 21 | O-3, O-4 | 배포 구성, 백업·복구. 3절의 결정이 먼저 있어야 함 | 없음 |
 
@@ -109,7 +109,12 @@
   - 시작 데이터는 회원이 한 명도 없는 빈 데이터베이스에서만 넣음. 시작 파일도 그때만 MinIO에 올림
   - 테스트는 context가 뜰 때마다 `footprint_test`를 비우고 migration부터 다시 만듦. migration이 Entity와 어긋나면 빌드가 깨짐
   - 2026.11.12 전에 실행해 본 개발 데이터베이스는 한 번 `public` 스키마를 다시 만들어야 함(`backend/README.md` "데이터베이스 스키마")
-- **O-2 운영 설정 분리** — 환경 변수 없이 켜면 지금처럼 개발 설정임(조원 실행 규칙 유지). 운영 설정에서는 시작 데이터와 이메일·비밀번호 로그인을 끄고, 비밀값이 개발용 기본값이면 서버가 켜지지 않음. CORS 주소를 설정값으로 뺌
+- **O-2 운영 설정 분리(됨)** — 환경 변수 없이 켜면 지금처럼 개발 설정임(조원 실행 규칙 유지). 운영 설정에서는 시작 데이터와 이메일·비밀번호 로그인을 끄고, 비밀값이 개발용 기본값이면 서버가 켜지지 않음. CORS 주소를 설정값으로 뺌
+  - 운영 설정은 Spring profile `prod`. 환경 변수 `SPRING_PROFILES_ACTIVE=prod` 하나로 켬. 값은 `backend/src/main/resources/application-prod.yml`
+  - 운영 설정의 `POST /auth/login`은 404 `NOT_FOUND`임. 구글 로그인은 그대로임. 화면은 빌드 변수 `VITE_PASSWORD_LOGIN=false`로 폼을 숨김
+  - 서버가 켜지지 않는 값: `JWT_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`가 공개된 기본값이거나 빈 값, `PROFESSOR_EMAILS`가 빈 값. 로그에는 이름만 적고 값은 적지 않음
+  - 검사는 데이터베이스에 접속하기 전에 함(`BackendApplication.main` → `config/ProductionSettingsChecker`)
+  - CORS 허용 주소는 `CORS_ALLOWED_ORIGINS`(쉼표로 여러 개, 기본 `http://localhost:5173`)
 - **O-8 상태 확인과 로그** — 상태 확인 주소 하나만 열고, 운영 설정에서 `show-sql`을 끔. 로그는 표준 출력으로 내보내고 `docker logs`로 읽음
 - **O-3 배포 구성** — 4절의 항목을 실제로 처리함. 서버, 주소, Google Cloud 설정은 외부 작업이라 하기 전에 관리자에게 말함
 - **O-4 백업·복구** — PostgreSQL과 MinIO를 함께 백업하는 스크립트와 복구 절차를 둠. 빈 환경에 실제로 되살려 확인함
@@ -167,9 +172,11 @@
 지금은 내 컴퓨터에서만 돌리는 전제임. 접속 가능한 주소에 올리려면 이것부터 해야 함
 
 - **비밀값 교체** — `JWT_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`가 저장소에 공개된 개발용 기본값임. 그대로 두면 누구나 token을 위조할 수 있음. 환경 변수로 바꿔야 함
+  - 검사는 됨(O-2): 운영 설정으로 켜면 기본값·빈 값일 때 서버가 켜지지 않음. 실제 값을 만들어 서버에 넣는 것과 새 DB·MinIO volume을 그 값으로 만드는 것은 O-3
+- **운영 설정 켜기** — 배포할 서버의 백엔드에 `SPRING_PROFILES_ACTIVE=prod`와 `PROFESSOR_EMAILS`를 넣고, 화면은 `VITE_PASSWORD_LOGIN=false`로 빌드함(O-2에서 설정은 됨. 실제로 켜는 것은 O-3)
 - **스키마 관리(됨, O-1)** — `ddl-auto: validate`와 Flyway migration을 씀. 서버를 다시 켜도 데이터베이스를 지우지 않음. 배포한 데이터베이스에서는 이미 적용된 migration 파일을 고치지 않고, 테스트 설정의 `clean-disabled: false`를 운영 설정에 넣지 않음
-- **시작 데이터** — `DataInitializer`가 빈 데이터베이스에 교수 1명과 학생 10명, 시작 과제를 넣음(O-1부터 한 번만). 실제 운영에서는 꺼야 함(O-2)
-- **CORS와 포트** — 지금은 `http://localhost:5173`만 받고 포트를 `127.0.0.1`에만 엶. 주소가 생기면 둘 다 고쳐야 함
+- **시작 데이터** — `DataInitializer`가 빈 데이터베이스에 교수 1명과 학생 10명, 시작 과제를 넣음(O-1부터 한 번만). 운영 설정에서는 넣지 않음(O-2에서 됨). 운영 설정으로 켜는 것을 잊으면 시작 계정이 `pass1234`로 들어가므로 O-3에서 확인함
+- **CORS와 포트** — CORS는 `CORS_ALLOWED_ORIGINS`로 뺌(O-2에서 됨. 기본 `http://localhost:5173`). 실제 화면 주소를 넣는 것과 포트를 `127.0.0.1` 밖으로 여는 것은 O-3
 - **구글 로그인 동의 화면** — Google Cloud 동의 화면이 "테스트 중"이면 테스트 사용자로 넣은 계정만 로그인됨. 쓸 사람이 늘면 "프로덕션"으로 게시해야 함
 
 ## 5. 알려진 한계
@@ -178,7 +185,9 @@
 
 - **MinIO와 데이터베이스가 어긋나는 드문 경우** — 업로드의 저장 오류는 잡아서 파일을 지움(O-7). 저장 뒤 커밋 단계에서 실패하면 파일이 남음. 삭제도 파일을 지운 뒤 커밋이 실패하면 행은 삭제 전으로 돌아가고 파일만 없어짐. 그 산출물의 다운로드는 404임. 두 저장소를 한 트랜잭션으로 묶을 수 없어서 그대로 둠
 - **개발 데이터베이스를 다시 만들면 시작 파일이 주인 없이 남음** — 서버를 다시 켤 때는 쌓이지 않음(O-1). `public` 스키마를 처음부터 다시 만들면 MinIO `footprint` 버킷의 이전 시작 파일 3개와 올린 파일이 남음. 화면에는 보이지 않음. 테스트 버킷(`footprint-test`)은 테스트의 Spring context가 뜰 때마다 시작 파일 3개가 쌓임
-- **테스트에 실제 PostgreSQL·MinIO가 필요함** — `backend` 빌드 전에 `infra`의 `docker compose up -d`가 켜져 있어야 함
+- **테스트에 실제 PostgreSQL·MinIO가 필요함** — `backend` 빌드 전에 `infra`의 `docker compose up -d`가 켜져 있어야 함. 테스트 스키마는 `footprint_test`, `footprint_prod_test`(운영 설정 테스트) 둘이 개발 데이터베이스에 남음
+- **운영 설정 검사는 `main`으로 켤 때만 돎** — `java -jar`, `bootRun`, IDE 실행 버튼은 모두 `BackendApplication.main`을 거침. `@SpringBootTest`는 거치지 않아서 테스트는 `main`을 직접 불러 확인함
+- **`Started BackendApplication` 로그가 시작 데이터보다 먼저 나옴** — Spring Boot는 이 줄을 찍은 뒤에 시작 데이터(`CommandLineRunner`)를 넣음. 빈 데이터베이스로 켠 직후 바로 로그인하면 잠깐 401이 날 수 있음. 1~2초 뒤에는 됨
 - **20MB 제한과 동시 요청은 테스트하지 않음** — MockMvc는 실제 Tomcat을 거치지 않아 크기 제한이 동작하지 않고, 테스트 하나가 트랜잭션 하나라 동시 요청을 만들 수 없음. 동료평가의 unique 제약과 부분 unique 인덱스 3개(O-1)만 Repository로 바로 확인함
 - **`gradlew` 파일 모드** — Windows에서 commit 하면 실행 권한이 빠져 Linux·macOS에서 `./gradlew`가 막힘. 지금은 `100755`로 맞춰 둠
 

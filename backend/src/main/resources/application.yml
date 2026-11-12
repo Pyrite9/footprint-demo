@@ -33,6 +33,7 @@ spring:
 
 jwt:
   # HS256 서명 키입니다. 32바이트(영문 32자) 이상이어야 합니다. 배포할 때는 환경 변수 JWT_SECRET으로 바꿉니다.
+  # 운영 설정(prod)에서 이 기본값 그대로면 서버가 켜지지 않습니다(config/ProductionSettingsChecker). DB·MinIO 비밀번호도 같습니다.
   secret: ${JWT_SECRET:footprint-demo-dev-secret-key-change-me-0000}
   # token 유효 시간(분)입니다. 1440분은 24시간입니다.
   expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
@@ -54,6 +55,19 @@ storage:
   secret-key: ${MINIO_ROOT_PASSWORD:change-me-please}
   # 산출물 파일 본문을 넣는 버킷 이름입니다. 서버가 시작할 때 없으면 만듭니다.
   bucket: ${STORAGE_BUCKET:footprint}
+
+footprint:
+  # 빈 데이터베이스에 시작 데이터(시작 계정 11명, 데모 과제)를 넣을지 정합니다. config/DataInitializer가 읽습니다.
+  # 운영 설정(application-prod.yml)에서는 false입니다.
+  seed-data: true
+  # 이메일·비밀번호 로그인(POST /auth/login)을 받을지 정합니다. service/AuthService가 읽습니다.
+  # 운영 설정(application-prod.yml)에서는 false입니다. 구글 로그인은 두 설정 모두 켜져 있습니다.
+  password-login: true
+
+cors:
+  # 백엔드를 부를 수 있는 화면 주소(origin)입니다. 여러 개면 쉼표로 구분합니다. config/WebConfig가 읽습니다.
+  # 주소는 http(s)://호스트:포트까지만 적고 끝에 /를 붙이지 않습니다. 브라우저가 보내는 Origin과 글자가 똑같아야 합니다.
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 
 server:
   tomcat:

@@ -17,6 +17,7 @@ import com.footprint.backend.repository.TeamMemberRepository;
 import com.footprint.backend.repository.TeamRepository;
 import com.footprint.backend.service.NotificationService;
 import com.footprint.backend.service.StorageService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -29,6 +30,7 @@ import java.util.List;
 
 // 서버가 시작할 때 데모용 시작 데이터를 넣습니다. 계정과 조 구성 표는 backend/README.md에 있습니다.
 // 서버를 다시 켜도 데이터베이스가 비워지지 않으므로(Flyway, O-1) 회원이 한 명도 없는 빈 데이터베이스에서만 넣습니다.
+// 운영 설정(prod)에서는 시작 데이터를 넣지 않고 버킷만 준비합니다.
 @Component
 public class DataInitializer implements CommandLineRunner {
 
@@ -49,12 +51,15 @@ public class DataInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final StorageService storageService;
     private final NotificationService notificationService;
+    private final boolean seedData;
 
+    // seedData는 application.yml의 footprint.seed-data입니다. 운영 설정(application-prod.yml)에서는 false입니다.
     public DataInitializer(MemberRepository memberRepository, AssignmentRepository assignmentRepository,
                            TeamRepository teamRepository, TeamMemberRepository teamMemberRepository,
                            DeliverableRepository deliverableRepository, ContributionRepository contributionRepository,
                            ConfirmationRepository confirmationRepository, PasswordEncoder passwordEncoder,
-                           StorageService storageService, NotificationService notificationService) {
+                           StorageService storageService, NotificationService notificationService,
+                           @Value("${footprint.seed-data}") boolean seedData) {
         this.memberRepository = memberRepository;
         this.assignmentRepository = assignmentRepository;
         this.teamRepository = teamRepository;
@@ -65,6 +70,7 @@ public class DataInitializer implements CommandLineRunner {
         this.passwordEncoder = passwordEncoder;
         this.storageService = storageService;
         this.notificationService = notificationService;
+        this.seedData = seedData;
     }
 
     // MinIO 버킷을 준비하고, 회원 11명(임지아만 개인정보 고지 동의 전)과 과제 2개(기록 단계, 평가 단계), 조 3개, 산출물 3건, 기여 항목 2건, 완료확인 2건,
@@ -76,6 +82,11 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) {
         // 산출물 파일을 넣을 버킷이 없으면 만듭니다. 이미 있으면 그대로 둡니다. 버킷은 시작 데이터와 관계없이 켤 때마다 확인합니다.
         storageService.createBucketIfMissing();
+
+        // 운영 설정(application-prod.yml의 footprint.seed-data: false)에서는 시작 데이터를 넣지 않고 여기서 멈춥니다.
+        if (!seedData) {
+            return;
+        }
 
         // 회원이 한 명이라도 있으면 이미 시작 데이터를 넣었거나 실제로 쓰고 있는 데이터베이스입니다. 다시 넣으면 같은 이메일이 겹쳐 실패합니다.
         // 시작 파일도 여기서 멈추므로 MinIO에 켤 때마다 쌓이지 않습니다.
