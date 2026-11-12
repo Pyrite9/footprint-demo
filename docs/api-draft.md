@@ -5,6 +5,11 @@
 공통
 - 오류 응답은 모두 `{ "code": "...", "message": "..." }`. `code`는 `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409, `SERVER_ERROR` 500
 - `/auth/**`와 `GET /actuator/health`(상태 확인) 말고는 모두 header에 `Authorization: Bearer <accessToken>`이 필요함. 없거나 틀리면 401 `UNAUTHORIZED`
+- 화면은 백엔드를 화면과 같은 origin의 `/api`로 부름(2026.11.12 관리자 결정). 예: 화면의 `POST /api/auth/login` → 백엔드의 `POST /auth/login`
+  - 개발은 Vite 개발 서버가, 제출 묶음은 화면 컨테이너의 nginx가 `/api`를 떼고 백엔드로 넘김. 이 문서의 주소는 모두 `/api`를 뗀 백엔드의 주소임
+  - 이유: 화면(`localhost:5173`)과 백엔드(`127.0.0.1:8080`)가 다른 site이면 브라우저가 refresh token cookie를 보내지 않음. 같은 origin이면 cookie가 항상 실리고 화면 요청에는 CORS가 필요 없음
+  - 백엔드를 직접 부르는 주소(`http://127.0.0.1:8080`)는 그대로 열려 있음. Postman, 상태 확인, 테스트가 씀
+  - 가짜 API는 지금처럼 화면이 `http://localhost:3001`을 직접 부름. `localhost`끼리는 포트가 달라도 같은 site라서 cookie가 실림
 - 없는 주소, 또는 주소는 있지만 그 method가 없는 요청(예: `DELETE /assignments/1`)은 404 `NOT_FOUND` "없는 주소입니다"(2026.10.25 결정). token이 없으면 그보다 먼저 401임
 - 서버 내부 오류는 500 `SERVER_ERROR` "서버에서 오류가 났습니다"(2026.10.26 관리자 결정). 원인(예외 내용)은 응답에 담지 않고 서버 로그에만 남김
 - 위 code에 들어가지 않는 요청 오류(예: 지원하지 않는 Content-Type)는 400 `INVALID_INPUT` "요청의 형식이 올바르지 않습니다"
@@ -55,11 +60,26 @@
 - 본문 형식 검사(`@Valid`)가 먼저라서 `email`·`password`가 비었으면 운영 설정에서도 400 `INVALID_INPUT`임. 형식이 맞으면 회원을 찾기 전에 404임
 - 개발 설정(환경 변수 없이 켠 서버)과 가짜 API는 지금과 같음(200, 400, 401)
 
-token
-- 서명 HS256. 유효 시간 24시간(`jwt.expiration-minutes`). refresh token은 없음
+access token (2026.11.12 관리자 결정으로 24시간 → 10분)
+- 서명 HS256. 유효 시간 10분(`jwt.expiration-minutes`)
 - payload: `sub` = 회원 id(문자열), `memberType` = `PROFESSOR` 또는 `STUDENT`
 - 화면은 token을 풀어 읽지 않음. 회원 정보는 `GET /members/me`로 받음
+- 화면은 access token을 JS 변수(메모리)에만 둠. `sessionStorage`·`localStorage`에 넣지 않음. 새로고침하면 사라지므로 화면이 시작할 때 `POST /auth/refresh`로 다시 받음
+- 서버는 access token을 저장하지 않음. 로그아웃해도 이미 받은 access token은 만료(최대 10분)까지 유효함
 - 가짜 API의 token은 JWT가 아니라 문자열 `mock-token-<회원 id>`이고 만료가 없음
+
+refresh token (2026.11.12 관리자 결정)
+- 로그인(`POST /auth/login`, `POST /auth/google`)에 성공하면 응답 body의 `accessToken`과 함께 `Set-Cookie`로 refresh token을 내려줌. body에는 담지 않음
+- 값: 서버가 만든 난수 32바이트를 Base64 URL 글자로 바꾼 것. JWT가 아니고 뜻이 없음
+- cookie: 이름 `refreshToken`, `HttpOnly`(JS가 읽지 못함), `SameSite=Strict`, `Path=/`, `Max-Age`는 만료까지 남은 초
+  - `Secure`는 설정값 `footprint.refresh-cookie-secure`를 따름. 개발 설정은 false(http), 운영 설정은 true
+  - `Path=/`인 이유: 화면은 `/api/auth/refresh`, 가짜 API와 Postman은 `/auth/refresh`로 불러서 한 경로로 좁힐 수 없음
+- 유효 시간 24시간(`footprint.refresh-token-hours`). **로그인한 시각부터 세는 절대 만료**임. 재발급해도 늘어나지 않음
+- 서버는 DB(`refresh_tokens`)에 값의 SHA-256 hash, 회원, 만료 시각, 만든 시각을 저장함. 값 자체는 저장하지 않음
+- 한 회원이 여러 개를 가질 수 있음(브라우저마다 하나). 로그인할 때 그 회원의 만료된 행을 지움
+- 같은 브라우저의 탭은 cookie를 함께 씀. 탭마다 다른 계정으로 로그인할 수 없음. 다른 탭에서 다른 계정으로 로그인하면 먼저 열린 탭도 다음 재발급부터 그 계정이 됨
+- 가짜 API의 refresh token은 문자열 `mock-refresh-<회원 id>`이고 만료가 없음. cookie 이름과 속성은 같음(`Secure` 없음)
+- 로그에 refresh token과 cookie 값을 찍지 않음
 - 12.11 데모의 기본 로그인은 아래 `POST /auth/google`임. 이메일·비밀번호 로그인은 시작 계정용(개발·백업)으로 남김(2026.10.26 관리자 결정)
 
 ### POST /auth/google — 구글 로그인 (M-1-1, M-2-1) · 2026.10.26
@@ -97,6 +117,48 @@ token
   - 권한 검사는 token의 `memberType`이 아니라 DB의 회원 유형으로 하므로, 올리기 전에 받은 token으로도 교수 권한이 바로 적용됨
 - 비밀번호가 없는 회원(구글로 만든 회원)은 `POST /auth/login`으로 로그인할 수 없음(401)
 - 가짜 API는 구글 서명을 확인하지 못함. payload만 풀어 같은 규칙(`email_verified`, `hd`, 교수 목록)을 적용함
+
+### POST /auth/refresh — access token 재발급 · 2026.11.12
+
+cookie의 refresh token으로 새 access token을 받음. 요청 body와 `Authorization` header는 없음. 화면이 시작할 때와 access token이 만료돼 401을 받았을 때 부름
+
+200: 모양은 로그인과 같음. `Set-Cookie`로 **새 refresh token**도 함께 내려줌
+```json
+{ "accessToken": "eyJhbGciOiJIUzI1NiJ9..." }
+```
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 401 | `UNAUTHORIZED` | cookie가 없거나, DB에 없는 값이거나(이미 쓴 것, 로그아웃한 것), 만료됐을 때. 구분하지 않고 같은 메시지 "로그인이 만료되었습니다. 다시 로그인합니다"를 줌 |
+| 403 | `FORBIDDEN` | `Origin` header가 있는데 허용한 화면 주소(`cors.allowed-origins`)가 아닐 때. 메시지 "허용하지 않은 주소에서 온 요청입니다" |
+
+서버 쪽 규칙
+- 검사 순서: `Origin` → cookie → DB의 행 → 만료 시각
+- 교체(rotation): 성공하면 쓴 refresh token의 행을 지우고 새 값을 저장함. 만료 시각은 지운 행의 것을 그대로 물려줌(절대 만료). 한 번 쓴 값으로 다시 부르면 401임
+- 같은 값으로 두 요청이 동시에 오면 행을 지운 쪽 하나만 성공하고 나머지는 401임(지운 행의 수로 판단)
+- 401일 때는 `Set-Cookie`로 cookie를 지움(`Max-Age=0`)
+- 새 access token의 `memberType`은 DB의 회원 유형으로 다시 담음. 교수로 올리기(X-1)는 하지 않음(구글 로그인 때만)
+- `Origin` 검사는 CSRF를 막는 둘째 장치임(첫째는 `SameSite=Strict`). 이 API만 cookie로 인증하기 때문임. `Origin`이 없는 요청(Postman, 테스트)은 통과함. 브라우저는 POST에 `Origin`을 항상 붙임
+- 재사용 감지(이미 쓴 값이 다시 오면 그 회원의 refresh token을 모두 지움)는 두지 않음. 여러 탭이 동시에 재발급하면 정상 사용도 걸리기 때문임
+- 화면 쪽: 재발급은 한 번에 하나만 함. 한 탭 안에서는 진행 중인 재발급 하나를 여러 요청이 함께 기다리고, 탭끼리는 Web Locks API(`navigator.locks`)로 차례를 지킴. 재발급 뒤 원래 요청을 한 번만 다시 보냄. 재발급이 401이면 access token을 지우고 `/login?expired=1`로 감
+- 가짜 API: cookie의 `mock-refresh-<회원 id>`에서 회원을 찾아 `mock-token-<회원 id>`를 줌. 교체와 만료, `Origin` 검사는 없음. cookie가 없거나 회원이 없으면 같은 401임
+
+### POST /auth/logout — 로그아웃 · 2026.11.12
+
+cookie의 refresh token을 서버에서 지움. 요청 body와 `Authorization` header는 없음
+
+204: body 없음. `Set-Cookie`로 cookie를 지움(`Max-Age=0`)
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 403 | `FORBIDDEN` | `Origin` header가 있는데 허용한 화면 주소가 아닐 때. `POST /auth/refresh`와 같음 |
+
+서버 쪽 규칙
+- cookie가 없거나 DB에 없는 값이어도 204임. 여러 번 눌러도 결과가 같음
+- 그 브라우저의 refresh token 하나만 지움. 같은 회원의 다른 브라우저는 로그인된 채로 남음
+- 이미 받은 access token은 만료(최대 10분)까지 유효함. 화면은 로그아웃할 때 메모리의 access token도 지움
+- 화면은 이 요청이 실패해도(서버 꺼짐 등) access token을 지우고 로그인 화면으로 감
+- 가짜 API: cookie를 지우고 204
 
 ---
 
