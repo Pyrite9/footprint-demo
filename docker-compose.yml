@@ -36,6 +36,16 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    # 서버가 요청을 받을 수 있는지 상태 확인 주소로 봅니다(O-8). docker compose ps의 STATUS에 healthy/unhealthy로 나옵니다.
+    # curl은 백엔드 이미지(eclipse-temurin:21-jre)에 들어 있습니다. -f: 503 DOWN이면 실패로 칩니다.
+    # 데이터베이스가 꺼지면 응답이 30초 뒤에 오므로(연결을 기다리는 시간) timeout 5초에 걸려 실패로 칩니다.
+    # start_period: 서버가 켜지고 migration을 돌리는 동안의 실패는 세지 않습니다.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   frontend:
     build:
@@ -50,5 +60,6 @@ services:
     # 개발 서버와 같은 5173으로 엽니다. 화면은 http://localhost:5173 으로 엽니다(백엔드의 CORS 허용 주소와 같아야 합니다).
     ports:
       - "127.0.0.1:5173:80"
+    # 화면은 만들어 둔 파일만 내주고 백엔드를 직접 부르지 않습니다(부르는 것은 브라우저). 그래서 백엔드가 healthy가 될 때까지 기다리지 않습니다.
     depends_on:
       - backend

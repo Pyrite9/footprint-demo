@@ -6,12 +6,15 @@ import com.footprint.backend.entity.MemberType;
 import com.footprint.backend.repository.AssignmentRepository;
 import com.footprint.backend.repository.MemberRepository;
 import com.footprint.backend.security.GoogleTokenVerifier;
+import com.footprint.backend.security.JwtProvider;
 import com.footprint.backend.security.GoogleTokenVerifier.GoogleAccount;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.NestedExceptionUtils;
+import org.springframework.core.env.Environment;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,11 +30,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// 운영 설정(O-2) 규칙을 확인합니다. PostgreSQL과 MinIO가 켜져 있어야 합니다.
+// 운영 설정(O-2) 규칙과 운영 설정의 상태 확인·로그(O-8) 규칙을 확인합니다. PostgreSQL과 MinIO가 켜져 있어야 합니다.
 // 운영 설정에서는 시작 데이터를 넣지 않고, 이메일·비밀번호 로그인이 꺼지고, 구글 로그인은 그대로입니다.
 // 비밀값이 공개된 개발용 기본값이면 서버가 켜지지 않습니다(BackendApplication.main → config/ProductionSettingsChecker).
 // @ActiveProfiles: test 다음에 prod를 켭니다. 뒤에 적은 프로필의 설정 파일이 앞의 것을 덮어씁니다.
@@ -60,14 +64,19 @@ class ProductionSettingsRuleTests {
     private final MemberRepository memberRepository;
     private final AssignmentRepository assignmentRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtProvider jwtProvider;
+    private final Environment environment;
 
     @Autowired
     ProductionSettingsRuleTests(MockMvc mockMvc, MemberRepository memberRepository,
-                                AssignmentRepository assignmentRepository, PasswordEncoder passwordEncoder) {
+                                AssignmentRepository assignmentRepository, PasswordEncoder passwordEncoder,
+                                JwtProvider jwtProvider, Environment environment) {
         this.mockMvc = mockMvc;
         this.memberRepository = memberRepository;
         this.assignmentRepository = assignmentRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtProvider = jwtProvider;
+        this.environment = environment;
     }
 
     // 빈 데이터베이스로 켜도 시작 계정과 데모 과제가 들어가지 않습니다.
@@ -171,6 +180,52 @@ class ProductionSettingsRuleTests {
 
         IllegalStateException e = assertThrows(IllegalStateException.class, () -> new ProductionSettingsChecker().check(environment));
         assertThat(e.getMessage()).contains("바꿔야 하는 환경 변수: JWT_SECRET, POSTGRES_PASSWORD, PROFESSOR_EMAILS.");
+    }
+
+    // 상태 확인은 운영 설정에서도 token 없이 200 UP이고, 응답은 status 칸 하나뿐입니다(O-8).
+    @Test
+    void healthIsUpWithoutToken() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get("/actuator/health"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("""
+                        { "status": "UP" }
+                        """, true));
+    }
+
+    // 다른 actuator 주소는 운영 설정에서도 token이 없으면 401, 있으면 404입니다(O-8). 시작 계정이 없어서 token을 직접 만듭니다.
+    // 항목별 주소(/actuator/health/db 등)의 404는 body가 비어 있습니다(HealthRuleTests.healthComponentPathsAreEmptyNotFound).
+    @Test
+    void otherActuatorPathsAreClosed() throws Exception {
+        Member professor = memberRepository.save(new Member("prod-professor@example.com", null, "운영 교수", MemberType.PROFESSOR));
+        String token = jwtProvider.createToken(professor);
+
+        for (String path : HealthRuleTests.allClosedPaths()) {
+            mockMvc.perform(MockMvcRequestBuilders.get(path))
+                    .andExpect(status().isUnauthorized());
+            mockMvc.perform(MockMvcRequestBuilders.get(path).header("Authorization", "Bearer " + token))
+                    .andExpect(status().isNotFound());
+        }
+    }
+
+    // 운영 설정은 SQL을 로그에 찍지 않고, 로그 수준은 INFO입니다(O-8). 설정값을 읽어 확인합니다.
+    @Test
+    void sqlIsNotLogged() {
+        assertThat(environment.getProperty("spring.jpa.show-sql")).isEqualTo("false");
+        assertThat(environment.getProperty("logging.level.root")).isEqualTo("INFO");
+    }
+
+    // 운영 설정은 데이터베이스 오류 문장에 값(이메일)을 담지 않습니다. 이 문장은 Hibernate가 로그에 찍습니다(O-8).
+    // 개발 설정에서는 값이 담깁니다(DevelopmentSettingsRuleTests.databaseErrorShowsValues).
+    @Test
+    void databaseErrorHidesValues() {
+        memberRepository.saveAndFlush(new Member("same@example.com", null, "첫 회원", MemberType.STUDENT));
+
+        DataIntegrityViolationException e = assertThrows(DataIntegrityViolationException.class,
+                () -> memberRepository.saveAndFlush(new Member("same@example.com", null, "둘째 회원", MemberType.STUDENT)));
+
+        assertThat(NestedExceptionUtils.getMostSpecificCause(e).getMessage())
+                .contains("duplicate key")
+                .doesNotContain("same@example.com");
     }
 
     // SpringApplication.run은 시작 중에 난 예외를 한 번 더 감싸서 던집니다. 검사가 던진 맨 안쪽 예외의 메시지를 꺼냅니다.

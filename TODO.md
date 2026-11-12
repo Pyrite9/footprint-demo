@@ -38,7 +38,7 @@
 | 17 | X-1 | **됨(2026.11.12).** 교수 회원 유형 변경 경로 | 없음 |
 | 18 | X-2 | **됨(2026.11.12). 문구와 보관 기간은 확인 전 초안.** 개인정보 고지와 동의 | 고지 동의 |
 | 19 | O-1, O-2 | **됨(2026.11.12).** 스키마 관리, 운영 설정 분리. 엔티티가 모두 나온 뒤에 함 | 없음 |
-| 20 | O-8 | 상태 확인과 로그 | 상태 확인 |
+| 20 | O-8 | **됨(2026.11.12).** 상태 확인과 로그 | 상태 확인 |
 | 21 | O-3, O-4 | 배포 구성, 백업·복구. 3절의 결정이 먼저 있어야 함 | 없음 |
 
 - 더할 API의 주소는 `docs/api-draft.md`의 "완성 범위에서 더할 API"에 있음
@@ -115,7 +115,14 @@
   - 서버가 켜지지 않는 값: `JWT_SECRET`, `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`가 공개된 기본값이거나 빈 값, `PROFESSOR_EMAILS`가 빈 값. 로그에는 이름만 적고 값은 적지 않음
   - 검사는 데이터베이스에 접속하기 전에 함(`BackendApplication.main` → `config/ProductionSettingsChecker`)
   - CORS 허용 주소는 `CORS_ALLOWED_ORIGINS`(쉼표로 여러 개, 기본 `http://localhost:5173`)
-- **O-8 상태 확인과 로그** — 상태 확인 주소 하나만 열고, 운영 설정에서 `show-sql`을 끔. 로그는 표준 출력으로 내보내고 `docker logs`로 읽음
+- **O-8 상태 확인과 로그(됨)** — 상태 확인 주소 하나만 열고, 운영 설정에서 `show-sql`을 끔. 로그는 표준 출력으로 내보내고 `docker logs`로 읽음
+  - 상태 확인은 `GET /actuator/health` 하나. token 없이 부르고 `{"status":"UP"}`(200) 또는 `{"status":"DOWN"}`(503)만 돌려줌. 상세는 개발 설정에서도 내보내지 않음
+  - 보는 것은 서버와 데이터베이스(그리고 디스크 남은 용량). MinIO는 보지 않음. MinIO는 자기 healthcheck가 있고, 꺼져도 업로드·다운로드 말고는 동작하기 때문임
+  - 다른 actuator 주소는 꺼 둠(`management.endpoints.access.default: none`). token이 없으면 401, 있으면 404. 항목별 주소(`/actuator/health/db`)는 token이 있으면 body가 빈 404임(`docs/api-draft.md` "상태 확인")
+  - 맨 위 `docker-compose.yml`의 backend에 healthcheck(`curl -f`)를 둠. 화면(frontend)은 백엔드를 기다리지 않음
+  - 운영 설정은 SQL 로그를 끄고(`show-sql: false`), 데이터베이스 오류 문장의 값 부분을 뺌(`logServerErrorDetail: false`). 로그 수준은 두 설정 모두 INFO
+  - 로그에 남기지 않는 것: 비밀값, token, 구글 ID token, 요청 body(평가 점수·의견, 보고 메모), 이메일 같은 개인정보. 요청마다 남기는 접근 로그는 두지 않음(주소에 초대 코드가 들어감)
+  - 500의 원인은 `GlobalExceptionHandler.handleException`이 stack trace로 로그에만 남김. 읽는 법은 `backend/README.md` "상태 확인과 로그 읽는 법"
 - **O-3 배포 구성** — 4절의 항목을 실제로 처리함. 서버, 주소, Google Cloud 설정은 외부 작업이라 하기 전에 관리자에게 말함
 - **O-4 백업·복구** — PostgreSQL과 MinIO를 함께 백업하는 스크립트와 복구 절차를 둠. 빈 환경에 실제로 되살려 확인함
 
@@ -189,6 +196,7 @@
 - **운영 설정 검사는 `main`으로 켤 때만 돎** — `java -jar`, `bootRun`, IDE 실행 버튼은 모두 `BackendApplication.main`을 거침. `@SpringBootTest`는 거치지 않아서 테스트는 `main`을 직접 불러 확인함
 - **`Started BackendApplication` 로그가 시작 데이터보다 먼저 나옴** — Spring Boot는 이 줄을 찍은 뒤에 시작 데이터(`CommandLineRunner`)를 넣음. 빈 데이터베이스로 켠 직후 바로 로그인하면 잠깐 401이 날 수 있음. 1~2초 뒤에는 됨
 - **20MB 제한과 동시 요청은 테스트하지 않음** — MockMvc는 실제 Tomcat을 거치지 않아 크기 제한이 동작하지 않고, 테스트 하나가 트랜잭션 하나라 동시 요청을 만들 수 없음. 동료평가의 unique 제약과 부분 unique 인덱스 3개(O-1)만 Repository로 바로 확인함
+- **데이터베이스가 꺼지면 응답이 30초 뒤에 옴** — 연결 풀(Hikari)이 새 연결을 기다리는 시간 기본값임. 상태 확인도 30초 뒤 503 `DOWN`이고, 다른 요청은 30초 뒤 500임. docker healthcheck는 timeout 5초에 걸려 실패로 셈. 기다리는 시간을 줄이면 바쁠 때 정상 요청도 실패할 수 있어 그대로 둠(O-8)
 - **`gradlew` 파일 모드** — Windows에서 commit 하면 실행 권한이 빠져 Linux·macOS에서 `./gradlew`가 막힘. 지금은 `100755`로 맞춰 둠
 
 ## 6. 조원과 함께 일할 때

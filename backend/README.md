@@ -79,7 +79,7 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 - 테스트는 `src/test/resources/application-test.yml`의 설정으로 돌아감. 데이터베이스는 `footprint_test` 스키마, 파일은 `footprint-test` 버킷을 씀
 - 테스트의 Spring context가 뜰 때마다 `footprint_test` 스키마를 비우고 migration을 처음부터 다시 돌림(`TestFlywayConfig`). 그래서 migration이 Entity와 어긋나면 빌드가 깨짐
 - **빌드해도 개발 데이터(`public` 스키마, `footprint` 버킷)는 지워지지 않음.** 빌드할 때마다 시험 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓임
-- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `SchemaRuleTests`(스키마와 부분 unique 인덱스, 시작 데이터 한 번만), `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `EvaluationDraftRuleTests`(평가 임시 저장), `EvidenceRuleTests`(근거 패널), `RecordRuleTests`(기록 열람), `EvaluationResultRuleTests`(평가 결과), `PhaseRuleTests`(과제 단계), `NotificationRuleTests`(알림), `JoinPreviewRuleTests`(합류 전 미리보기), `DevelopmentSettingsRuleTests`(환경 변수 없이 켠 개발 설정), `ProductionSettingsRuleTests`(운영 설정)
+- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `SchemaRuleTests`(스키마와 부분 unique 인덱스, 시작 데이터 한 번만), `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `EvaluationDraftRuleTests`(평가 임시 저장), `EvidenceRuleTests`(근거 패널), `RecordRuleTests`(기록 열람), `EvaluationResultRuleTests`(평가 결과), `PhaseRuleTests`(과제 단계), `NotificationRuleTests`(알림), `JoinPreviewRuleTests`(합류 전 미리보기), `DevelopmentSettingsRuleTests`(환경 변수 없이 켠 개발 설정), `ProductionSettingsRuleTests`(운영 설정), `HealthRuleTests`(상태 확인)
 - `ProductionSettingsRuleTests`만 `footprint_prod_test` 스키마를 씀. 운영 설정은 시작 데이터를 넣지 않아서, `footprint_test`를 같이 쓰면 이 테스트가 그 스키마를 비울 때 다른 테스트의 시작 데이터가 사라짐
 - 테스트가 끝나면 데이터베이스 변경을 되돌림(`@Transactional`). 그래서 어떤 순서로 돌아도 시작 데이터가 그대로임
 - 실행 로그의 `Using generated security password: ...`는 Spring Security가 기본으로 만드는 계정. 이 프로젝트는 쓰지 않으므로 무시할 것
@@ -143,6 +143,7 @@ Found non-empty schema(s) "public" but no schema history table. Use baseline() o
 | 이메일·비밀번호 로그인 | 됨 | 꺼짐. `POST /auth/login`은 404 `NOT_FOUND` |
 | 구글 로그인 | 됨 | 됨 |
 | 비밀값 검사 | 안 함 | 공개된 기본값이면 켜지지 않음 |
+| 실행한 SQL 로그 | 나옴 | 나오지 않음("상태 확인과 로그 읽는 법") |
 
 운영 설정에 필요한 환경 변수. 하나라도 빠지면 서버가 켜지지 않고 로그에 이름만 나옴
 
@@ -159,7 +160,7 @@ Found non-empty schema(s) "public" but no schema history table. Use baseline() o
 - 내 컴퓨터에서 jar로 켜기(PowerShell). 값은 예시가 아니라 직접 만든 무작위 값을 넣을 것
   ```powershell
   $env:SPRING_PROFILES_ACTIVE="prod"; $env:JWT_SECRET="..."; $env:POSTGRES_PASSWORD="..."; $env:MINIO_ROOT_PASSWORD="..."; $env:PROFESSOR_EMAILS="..."
-  java -jar build\libsootprint-backend-0.0.1-SNAPSHOT.jar
+  java -jar build\libs\footprint-backend-0.0.1-SNAPSHOT.jar
   ```
   macOS는 `SPRING_PROFILES_ACTIVE=prod JWT_SECRET=... ... java -jar build/libs/footprint-backend-0.0.1-SNAPSHOT.jar`
 - docker compose: `infra/.env`의 "운영 설정" 줄(`infra/.env.example`)의 `#`을 지우고 값을 넣음. 화면의 이메일·비밀번호 폼도 숨기려면 `VITE_PASSWORD_LOGIN=false`로 화면 이미지를 다시 만듦(`docker compose --env-file infra/.env up -d --build`)
@@ -170,6 +171,58 @@ Found non-empty schema(s) "public" but no schema history table. Use baseline() o
 - 검사는 `BackendApplication.main`이 넣은 `config/ProductionSettingsChecker`가 함. 설정 파일을 읽은 직후, 데이터베이스에 접속하기 전에 돎
 - 이미 만든 DB·MinIO volume의 비밀번호는 `infra/.env`를 바꿔도 바뀌지 않음(처음 만들 때만 읽음). 개발 volume에 운영 설정을 켜지 말고 새 volume으로 시작할 것. 실제 서버·주소·포트는 O-3에서 정함
 - 운영 설정에서 꺼지는 코드 위치: `application-prod.yml`의 값마다 주석으로 적어 둠(`config/DataInitializer.run`, `service/AuthService.login`)
+
+## 상태 확인과 로그 읽는 법
+
+서버가 살아 있는지, 오류가 났을 때 무엇이 원인인지 보는 방법(O-8, 2026.11.12)
+
+**상태 확인**
+
+- `GET /actuator/health`를 token 없이 부름. 개발 설정과 운영 설정이 같음
+  ```powershell
+  curl.exe -s http://127.0.0.1:8080/actuator/health
+  ```
+  macOS는 `curl -s http://127.0.0.1:8080/actuator/health`
+- 서버가 켜져 있고 데이터베이스에 닿으면 200 `{"status":"UP"}`, 아니면 503 `{"status":"DOWN"}`. 상세(DB 종류, 디스크 경로, 버전)는 나오지 않음
+- 데이터베이스가 꺼져 있으면 503이 **30초 뒤에** 옴. 연결 풀(Hikari)이 연결을 기다리는 시간 기본값임. 그동안 다른 요청도 30초 뒤 500 `SERVER_ERROR`가 됨
+- MinIO는 보지 않음. MinIO가 꺼져도 `UP`이고, 업로드·다운로드만 500이 됨. MinIO 상태는 아래 `docker compose ps`로 봄
+- 다른 actuator 주소(`/actuator/env` 등)는 열지 않음. token이 없으면 401, 있으면 404
+- docker compose로 켰으면 컨테이너 상태로도 봄. backend 줄의 STATUS가 `healthy`면 정상, `unhealthy`면 상태 확인이 연속 3번 실패한 것임
+  ```powershell
+  docker compose ps
+  ```
+  postgres, minio도 각자 healthcheck가 있어서 셋을 한 번에 봄. 저장소 맨 위 폴더에서 실행함
+
+**로그 읽기**
+
+- 로그는 파일로 남기지 않고 표준 출력으로만 내보냄. `gradlew bootRun`이나 `java -jar`로 켰으면 그 터미널에 나옴
+- docker compose로 켰으면 `docker logs`로 읽음. 컨테이너를 지우면(`docker compose down`) 로그도 사라짐
+  ```powershell
+  docker logs footprint-demo-backend --tail 200
+  docker logs footprint-demo-backend --since 10m
+  docker logs -f footprint-demo-backend
+  ```
+  `--tail 200`: 마지막 200줄, `--since 10m`: 최근 10분, `-f`: 새 줄을 계속 보여 줌(멈추려면 Ctrl+C)
+- 500 `SERVER_ERROR`의 원인 찾기: 응답에는 "서버에서 오류가 났습니다"만 나감. 로그에서 `처리하지 못한 예외입니다` 줄을 찾으면 바로 아래에 stack trace가 있음. `com.footprint.backend`로 시작하는 줄이 우리 코드의 어느 Controller·Service에서 났는지 알려 줌
+  ```powershell
+  docker logs footprint-demo-backend 2>&1 | Select-String "처리하지 못한 예외" -Context 0,5
+  ```
+  macOS는 `docker logs footprint-demo-backend 2>&1 | grep -A5 "처리하지 못한 예외"`. `2>&1`은 오류 출력도 함께 넘기는 것임
+- 데이터베이스가 꺼졌을 때는 `DataSource health check failed`, `HikariPool-1 - Failed to validate connection` 같은 WARN 줄이 상태 확인마다 나옴
+
+**로그에 남는 것과 남지 않는 것**
+
+| | 개발 설정 | 운영 설정 |
+|---|---|---|
+| 로그 수준 | INFO | INFO |
+| 실행한 SQL | 나옴(값 자리는 `?`) | 나오지 않음 |
+| 데이터베이스 오류의 값(예: `Key (email)=(...)`) | 나옴 | 빠짐. 제약 이름과 오류 종류만 나옴 |
+| 처리하지 못한 예외(500)의 stack trace | 나옴 | 나옴 |
+| 요청마다 남기는 접근 로그 | 없음 | 없음 |
+
+- 남기지 않는 것: 비밀값, token, 구글 ID token, 요청 body(평가 점수·의견, 보고 메모), 이메일·이름 같은 개인정보. 우리 코드의 로그는 `GlobalExceptionHandler.handleException` 한 곳뿐임
+- 접근 로그를 두지 않는 이유: 합류 전 미리보기 주소(`GET /teams/join/{inviteCode}`)에 초대 코드가 들어 있어서 주소를 그대로 찍으면 코드가 로그에 남음. 500의 원인은 stack trace로 찾을 수 있음
+- 로그 수준을 DEBUG로 낮추지 않음. Spring의 DEBUG 로그는 요청마다 주소를 찍음
 
 ## 시작 계정
 

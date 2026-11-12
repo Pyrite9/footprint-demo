@@ -49,6 +49,9 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         // 서버 오류가 나면 Spring이 /error로 다시 보냅니다. 이것까지 막으면 500 오류가 401로 바뀌어 보입니다.
                         .requestMatchers("/error").permitAll()
+                        // 상태 확인 주소 하나만 엽니다(O-8). docker의 healthcheck는 token을 보낼 수 없습니다.
+                        // 다른 /actuator 주소는 열지 않아서 token이 없으면 401, 있으면 404입니다(application.yml의 management).
+                        .requestMatchers("/actuator/health").permitAll()
                         .anyRequest().authenticated())
                 // token 확인 필터를 앞쪽에 둡니다. 주소별 허용·차단을 판단하기 전에 "누가 보냈는지"가 적혀 있어야 합니다.
                 // UsernamePasswordAuthenticationFilter는 자리를 정하는 기준일 뿐입니다. formLogin을 껐으므로 실제로 실행되지는 않습니다.

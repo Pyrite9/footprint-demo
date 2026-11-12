@@ -2277,3 +2277,75 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - Google Client ID, 허용 도메인, CORS 기본값은 운영 설정에서도 막지 않음
   - 화면 폼은 빌드 변수로 숨김. 맨 위 compose의 화면 빌드 변수는 `infra/.env`가 아니라 셸·맨 위 `.env`(또는 `--env-file`)에서 읽음
   - 테스트의 운영 context는 별도 스키마 `footprint_prod_test`를 씀(개발 DB에 스키마 하나가 더 남음)
+
+## 2026.11.12 O-8 상태 확인과 로그
+- 결정:
+  - **새 의존성 `spring-boot-starter-actuator`**(버전은 Spring Boot BOM). 상태 확인 주소를 만들고 DB 연결 확인(`DataSourceHealthIndicator`)을 그대로 씀
+    - 대안 직접 만든 Controller(`GET /health`): DB 확인 코드를 직접 써야 하고, 배포 도구·문서가 기대하는 actuator 주소와 다름. actuator는 설정 파일만으로 끝남
+    - 대안 docker healthcheck에서 PostgreSQL만 보기: 백엔드 프로세스가 멈춘 것은 못 잡음
+  - **열리는 주소는 `GET /actuator/health` 하나**. `management.endpoints.access.default: none`으로 actuator 주소를 모두 끄고 health만 `read-only`로 켬. 웹 노출도 `include: health` 하나, 목록 화면(`/actuator`)은 `discovery.enabled: false`
+    - `exposure.include`만 쓰면 다른 endpoint는 켜진 채 웹에만 안 나감. `access.default: none`은 아예 꺼서, 나중에 실수로 노출을 넓혀도 열리지 않음
+    - `SecurityConfig`에 `.requestMatchers("/actuator/health").permitAll()` 한 줄. method는 가리지 않음(`/auth/**`와 같은 방식). GET이 아니면 404 "없는 주소입니다"
+  - **응답은 `{"status":"UP"}`/`{"status":"DOWN"}`(503)뿐**. `show-details: never`, `show-components: never`. 개발 설정에서도 상세를 내보내지 않음(설정이 한 곳이라 단순하고, 개발 중에는 로그로 봄)
+  - **MinIO는 상태 확인에 넣지 않음**
+    - 넣으면 커스텀 `HealthIndicator` 클래스 하나가 생기고, MinIO만 꺼져도 backend 컨테이너가 `unhealthy`가 됨. 원인이 MinIO인데 backend를 의심하게 됨
+    - MinIO 컨테이너는 이미 자기 healthcheck가 있어서 `docker compose ps` 한 번에 셋이 다 보임. MinIO가 꺼져도 로그인, 기록 열람, 평가는 됨(업로드·다운로드만 500)
+    - 대안 "넣음": 상태 주소 하나로 모든 의존을 보고 싶을 때. O-3에서 바깥 감시 도구를 쓰게 되면 다시 봄
+  - **디스크 확인은 기본값 그대로 둠**(남은 용량 10MB 미만이면 `DOWN`). 업로드가 막히기 직전이라 알릴 만함. 경로·용량은 응답에 나가지 않음
+  - **오류 모양이 `{ code, message }`와 다른 곳 두 군데를 그대로 두고 `docs/api-draft.md`에 적음.** 새 code 없음
+    - 503 `{ "status": "DOWN" }`: docker와 운영자가 상태 코드로 판단하는 주소라 actuator 모양을 그대로 둠
+    - token이 있을 때 `/actuator/health/db`, `/actuator/health/diskSpace`: actuator가 직접 내는 body 없는 404. 막으려면 `denyAll`(403, body 없음)이나 Security 단계의 별도 처리가 필요해 더 복잡함. 정보는 나가지 않음
+    - 다른 actuator 주소(`/actuator/env` 등)는 token이 없으면 401 `UNAUTHORIZED`, 있으면 404 `NOT_FOUND` "없는 주소입니다"로 기존 규칙과 같음(직접 확인)
+  - **데이터베이스가 꺼지면 상태 확인이 30초 뒤 503**(Hikari `connection-timeout` 기본값). 기다리는 시간을 줄이지 않음
+    - 줄이면(예: 5초) 바쁠 때 정상 요청도 연결을 못 얻고 500이 될 수 있음. docker healthcheck는 timeout 5초로 실패를 셈. `TODO.md` 5절에 적음
+  - **맨 위 `docker-compose.yml`의 backend에 healthcheck를 둠**: `curl -fsS http://localhost:8080/actuator/health`, interval 10s, timeout 5s, retries 3, start_period 60s
+    - 백엔드 이미지(`eclipse-temurin:21-jre`, Ubuntu 26.04)에 `curl`과 `wget`이 있음(직접 확인). 이미지에 도구를 더 깔지 않음
+    - frontend의 `depends_on`은 그대로 둠(`service_healthy`로 바꾸지 않음). 화면 컨테이너는 만들어 둔 파일만 내주고 백엔드를 부르는 것은 브라우저라 기다릴 이유가 없음. 바꾸면 백엔드가 늦게 뜰 때 화면도 늦게 뜸
+  - **로그는 표준 출력만**(Spring Boot 기본). 파일 appender, 외부 수집기, `logback-spring.xml`을 두지 않음. `docker logs`로 읽음
+  - **운영 설정 `application-prod.yml`에 세 줄**
+    - `spring.jpa.show-sql: false`. 개발 설정은 `true` 그대로(값 자리는 `?`라 값은 원래 찍히지 않음)
+    - `spring.datasource.hikari.data-source-properties.logServerErrorDetail: false`(PostgreSQL JDBC 드라이버 설정). 훑어보다 찾은 것: Hibernate의 `SqlExceptionHelper`가 SQL 오류마다 ERROR 줄과 함께 PostgreSQL의 `Detail: Key (email)=(...) already exists.`를 찍음. 409로 바꿔 응답하는 동시 요청(`TeamService.join`, `EvaluationService.submit`)이나 첫 구글 로그인이 겹칠 때 값(이메일 등)이 로그에 남을 수 있음. 이 설정은 그 값 부분만 빼고 제약 이름은 남김. 개발 설정은 원인을 배우기 쉽게 그대로 둠
+    - `logging.level.root: INFO`(기본값과 같음. 운영에서 DEBUG로 낮추지 않는다는 뜻을 적어 둠)
+  - **기존 로그 훑어본 결과**: 우리 코드의 로그는 `GlobalExceptionHandler.handleException`의 `log.error` 한 곳뿐. token, 구글 ID token, 비밀번호, 요청 body를 찍는 곳 없음. `ProductionSettingsChecker`는 이름만 찍음(O-2). 고칠 코드 없음
+  - **요청마다 남기는 접근 로그는 두지 않음**
+    - 주소를 그대로 찍으면 `GET /teams/join/{inviteCode}`의 초대 코드가 남음. 주소 틀(`/teams/join/{inviteCode}`)만 찍으려면 필터와 Spring 내부 속성을 알아야 해서 초심자가 읽기 어려움
+    - 500의 원인은 stack trace로 찾음. 직접 확인: MinIO를 멈추고 다운로드하면 응답은 500 "서버에서 오류가 났습니다"뿐이고, 로그에는 `처리하지 못한 예외입니다` 아래 `StorageService.load` → `DeliverableService.loadFile` → `DeliverableController.download` 줄이 있음
+  - **가짜 API에는 상태 확인 주소를 두지 않음.** 화면이 부르지 않고, 가짜 API는 화면 개발용임. Postman 모음의 상태 확인 요청 하나는 `baseUrl`에 `:3001`이 있으면 건너뜀(`pm.execution.skipRequest`). `/actuator/env` 두 요청은 가짜 API도 같은 401·404를 내서 건너뛰지 않음
+  - CI(`.github/workflows/ci.yml`)는 바꾸지 않음. 새 테스트는 환경 변수 없이 돎
+  - modern-web-guidance: 화면 코드를 고치지 않아 쓰지 않음
+- 만든 파일:
+  - 테스트: `backend/src/test/java/com/footprint/backend/HealthRuleTests.java`(5개)
+- 고친 파일:
+  - 백엔드: `backend/build.gradle`(actuator), `application.yml`(`management`, `show-sql` 주석), `application-prod.yml`(SQL 로그, DB 오류의 값, 로그 수준), `config/SecurityConfig`(health 한 줄)
+  - 테스트: `ProductionSettingsRuleTests`(+4: 운영 설정의 상태 확인, 닫힌 주소, SQL 로그, DB 오류의 값), `DevelopmentSettingsRuleTests`(+2: 개발 설정의 SQL 로그, DB 오류의 값)
+  - 실행 구성: 맨 위 `docker-compose.yml`(backend healthcheck, frontend `depends_on` 주석)
+  - 문서: `docs/api-draft.md`("상태 확인" 절, 공통의 token 예외, "완성 범위에서 더할 API" 표를 비움), `docs/postman/footprint-demo.postman_collection.json`(폴더 9, 요청 3개), `docs/postman/README.md`, `backend/README.md`("상태 확인과 로그 읽는 법" 절, 운영 설정 표, 테스트 목록, O-2 때 jar 경로의 `\f`가 form feed 문자로 깨진 줄), `README.md`(지금 상태, 남은 추가 기능 3 → 2), `TODO.md`(순서 20, O-8 규칙, 5절), `docs/architecture.md`, `CLAUDE.md`(코드 규칙 — 백엔드의 로그 규칙 한 줄)
+- 확인:
+  - `gradlew.bat cleanTest build` 두 번 연속 성공. 두 번 모두 테스트 26개 클래스 200개, 실패 0(기존 189개 + 새 11개)
+  - 실제 서버(jar, 개발 설정): `GET /actuator/health` 200 `{"status":"UP"}`, `Content-Type: application/vnd.spring-boot.actuator.v3+json`. token 없이 `/actuator/env`, `/actuator`, `/actuator/health/db` 401 `UNAUTHORIZED`. token이 있으면 `/actuator/env`, `/actuator` 404 `NOT_FOUND`, `/actuator/health/db` body 없는 404
+  - PostgreSQL 컨테이너를 `docker stop`하자 503 `{"status":"DOWN"}`(세 번 모두 약 30초 뒤). `docker start` 뒤 healthy가 되자 바로 200 `UP`. 두 컨테이너 모두 healthy로 돌아옴. volume은 건드리지 않음
+  - MinIO를 멈춘 동안 상태 확인은 200 `UP`, 다운로드는 500 `SERVER_ERROR`(응답에 원인 없음, 로그에 stack trace). 다시 켠 뒤 다운로드 200
+  - 이미지 새로 빌드(`docker compose build backend`) 뒤 `docker compose up -d --no-deps backend`: 6초 만에 `healthy`. PostgreSQL을 멈추자 약 40초 뒤 `unhealthy`(healthcheck 기록 "exceeded timeout (5s)"), 다시 켜자 11초 뒤 `healthy`. 확인 뒤 backend 컨테이너는 멈춰 둠(전처럼 Exited)
+  - Newman(컨테이너 backend, 개발 설정): 요청 149개, assertion 348개, 실패 0. 그 뒤 `docker logs footprint-demo-backend` 8658줄에서 `@example.com`, `eyJ`(token), `pass1234`, `change-me`, `Detail:` 모두 0건
+  - Newman(가짜 API): 요청 148개(상태 확인 1개 건너뜀), assertion 345개, 실패 0. 끝난 뒤 `frontend/db.json`을 되돌림. 고친 모음으로 실제 서버(jar)에 다시 실행해 149개·348개, 실패 0
+  - 테스트 로그로 본 DB 오류 문장: 개발 설정은 `Detail: Key (email)=(same@example.com) already exists.`가 찍히고, 운영 설정은 `ERROR: duplicate key value violates unique constraint "member_email_key"`만 찍힘
+  - 화면(`frontend`)은 고치지 않아서 `npm run build`, `npm run lint`를 돌리지 않음
+  - rule-check: 이번 단위 파일에서 금지 패턴 없음(`@Autowired`는 테스트 생성자 주입). Service·Controller를 고치지 않음. 새 테스트 메서드와 상수에 주석 있음. 실제 API와 가짜 API가 다른 곳은 상태 확인 주소 하나이고 위 결정대로임. 고칠 것 없었음
+  - **확인 못 함**: 운영 설정(prod)으로 켠 실제 서버에서 SQL 로그가 사라지는 것(테스트는 설정값을 읽어 확인함. 운영 설정 서버는 임시 비밀값과 임시 DB가 필요해 이번에는 띄우지 않음), CI 실행(push 전), 맨 위 compose 전체(`frontend` 포함)를 `up --build`로 새로 켜는 것(backend만 새로 빌드해 켬)
+- 읽을 때 볼 곳 (actuator에서 막힐 곳):
+  - actuator 주소는 우리 Controller가 아님. `controller/` 폴더를 찾아도 없고, `application.yml`의 `management` 설정이 주소를 만듦. 응답 모양이 `{ code, message }`가 아닌 이유임
+  - `management.endpoints.access`(켜고 끄기)와 `management.endpoints.web.exposure`(웹 주소로 내보내기)는 다른 설정임. 둘 다 health만 남겨야 health만 열림
+  - `SecurityConfig`의 `permitAll`은 "token 없이 통과"일 뿐 주소를 만들지 않음. `/actuator/env`를 permitAll에 넣어도 `management`에서 꺼져 있으면 404임
+  - `{"status":"UP"}`의 `status`는 HTTP 상태 코드가 아님. `DOWN`일 때 HTTP 상태 코드가 503이 됨. `curl -f`는 503을 실패로 봄
+  - docker healthcheck 명령은 **컨테이너 안에서** 돎. 그래서 주소가 `127.0.0.1:8080`이 아니라 컨테이너 자신의 `localhost:8080`임
+  - `application-prod.yml`의 `logServerErrorDetail`은 Spring 설정이 아니라 PostgreSQL JDBC 드라이버의 설정 이름임. `spring.datasource.hikari.data-source-properties` 아래에 적으면 Hikari가 드라이버에 그대로 넘김
+  - 운영 설정 테스트(`ProductionSettingsRuleTests`)가 새 테스트를 함께 가짐. 운영 설정 context를 하나만 두려고 따로 클래스를 만들지 않음(새 context는 `footprint_prod_test`를 다시 비움)
+- 내가 채운 가정:
+  - 상태 확인에 MinIO를 넣지 않음. 디스크 확인은 기본값으로 둠
+  - 개발 설정에서도 상세를 내보내지 않음
+  - 항목별 주소의 body 없는 404와 503 `{ status }`는 고치지 않고 문서로 둠
+  - DB가 꺼졌을 때 30초를 줄이지 않음
+  - healthcheck 간격(10s, timeout 5s, 3번, 시작 60s). frontend는 백엔드를 기다리지 않음
+  - 운영 설정에서 DB 오류의 값을 뺌(`logServerErrorDetail: false`). 개발 설정은 그대로
+  - 접근 로그를 두지 않음. 로그 수준은 두 설정 모두 INFO
+  - 가짜 API에 상태 확인 주소를 두지 않고, Postman은 가짜 API에서 그 요청만 건너뜀

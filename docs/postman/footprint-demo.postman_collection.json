@@ -5251,6 +5251,106 @@
           ]
         }
       ]
+    },
+    {
+      "name": "9. 상태 확인 (O-8)",
+      "description": "서버를 돌리는 사람과 docker의 healthcheck가 쓰는 상태 확인 주소입니다. token 없이 부르고 status 칸 하나만 받습니다. 다른 actuator 주소는 열려 있지 않습니다. 가짜 API에는 상태 확인 주소가 없어서 baseUrl이 가짜 API면 첫 요청을 건너뜁니다.",
+      "item": [
+        {
+          "name": "상태 확인 (token 없이)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health",
+            "description": "서버가 켜져 있고 데이터베이스에 닿으면 200 UP입니다. 닿지 않으면 503 DOWN입니다. 상세(DB 종류, 디스크, 버전)는 담지 않습니다.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 가짜 API(3001)에는 상태 확인 주소가 없습니다(화면이 부르지 않음). 가짜 API에 실행할 때는 이 요청을 건너뜁니다.",
+                  "// pm.variables는 모음 변수와 명령줄의 --env-var 값을 모두 읽습니다.",
+                  "if (pm.variables.get('baseUrl').includes(':3001')) {",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 응답', () => pm.response.to.have.status(200));",
+                  "const health = pm.response.json();",
+                  "pm.test('status 칸 하나뿐', () => pm.expect(Object.keys(health)).to.eql(['status']));",
+                  "pm.test('UP', () => pm.expect(health.status).to.eql('UP'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "열지 않은 actuator 주소 - token 없으면 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/env",
+            "description": "env는 설정값(비밀값 포함)을 보여 주는 주소라 열지 않습니다. token이 없으면 다른 막힌 주소처럼 401입니다.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 응답', () => pm.response.to.have.status(401));",
+                  "pm.test('code UNAUTHORIZED', () => pm.expect(pm.response.json().code).to.eql('UNAUTHORIZED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "열지 않은 actuator 주소 - token 있어도 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/env",
+            "description": "로그인한 교수가 불러도 없는 주소(404)입니다.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{professorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 응답', () => pm.response.to.have.status(404));",
+                  "pm.test('code NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [

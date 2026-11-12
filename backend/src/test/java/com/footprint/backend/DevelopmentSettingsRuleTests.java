@@ -1,13 +1,19 @@
 package com.footprint.backend;
 
 import com.footprint.backend.config.ProductionSettingsChecker;
+import com.footprint.backend.entity.Member;
+import com.footprint.backend.entity.MemberType;
 import com.footprint.backend.repository.MemberRepository;
 import com.footprint.backend.repository.TeamRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.core.env.Environment;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -17,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -83,6 +90,27 @@ class DevelopmentSettingsRuleTests {
                 .withProperty("google.professor-emails", "");
 
         assertDoesNotThrow(() -> new ProductionSettingsChecker().check(developmentEnvironment));
+    }
+
+    // 개발 설정은 SQL을 로그에 찍습니다(조원이 SQL을 보며 배우는 용도). 운영 설정은 끕니다(ProductionSettingsRuleTests.sqlIsNotLogged).
+    // application-test.yml이 테스트 로그에서는 끄므로, 테스트 설정이 덮기 전의 application.yml 파일을 따로 읽습니다.
+    @Test
+    void sqlIsLoggedInDevelopment() {
+        YamlPropertiesFactoryBean applicationYml = new YamlPropertiesFactoryBean();
+        applicationYml.setResources(new ClassPathResource("application.yml"));
+
+        assertThat(applicationYml.getObject().getProperty("spring.jpa.show-sql")).isEqualTo("true");
+    }
+
+    // 개발 설정은 데이터베이스 오류 문장에 값이 그대로 보입니다. 운영 설정은 뺍니다(ProductionSettingsRuleTests.databaseErrorHidesValues).
+    @Test
+    void databaseErrorShowsValues() {
+        memberRepository.saveAndFlush(new Member("same@example.com", null, "첫 회원", MemberType.STUDENT));
+
+        DataIntegrityViolationException e = assertThrows(DataIntegrityViolationException.class,
+                () -> memberRepository.saveAndFlush(new Member("same@example.com", null, "둘째 회원", MemberType.STUDENT)));
+
+        assertThat(NestedExceptionUtils.getMostSpecificCause(e).getMessage()).contains("same@example.com");
     }
 
     // 화면이 보내는 것과 같은 CORS 사전 요청(OPTIONS)을 보냅니다.

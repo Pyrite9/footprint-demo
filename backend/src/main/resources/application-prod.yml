@@ -8,3 +8,23 @@ footprint:
   # 이메일·비밀번호 로그인을 끕니다. POST /auth/login은 404 NOT_FOUND입니다. 꺼지는 곳: service/AuthService.login
   # 구글 로그인(POST /auth/google)은 그대로입니다.
   password-login: false
+
+# 아래는 상태 확인과 로그(O-8)입니다. 로그는 파일로 남기지 않고 표준 출력으로 내보냅니다. 운영자는 docker logs로 읽습니다.
+# 로그에 남기지 않는 것: 비밀값, token, 구글 ID token, 요청 body(평가 점수·의견, 보고 메모), 이메일 같은 개인정보입니다.
+# 500 SERVER_ERROR의 원인(stack trace)은 로그에만 남고 응답에는 나가지 않습니다(GlobalExceptionHandler.handleException).
+spring:
+  jpa:
+    # 실행한 SQL을 로그에 찍지 않습니다. 개발 설정은 조원이 SQL을 보며 배우도록 켜 둡니다.
+    show-sql: false
+  datasource:
+    hikari:
+      data-source-properties:
+        # PostgreSQL 오류 문장에서 "Detail: Key (email)=(...)" 같은 값 부분을 뺍니다. 제약 이름과 SQLState는 남습니다.
+        # 이 문장은 Hibernate가 SQL 오류를 만날 때마다 로그에 찍습니다. 409로 바꿔 응답한 경우(동시 요청)에도 찍혀서, 이메일이 로그에 남을 수 있습니다.
+        logServerErrorDetail: false
+
+logging:
+  level:
+    # 서버 시작, migration 적용, 처리하지 못한 예외(500)가 보이는 기본 수준입니다. 개발 설정도 같습니다.
+    # DEBUG로 낮추지 않습니다. Spring의 DEBUG 로그는 요청마다 주소를 찍어서, 주소에 든 초대 코드(GET /teams/join/{inviteCode})가 남습니다.
+    root: INFO

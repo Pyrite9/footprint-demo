@@ -4,7 +4,7 @@
 
 공통
 - 오류 응답은 모두 `{ "code": "...", "message": "..." }`. `code`는 `NOT_FOUND` 404, `INVALID_INPUT` 400, `UNAUTHORIZED` 401, `FORBIDDEN` 403, `DUPLICATE` 409, `SERVER_ERROR` 500
-- `/auth/**` 말고는 모두 header에 `Authorization: Bearer <accessToken>`이 필요함. 없거나 틀리면 401 `UNAUTHORIZED`
+- `/auth/**`와 `GET /actuator/health`(상태 확인) 말고는 모두 header에 `Authorization: Bearer <accessToken>`이 필요함. 없거나 틀리면 401 `UNAUTHORIZED`
 - 없는 주소, 또는 주소는 있지만 그 method가 없는 요청(예: `DELETE /assignments/1`)은 404 `NOT_FOUND` "없는 주소입니다"(2026.10.25 결정). token이 없으면 그보다 먼저 401임
 - 서버 내부 오류는 500 `SERVER_ERROR` "서버에서 오류가 났습니다"(2026.10.26 관리자 결정). 원인(예외 내용)은 응답에 담지 않고 서버 로그에만 남김
 - 위 code에 들어가지 않는 요청 오류(예: 지원하지 않는 Content-Type)는 400 `INVALID_INPUT` "요청의 형식이 올바르지 않습니다"
@@ -1085,13 +1085,46 @@ token
 
 ---
 
+## 상태 확인
+
+서버를 돌리는 사람과 docker의 healthcheck가 쓰는 주소임. 화면은 부르지 않음. Spring Boot Actuator가 만드는 주소라 응답 모양이 다른 API와 다름(아래 "다른 API와 다른 점")
+
+### GET /actuator/health — 상태 확인 (O-8) · 2026.11.12
+
+token 없이 부름. 서버가 켜져 있고 데이터베이스에 닿는지를 `UP`/`DOWN` 하나로 알려 줌
+
+200
+```json
+{ "status": "UP" }
+```
+
+503
+```json
+{ "status": "DOWN" }
+```
+
+- `Content-Type`은 `application/vnd.spring-boot.actuator.v3+json`임(JSON임)
+- `status` 칸 하나만 있음. 데이터베이스 종류, 디스크 경로·남은 용량, 버전, 항목별 상태는 담지 않음. 개발 설정과 운영 설정이 같음
+- `DOWN`이 되는 경우: 데이터베이스에 연결하지 못함, 서버가 도는 디스크의 남은 용량이 10MB보다 작음
+  - 데이터베이스가 꺼져 있으면 연결을 기다리느라 503이 **30초 뒤에** 옴(연결 풀의 기다리는 시간 기본값)
+- MinIO는 보지 않음. MinIO가 꺼져도 `UP`임. MinIO 상태는 MinIO 컨테이너의 healthcheck(`docker compose ps`)로 봄. 그동안 업로드·다운로드는 500 `SERVER_ERROR`임
+
+| 상태 | code | 언제 |
+|---|---|---|
+| 503 | 없음. body는 `{ "status": "DOWN" }` | 데이터베이스에 닿지 않거나 디스크가 거의 찼을 때 |
+| 404 | `NOT_FOUND` | GET이 아닌 method일 때. 다른 주소와 같은 "없는 주소입니다" |
+
+다른 API와 다른 점
+- 503과 `{ status }`는 오류 응답 `{ code, message }`가 아님. 사람이 아니라 docker와 운영자가 상태 코드로 판단하는 주소라 actuator 모양을 그대로 둠. 새 `code`는 만들지 않음
+- 다른 actuator 주소(`/actuator`, `/actuator/env`, `/actuator/beans`, `/actuator/metrics`, `/actuator/info` 등)는 열지 않음. token이 없으면 401 `UNAUTHORIZED`, 있으면 404 `NOT_FOUND` "없는 주소입니다"(다른 없는 주소와 같음)
+- 항목별 주소(`/actuator/health/db`, `/actuator/health/diskSpace`)도 token이 없으면 401 `UNAUTHORIZED`. token이 있으면 **body가 빈 404**임. actuator가 직접 내는 응답이라 `{ code, message }`가 붙지 않음. 항목별 상태는 내보내지 않으므로 어느 쪽이든 정보는 나가지 않음
+- 가짜 API에는 이 주소가 없음(화면이 부르지 않음)
+
+---
+
 ## 완성 범위에서 더할 API · 2026.11.04
 
-아직 만들지 않은 API의 주소 추천안임(관리자 결정 2026.11.04 "최대한 완성", 추가 기능 필수·권장 포함). 위 절과 달리 **지금 부르면 404임.** 만들 때 위쪽에 요청·응답·오류 표를 적고 이 표에서 그 줄을 지움. 규칙은 `TODO.md` 1절
-
-| 순서 | ID | method 주소 | 누가 |
-|---|---|---|---|
-| 20 | O-8 | `GET /actuator/health` | token 없이 |
+아직 만들지 않은 API의 주소 추천안을 적던 절임(관리자 결정 2026.11.04 "최대한 완성", 추가 기능 필수·권장 포함). 순서 20(O-8)까지 모두 만들어 위쪽에 옮겼고(2026.11.12) 남은 API는 없음. 남은 단위(O-3 배포 구성, O-4 백업·복구)는 API를 더하지 않음. 새로 더할 API가 생기면 이 절에 표를 다시 두고, 만들 때 위쪽에 요청·응답·오류 표를 적고 표에서 그 줄을 지움. 규칙은 `TODO.md` 1절
 
 이미 있는 API의 응답이 바뀌는 곳
 

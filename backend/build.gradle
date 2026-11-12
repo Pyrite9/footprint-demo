@@ -40,6 +40,9 @@ dependencies {
     // flyway-database-postgresql: Flyway 10부터 PostgreSQL 지원이 core에서 이 모듈로 나뉘었습니다. 없으면 시작할 때 "Unsupported Database" 오류가 납니다.
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-postgresql'
+    // 상태 확인 주소 GET /actuator/health를 만듭니다(O-8). 서버가 켜져 있고 데이터베이스에 닿는지만 UP/DOWN으로 알려 줍니다.
+    // 다른 actuator 주소(env, beans, metrics 등)는 application.yml의 management 설정에서 열지 않습니다. 버전은 Spring Boot가 정합니다.
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'
