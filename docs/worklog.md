@@ -2698,3 +2698,29 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 확인: 문서만 고침. 빌드와 테스트는 돌리지 않음. `bootRun`과 테스트를 실제로 동시에 돌려 보지는 않았고 `application-test.yml`의 스키마·버킷 설정을 근거로 적음
 - 확인하지 않은 것: 학습 저장소 `decisions.md`와의 충돌, `.claude/skills`(`rule-check`, `next-step`, `read-check`) 본문이 새 절과 맞는지
 - 내가 채운 가정: 규칙 검사를 맡길 하위 세션의 모델은 정하지 않고 모델 배분 표에 맡김
+
+## 2026.11.23 배포-1 branch 흐름(작업 branch → dev → main)과 CI trigger (멘토링 과제)
+- 배경: 멘토링에서 정한 과제는 "운영과 개발 나누기", "HTTPS", refresh token임. 2026.11.23에 멘토에게 메신저로 범위를 확인함
+  - 운영과 개발 나누기: 뜻은 배포 환경 분리임. `main`과 `dev` branch마다 사이트가 따로 뜨면 됨. 주소는 자유(멘토 예시는 `main.…`, `dev.…` 꼴)
+  - branch: 평소 개발은 `dev`에서 딴 branch에서 하고 `dev`에 merge 한 뒤 `main`에 merge 함
+  - HTTPS: mkcert로 발급하고 실행 PC에서만 되면 됨. cookie를 https 전용으로 두고 브라우저에서 확인함
+  - 답이 없었던 것: TLS를 proxy에서 끝낼지 백엔드까지 올릴지
+- 결정:
+  - 저장소를 나누지 않고 branch로 나눔. 선택지: 개발용 저장소를 따로 둠. 고르지 않은 이유: remote와 CI 설정이 두 벌이 되고 조원 코드가 들어온 곳이 갈림. 멘토도 branch로 답함
+  - merge는 관리자가 GitHub에서 직접 여는 PR로 함(관리자 결정 "PR로 열기"). 선택지: 로컬 merge. 고르지 않은 이유: CI가 merge 뒤에야 돌아 깨진 코드가 `dev`에 먼저 들어갈 수 있음. "PR은 절대 자동으로 만들지 않는다"는 그대로임
+  - merge commit을 남김. 선택지: fast-forward만. 고르지 않은 이유: 어느 단위가 언제 들어왔는지가 기록에서 보이지 않음
+  - 작업 branch 이름은 commit 메시지 머리말과 같은 꼴(`feat/…`, `fix/…`, `docs/…`, `chore/…`, `refactor/…`)
+  - CI의 push trigger에 `dev`를 더함. 작업 branch는 PR을 열 때 돎(기존 `pull_request` trigger)
+  - 남은 단위를 `TODO.md` 1절 구현 순서 24~27에 올림: 배포-1(이 항목), 배포-2 https, 배포-3 배포 환경 분리, 인증-3 refresh token 보강
+  - 실행 묶음은 https 구조로 바꿈(관리자 결정 "구조는 변환"). http 묶음을 따로 남기지 않음. 만드는 것은 배포-2에서 함
+  - 이 단위부터 새 흐름을 씀: `main`에서 `dev`를 만들고 `dev`에서 `chore/branch-flow`를 따서 commit 함
+- 만든·고친 파일: `.github/workflows/ci.yml`, `CLAUDE.md`("작업 방식"에 두 줄), `README.md`, `TODO.md`, `docs/worklog.md`
+- 확인: 설정과 문서만 고침. 빌드와 테스트는 돌리지 않음. `dev` push에서 CI가 도는지는 push 뒤에 확인할 수 있음
+- 확인하지 않은 것: `main` branch 보호 설정(걸지 않음), 강단 PC에 mkcert root CA를 설치할 권한, 구글 OAuth가 `.localhost` 주소를 승인된 출처로 받는지
+- 읽을 때 볼 곳: `CLAUDE.md` "작업 방식"의 branch 흐름 두 줄. 다음 단위는 관리자가 merge 한 `dev`를 받아 온 뒤에 시작함
+- 내가 채운 가정:
+  - 단위 ID 이름(배포-1~3, 인증-3)과 순서
+  - 인증-3의 범위(재사용 감지, 만료 행 정리). 관리자는 "refresh token도 이번에"까지만 정함
+  - TLS를 proxy에서 끝내는 구조. 주소로 두 환경을 가르려면 proxy가 필요해서 고름
+  - 주소 `main.footprint.localhost`, `dev.footprint.localhost`
+  - 작업 branch 이름 꼴, merge commit을 남기는 것

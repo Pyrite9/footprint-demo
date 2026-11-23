@@ -180,6 +180,8 @@ docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.m
 - 끝나면 스스로 규칙 검사(rule-check 기준)를 한다. 이번 단위에서 만든 코드에서 걸린 것은 고친다. 다만 기존 코드의 규칙을 따른 결과로 문서와 어긋난 것과 손대지 않은 기존 코드에서 걸린 것은 고치지 않고 최종 답변에 불일치로 명세한다. 이번 단위에서 만든 코드가 "금지" 항목에 걸리면 기존 코드를 따랐더라도 고친다.
 - 끝나면 `docs/worklog.md`에 오늘 날짜로 적는다: 결정, 만든·고친 파일, 관리자가 읽을 때 볼 곳(초심자가 막힐 곳), 내가 채운 가정.
 - 단위 업무 하나가 확인까지 끝나면 commit 한다. commit 메시지는 영어 conventional 스타일(`feat: add team join by invite code`).
+- **branch 흐름**(2026.11.23 관리자 결정, 멘토링 과제): 단위 업무를 시작할 때 `dev`에서 작업 branch를 따고 commit은 거기에만 한다. 이름은 commit 메시지 머리말과 같은 꼴이다(`feat/team-join`, `fix/…`, `docs/…`, `chore/…`, `refactor/…`). `main`과 `dev`에는 직접 commit 하지 않는다.
+- 작업 branch → `dev`, `dev` → `main`의 merge는 관리자가 GitHub에서 직접 연 PR로 한다. AI는 PR을 만들지도 merge 하지도 않고, 작업 branch를 push 하기 전에 말한다("반드시 먼저 말할 것"). 다음 단위는 관리자가 merge 한 `dev`를 받아 온 뒤 거기서 새 branch를 딴다.
 
 ## 세션 운영 — Fable 세션은 master (2026.11.20 관리자 결정, 2026.11.23 이 저장소에 반영)
 

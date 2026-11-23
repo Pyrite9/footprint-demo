@@ -1,9 +1,10 @@
-# main에 push 하거나 PR을 열면 GitHub 서버에서 빌드, 테스트, lint를 돌립니다. 비밀값은 쓰지 않습니다.
+# main이나 dev에 push 하거나 PR을 열면 GitHub 서버에서 빌드, 테스트, lint를 돌립니다. 비밀값은 쓰지 않습니다.
+# 작업 branch는 PR을 열 때 돕니다. PR이 merge 되면 받은 branch(dev 또는 main)에서 한 번 더 돕니다.
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 # 코드를 읽기만 합니다.
