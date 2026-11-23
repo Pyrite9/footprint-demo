@@ -1,6 +1,7 @@
 # 발자국 실행 묶음의 compose 파일입니다. 저장소 없이 이 폴더만으로 켜집니다.
 # 저장소의 infra/bundle/template/docker-compose.yml이 원본이고, make-bundle.ps1이 __VERSION__을 묶음 버전으로 바꿔 묶음에 넣습니다.
 # 저장소의 맨 위 docker-compose.yml, infra/docker-compose.yml과 내용이 겹칩니다(이미지, healthcheck). 그쪽을 바꾸면 이 파일도 맞춥니다.
+# proxy의 이미지(nginx:1.28-alpine)는 frontend/Dockerfile의 화면 이미지 base와 같습니다. 그쪽을 바꾸면 이 파일과 make-bundle.ps1도 맞춥니다.
 #
 # 개발 환경(이름 footprint-demo)과 다른 이름을 씁니다. 컨테이너와 volume이 footprint-bundle-*, footprint-bundle_*로 따로 생겨서
 # 같은 컴퓨터에서 개발 데이터를 건드리지 않습니다.
@@ -68,9 +69,12 @@ services:
       STORAGE_ENDPOINT: http://minio:9000
       JWT_SECRET: ${JWT_SECRET:?.env에 JWT_SECRET이 없습니다}
       PROFESSOR_EMAILS: ${PROFESSOR_EMAILS:-}
-      # refresh token cookie에 Secure를 붙이지 않습니다. 묶음의 화면은 http://localhost:5173(https 아님)이라,
-      # prod 설정의 기본값(true)대로 붙이면 브라우저에 따라 cookie가 실리지 않아 새로고침할 때마다 로그인 화면으로 갑니다. demo는 원래 false입니다.
-      REFRESH_COOKIE_SECURE: "false"
+      # refresh token cookie에 Secure를 붙입니다. 묶음의 화면은 https://localhost라서 cookie가 실립니다. demo도 true로 둡니다.
+      # 백엔드는 proxy와 화면 컨테이너를 거쳐 요청을 http로 받지만, Secure는 브라우저가 보는 주소(https)에만 상관있습니다.
+      REFRESH_COOKIE_SECURE: "true"
+      # 화면 주소(Origin)입니다. refresh token을 쓰는 요청의 Origin 검사(AuthService.checkOrigin)와 CORS가 이 값을 씁니다.
+      # 브라우저가 보내는 Origin과 글자가 똑같아야 합니다. 443은 https의 기본 포트라서 브라우저가 포트를 붙이지 않습니다.
+      CORS_ALLOWED_ORIGINS: https://localhost
       # 컨테이너의 기본 시간대는 UTC라서 기록 시각이 9시간 이르게 저장됩니다. 한국 시간으로 맞춥니다.
       TZ: Asia/Seoul
     # 이 컴퓨터(127.0.0.1)에서만 열립니다. 상태 확인과 Postman용입니다.
@@ -96,12 +100,30 @@ services:
     pull_policy: never
     platform: linux/amd64
     container_name: footprint-bundle-frontend
-    # 화면 주소는 http://localhost:5173입니다. 구글 로그인과 백엔드의 허용 주소(cors.allowed-origins)가 이 주소라서 포트를 바꿀 수 없습니다.
+    # ports가 없습니다. 브라우저는 아래 proxy를 거쳐서만 화면에 닿습니다. proxy가 compose 안의 네트워크(서비스 이름 frontend)로 부릅니다.
     # 화면 이미지의 nginx가 /api로 온 요청을 위 backend 서비스로 넘깁니다(frontend/nginx.conf).
-    ports:
-      - "127.0.0.1:5173:80"
     depends_on:
       - backend
+
+  proxy:
+    # 브라우저와 https로 통신하는 reverse proxy입니다. 화면 이미지와 같은 nginx 이미지를 쓰고, 설정만 묶음 폴더의 파일로 바꿉니다.
+    image: nginx:1.28-alpine
+    pull_policy: never
+    platform: linux/amd64
+    container_name: footprint-bundle-proxy
+    # 묶음 폴더의 파일을 컨테이너 안에 붙입니다(bind mount). :ro는 읽기 전용입니다. 컨테이너가 이 폴더의 파일을 바꾸지 못합니다.
+    # proxy/nginx.conf가 이미지에 든 기본 설정(nginx 환영 화면)을 대신합니다.
+    # certs 폴더의 인증서는 start 스크립트가 이 PC에서 처음 켤 때 만듭니다. 묶음(USB)에는 들어 있지 않습니다.
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    # 화면 주소는 https://localhost입니다. 구글 로그인과 백엔드의 허용 주소(CORS_ALLOWED_ORIGINS)가 이 주소라서 포트를 바꿀 수 없습니다.
+    # 80은 https://localhost로 보내기만 합니다(proxy/nginx.conf). 둘 다 이 컴퓨터(127.0.0.1)에서만 열립니다.
+    ports:
+      - "127.0.0.1:443:443"
+      - "127.0.0.1:80:80"
+    depends_on:
+      - frontend
 
 # 데이터가 남는 곳입니다. docker volume으로 Docker 안에 저장되고, 이 폴더에는 남지 않습니다.
 # stop 스크립트로 꺼도 남고, reset 스크립트로만 지웁니다.

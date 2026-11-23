@@ -161,7 +161,7 @@ Found non-empty schema(s) "public" but no schema history table. Use baseline() o
 
 그대로 두어도 되는 환경 변수(기본값이 개발과 같음): `CORS_ALLOWED_ORIGINS`(기본 `http://localhost:5173`. 화면 주소가 다르면 바꿈, 여러 개면 쉼표), `GOOGLE_CLIENT_ID`, `GOOGLE_ALLOWED_DOMAINS`, `POSTGRES_HOST`·`POSTGRES_PORT`·`POSTGRES_DB`·`POSTGRES_USER`, `MINIO_ROOT_USER`, `STORAGE_ENDPOINT`, `STORAGE_BUCKET`, `JWT_EXPIRATION_MINUTES`(access token 수명, 기본 10분), `REFRESH_TOKEN_HOURS`(refresh token 수명, 기본 24시간)
 
-운영 설정에서 기본값이 달라지는 환경 변수: `REFRESH_COOKIE_SECURE`(개발 `false`, 운영 `true`). `true`면 refresh token cookie가 https 요청에만 실림. http로 여는 실행 묶음은 compose 파일이 `false`로 넣음
+운영 설정에서 기본값이 달라지는 환경 변수: `REFRESH_COOKIE_SECURE`(개발 `false`, 운영 `true`). `true`면 refresh token cookie가 https 요청에만 실림. 저장소 맨 위 `docker-compose.yml`은 http(`localhost:5173`)라 `false`로 넣음. 제출용 실행 묶음은 https(`https://localhost`)라 묶음 compose가 `true`로 넣고 `CORS_ALLOWED_ORIGINS`도 `https://localhost`로 넣음
 
 - 내 컴퓨터에서 jar로 켜기(PowerShell). 값은 예시가 아니라 직접 만든 무작위 값을 넣을 것
   ```powershell
