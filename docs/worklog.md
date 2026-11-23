@@ -2724,3 +2724,46 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - TLS를 proxy에서 끝내는 구조. 주소로 두 환경을 가르려면 proxy가 필요해서 고름
   - 주소 `main.footprint.localhost`, `dev.footprint.localhost`
   - 작업 branch 이름 꼴, merge commit을 남기는 것
+
+## 2026.11.23 배포-2 실행 묶음을 https로 바꿈 (reverse proxy + mkcert, 멘토링 과제)
+- 결정:
+  - TLS는 reverse proxy 하나에서 끝내고 뒤의 화면 컨테이너와 백엔드는 http로 둠. 선택지: 백엔드에 직접 인증서(`server.ssl`). 고르지 않은 이유: 화면 서버에도 인증서가 필요해 두 곳이 되고, 다음 단위(배포-3)에서 주소로 환경을 가르려면 어차피 proxy가 필요함. 멘토 답은 없었음
+  - proxy는 nginx(`nginx:1.28-alpine`). 선택지: Caddy(설정이 짧음). 고르지 않은 이유: 화면 이미지가 이미 같은 nginx라 조원이 읽을 도구가 하나로 남고, 인증서 경로가 설정에 직접 보임. 새 이미지 하나가 묶음에 더해짐(`nginx.tar`)
+  - 인증서는 받는 PC에서 `start`가 mkcert로 발급함. 선택지: 만드는 PC에서 발급해 묶음에 실음. 고르지 않은 이유: 개인 key가 USB에 들어감. 멘토의 "실행 PC에서 발급"과도 맞음
+  - 새 의존성: mkcert v1.4.4 실행 파일 4개(Windows, macOS Intel·Apple Silicon, Linux)를 묶음의 `tools/`에 넣음. `make-bundle.ps1`이 GitHub release에서 받아 `infra/bundle/cache/mkcert/`(gitignore)에 두고 SHA-256을 고정값과 비교함. 대안: 받는 PC에 mkcert를 따로 설치하게 함(인터넷 없이 켠다는 묶음 목적과 부딪힘), openssl로 직접 발급(멘토가 mkcert로 충분하다고 함)
+    - 고정한 SHA-256은 2026.11.23에 받은 파일을 계산한 값임. v1.4.4 release에 공식 checksum 파일이 없어 대조할 원본은 없음
+  - http(80)는 302로 `https://localhost`에 넘김. 301을 쓰지 않은 이유: 브라우저가 기억해 묶음을 끈 뒤에도 이 PC의 다른 `http://localhost` 프로그램에 영향을 줌
+  - HSTS를 넣지 않음. `localhost`에 걸리면 개발 서버 `http://localhost:5173`까지 https로 강제됨
+  - 로컬 CA 설치(`mkcert -install`)가 실패하거나 거절돼도 멈추지 않고 켬. 강단 PC에 설치 권한이 없는 경우의 대비임. 그때는 브라우저 경고를 넘기고 들어감
+  - proxy의 업로드 상한을 두지 않음(`client_max_body_size 0`, `proxy_request_buffering off`). 상한을 두면 그보다 큰 파일에 proxy가 413 HTML을 먼저 돌려줘 화면이 400 JSON을 읽지 못함. 20MB 검사는 화면 컨테이너의 nginx 한 곳에 남음
+  - 백엔드 Java 동작은 고치지 않고 묶음 compose의 환경 변수만 바꿈: `REFRESH_COOKIE_SECURE=true`, `CORS_ALLOWED_ORIGINS=https://localhost`
+  - 화면 주소는 이번 단위에서 `https://localhost` 하나. `main.footprint.localhost`, `dev.footprint.localhost`는 인증서에만 미리 넣고 배포-3에서 씀
+  - 개발 환경(`bootRun` + Vite)과 맨 위 `docker-compose.yml`은 http 그대로 둠
+- 만든·고친 파일:
+  - 새 파일: `infra/bundle/template/proxy/nginx.conf`
+  - 묶음: `infra/bundle/template/`의 `docker-compose.yml`, `start.ps1`, `start.sh`, `reset.ps1`, `reset.sh`(주석과 출력 문구만), `env.template`, `README.md`, `infra/bundle/make-bundle.ps1`, `.gitignore`
+  - 문서: `docs/bundle.md`("https 구조" 절), `docs/getting-started.md`, `docs/architecture.md`, `backend/README.md`, `TODO.md`, `docs/worklog.md`
+  - 주석만: `backend/src/main/java/com/footprint/backend/controller/AuthController.java`, `backend/src/main/resources/application-prod.yml`
+- 작업 방식: 파일 작성은 Opus 하위 작업에 맡기고 master가 diff 전문을 읽어 검수함. SHA-256 채우기, 틀려진 주석 세 곳, 묶음 만들기와 실행 확인, 이 기록은 master가 함
+- 확인(master가 직접 실행함. 묶음은 demo 방식, 로컬 CA를 신뢰 목록에 넣지 않은 상태):
+  - `make-bundle.ps1` 성공. 494MB, 이미지 tar 6개, `proxy/`, `tools/` 4개, `SHA256SUMS.txt`에 포함
+  - `start.ps1`로 컨테이너 5개가 모두 healthy
+  - `openssl s_client`에 mkcert의 `rootCA.pem`을 주면 `Verify return code: 0 (ok)`, TLSv1.3
+  - `http://localhost/teams/1` → 302 `https://localhost/teams/1`, `http://127.0.0.1/` → `https://localhost/`. HSTS header 없음
+  - `POST /api/auth/login` 200, `Set-Cookie`에 `Secure; HttpOnly; SameSite=Strict`. `POST /api/auth/refresh` 200(새 cookie에도 `Secure`), `Origin`이 `http://localhost:5173`이면 403, `POST /api/auth/logout` 204
+  - 21MB 업로드 → 0.2초 만에 400 `INVALID_INPUT` "파일은 20MB까지 올릴 수 있습니다"
+  - `http://localhost:5173`은 닫혀 있음
+  - `backend`에서 `gradlew build` 성공, `frontend`에서 `npm run build`, `npm run lint` 통과
+- 확인하지 않은 것:
+  - 브라우저 화면. 위 확인은 모두 curl과 openssl임. 로컬 CA를 넣은 뒤 경고 없이 열리는지, 개발자 도구에서 cookie의 `Secure`가 보이는지, 경고 화면을 넘기고 들어가는 경로는 보지 않음
+  - `start`의 인증서 단계(`mkcert -install` 창, "아니요"를 눌렀을 때의 종료 코드). 이 PC의 신뢰 저장소를 바꾸는 일이라 master가 실행하지 않고, 인증서를 미리 발급해 그 단계를 건너뛰게 함
+  - `start.sh`(macOS·Linux), prod 방식, 20MB 이하 업로드, 강단 PC
+- 읽을 때 볼 곳:
+  - `infra/bundle/template/proxy/nginx.conf`. server 블록이 둘(80은 넘기기만, 443이 TLS를 끝냄)
+  - `docs/bundle.md` "https 구조". 요청이 지나는 길과 302·HSTS의 이유
+  - 백엔드는 proxy 뒤에서 요청을 http로 받음. 그래서 Spring이 화면의 POST·PUT·DELETE를 같은 주소 요청이 아니라 CORS 요청으로 판정하고, 허용 목록에 `https://localhost`가 있어 통과함(하위 작업의 코드 판독). **PATCH를 쓰는 API를 더하면 403이 날 수 있음.** 그때의 수정안: proxy에 `X-Forwarded-Proto`를 넣고 백엔드에 `server.forward-headers-strategy`를 켬
+- 내가 채운 가정:
+  - proxy를 nginx로 한 것(관리자에게는 Caddy로 말했다가 바꿈), 인증서를 받는 PC에서 발급하는 것, 302, HSTS 없음, 화면 주소 `https://localhost`
+  - 인증서의 이름 5개(`localhost`, `127.0.0.1`, `::1`, `main.footprint.localhost`, `dev.footprint.localhost`)와 파일 이름
+  - `reset`이 인증서와 로컬 CA를 지우지 않는 것
+  - Windows 확인 창과 Chrome 경고의 문구는 실제 화면과 대조하지 않고 적음

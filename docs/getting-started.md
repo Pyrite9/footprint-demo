@@ -14,9 +14,10 @@
 ## 제출용 실행 묶음
 
 - 12.11 발표와 12.15 PBL 제출에 쓰는 폴더 하나짜리 묶음(O-3). 이미지가 tar로 들어 있어 받는 PC에서 빌드와 인터넷 없이 켜짐
-- 받는 사람: 묶음 폴더를 PC에 복사 → `start.bat` 더블클릭(macOS·Linux `bash start.sh`) → http://localhost:5173. 안내는 묶음 맨 위 `README.md`(원본 `infra/bundle/template/README.md`)
+- 받는 사람: 묶음 폴더를 PC에 복사 → `start.bat` 더블클릭(macOS·Linux `bash start.sh`) → https://localhost(Chrome·Edge). 처음 켤 때 그 PC에서 https 인증서를 만듦. 안내는 묶음 맨 위 `README.md`(원본 `infra/bundle/template/README.md`)
 - 만드는 사람(관리자): 저장소 맨 위에서 `.\infra\bundle\make-bundle.ps1` → `infra/bundle/out/footprint-demo/`를 USB에 복사 → `SHA256SUMS.txt`로 확인. 자세히는 `docs/bundle.md`
-- 개발 환경과 이름이 달라서(`footprint-bundle-*`) 개발 데이터를 건드리지 않음. 포트 5173, 8080은 같아서 개발용 백엔드·화면 서버는 끈 채로 켬
+- 개발 환경과 이름이 달라서(`footprint-bundle-*`) 개발 데이터를 건드리지 않음. 묶음은 443, 80, 8080을 씀. 8080이 같아서 개발용 백엔드는 끈 채로 켬
+- 묶음의 refresh token cookie에는 `Secure`가 붙음. 구글 로그인을 쓰려면 OAuth Client의 승인된 JavaScript 원본에 `https://localhost`가 있어야 함. https 구조는 `docs/bundle.md` "https 구조"
 - 기본은 시연용(demo, 시작 계정 로그인). 묶음 폴더의 `.env`에서 `FOOTPRINT_MODE=prod`로 바꾸면 운영 설정(구글 로그인만)
 
 ## 한 번에 실행 (저장소와 Docker만 있으면 됨)

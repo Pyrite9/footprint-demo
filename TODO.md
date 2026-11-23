@@ -6,7 +6,7 @@
 - 12.11 학기 발표와 12.15 PBL 결과물 제출 날짜는 남아 있지만 범위를 정하는 기준이 아님. 그날에는 그때까지 된 것을 보여 줌
 - 예전의 1단계·2단계·3단계 구분은 쓰지 않음. 1절의 구현 순서만 따름
 
-**남은 일 한눈에 (2026.11.23)** — 1절 구현 순서 23번까지는 모두 만듦. 2026.11.23에 멘토링 과제로 24~27번을 더함(24번은 됨, 25~27번이 남음)
+**남은 일 한눈에 (2026.11.23)** — 1절 구현 순서 23번까지는 모두 만듦. 2026.11.23에 멘토링 과제로 24~27번을 더함(24·25번은 됨, 26·27번이 남음)
 
 - 관리자가 할 일
   - 구글 로그인 동의 화면: Google Cloud 콘솔에서 "테스트 중"이면 쓸 계정을 테스트 사용자로 넣거나 "프로덕션"으로 게시함(4절)
@@ -51,7 +51,7 @@
 | 22 | 인증-1 | **됨(2026.11.12).** 화면이 백엔드를 같은 origin의 `/api`로 부르기(개발은 Vite proxy, 데모·묶음은 nginx). 23의 cookie가 실리게 하려는 전제. 관리자 결정(2026.11.12)으로 더함 | 없음 |
 | 23 | 인증-2 | **됨(2026.11.12).** access token 10분 + refresh token(httpOnly cookie, 24시간 절대 만료, 쓰면 교체). access token은 화면의 메모리에만 둠. 관리자 결정(2026.11.12)으로 더함 | 없음 |
 | 24 | 배포-1 | **됨(2026.11.23).** branch 흐름(작업 branch → `dev` → `main`)과 CI trigger에 `dev` 더하기. 멘토링 과제, 관리자 결정(2026.11.23)으로 더함 | 없음 |
-| 25 | 배포-2 | 실행 묶음을 https로 바꿈. reverse proxy 하나에서 TLS를 끝내고 인증서는 mkcert로 발급함. refresh token cookie에 `Secure`를 켬 | 없음 |
+| 25 | 배포-2 | **됨(2026.11.23).** 실행 묶음을 https로 바꿈. reverse proxy 하나에서 TLS를 끝내고 인증서는 mkcert로 발급함. refresh token cookie에 `Secure`를 켬 | 없음 |
 | 26 | 배포-3 | 배포 환경 분리. `main`과 `dev`를 각각 띄우고 proxy가 주소(`main.footprint.localhost`, `dev.footprint.localhost`)로 나눠 보냄. 25가 전제임 | 없음 |
 | 27 | 인증-3 | refresh token 재사용 감지와 만료 행 정리. 인증-2에서 "없음"으로 남긴 둘 | 없음 |
 
@@ -142,7 +142,7 @@
   - 만드는 스크립트는 `infra/bundle/make-bundle.ps1`(PowerShell만). 결과는 `infra/bundle/out/footprint-demo/`(gitignore). 묶음의 파일 원본은 `infra/bundle/template/`
   - 묶음 안: `start`·`stop`·`reset`(Windows `.bat`+`.ps1`, macOS·Linux `.sh`), `README.md`(받는 사람용 안내), `backup/`(O-4 스크립트), `VERSION.txt`, `SHA256SUMS.txt`
   - start: Docker 확인 → 없는 이미지만 load → `.env`가 없으면 비밀값을 무작위로 만듦 → `docker compose up -d --wait` → 주소 안내. stop은 데이터를 지우지 않음. reset은 `delete`를 입력해야 컨테이너와 volume을 지움
-  - 개발 환경과 이름이 다름(compose `footprint-bundle`, 컨테이너 `footprint-bundle-*`, volume `footprint-bundle_*`). PostgreSQL·MinIO는 호스트 포트를 열지 않음. 화면 5173과 백엔드 8080만 `127.0.0.1`에 엶
+  - 개발 환경과 이름이 다름(compose `footprint-bundle`, 컨테이너 `footprint-bundle-*`, volume `footprint-bundle_*`). PostgreSQL·MinIO는 호스트 포트를 열지 않음. 화면은 배포-2부터 proxy의 443·80(이전에는 5173), 백엔드는 8080만 `127.0.0.1`에 엶
   - 실행 방식은 `.env`의 `FOOTPRINT_MODE`: `demo`(기본, 시작 데이터와 시작 계정 로그인) 또는 `prod`(운영 설정, 구글 로그인만, `PROFESSOR_EMAILS` 필요). 값이 Spring profile 이름이 되고 화면 이미지 tag를 고름
   - O-4에서 넘어온 일 중 묶음에서 하는 것: 묶음 컨테이너 이름으로 수동 백업·복구, 개인정보·보관 기간 안내. 하지 않는 것: 자동 예약, 다른 곳 보관, 암호화, 기간 지난 묶음 자동 삭제(이유는 `docs/bundle.md`)
   - 만드는 법, USB에 담는 법, 4절을 처리한 방법은 `docs/bundle.md`
@@ -157,7 +157,7 @@
   - nginx는 20MB를 넘는 요청을 백엔드로 넘기지 않고 같은 JSON을 직접 돌려줌. 개발 서버는 백엔드의 400을 브라우저가 body를 다 보낸 뒤에 넘김(이유는 `docs/worklog.md` 2026.11.12 인증-1)
   - 가짜 API는 지금처럼 화면이 `http://localhost:3001`을 직접 부름(`.env.local`)
 - **인증-2 refresh token(됨, 2026.11.12)** — 로그인하면 access token(10분)은 body로, refresh token(24시간)은 cookie로 줌. 주소와 응답 모양은 `docs/api-draft.md` "인증"
-  - refresh token은 무작위 값. 데이터베이스에는 SHA-256 값만 둠. cookie는 `HttpOnly`, `SameSite=Strict`, `Path=/`. `Secure`는 운영 설정에서만 켬(실행 묶음은 http라 끔)
+  - refresh token은 무작위 값. 데이터베이스에는 SHA-256 값만 둠. cookie는 `HttpOnly`, `SameSite=Strict`, `Path=/`. `Secure`는 운영 설정과 실행 묶음에서 켬(묶음은 배포-2부터 https. 개발과 맨 위 compose는 http라 끔)
   - 재발급(`POST /auth/refresh`)하면 쓴 refresh token을 지우고 새것을 줌(교체). 만료 시각은 처음 로그인 + 24시간 그대로임. 이미 쓴 값을 다시 보내면 401이고, 그 로그인의 다른 token을 함께 끊지는 않음(재사용 감지 없음)
   - 로그아웃(`POST /auth/logout`)은 그 refresh token을 지우고 cookie도 지움. 이미 받은 access token은 10분 안에 끝남
   - `/auth/refresh`, `/auth/logout`은 `Origin`이 허용 목록(`cors.allowed-origins`)에 없으면 403. 검사는 `AuthService.checkOrigin` 호출로 보임
@@ -170,9 +170,14 @@
   - `main`과 `dev`에는 직접 commit 하지 않음. 작업 branch → `dev`, `dev` → `main`은 사람이 GitHub에서 연 PR로 merge 함(merge commit을 남김). AI 도구는 PR을 만들지 않음
   - CI는 `main`·`dev` push와 PR마다 돎. PR의 CI가 통과한 뒤에 merge 함
   - `main`의 branch 보호(CI 통과 필수)는 GitHub 설정이라 관리자가 정해서 검(아직 걸지 않음)
-- **배포-2 https(아직)** — 멘토 확인(2026.11.23): mkcert로 발급하고 실행 PC에서만 https가 되면 됨. 확인 기준은 브라우저에서 cookie의 `Secure`를 보는 것
+- **배포-2 https(됨, 2026.11.23)** — 멘토 확인(2026.11.23): mkcert로 발급하고 실행 PC에서만 https가 되면 됨. 확인 기준은 브라우저에서 cookie의 `Secure`를 보는 것
   - TLS는 reverse proxy 하나에서 끝내고 뒤의 화면과 백엔드는 http로 둠(추천안. 멘토 답이 없었음). 백엔드에 직접 인증서를 넣지 않음
   - 실행 묶음의 구조를 https로 바꿈(2026.11.23 관리자 결정 "구조는 변환"). http 묶음을 따로 남기지 않음
+  - 화면 주소는 `https://localhost`. `http://localhost`는 302로 https에 넘김. HSTS는 넣지 않음(`localhost`에 걸리면 개발 서버 `http://localhost:5173`까지 https로 강제됨)
+  - 인증서는 받는 PC에서 `start`가 묶음의 `tools/` mkcert로 발급해 `certs/`에 둠. 개인 key를 묶음(USB)에 싣지 않음. 로컬 CA 설치를 거절해도 켜지고, 그때는 브라우저 경고를 넘기고 들어감
+  - 백엔드 코드는 그대로이고 묶음 compose의 환경 변수만 바꿈: `REFRESH_COOKIE_SECURE=true`, `CORS_ALLOWED_ORIGINS=https://localhost`
+  - 개발 환경(`bootRun` + Vite, 맨 위 `docker-compose.yml`)은 http 그대로임
+  - 구글 로그인을 묶음에서 쓰려면 OAuth Client의 승인된 JavaScript 원본에 `https://localhost`를 더해야 함(관리자 작업, 아직 안 함)
   - 받는 PC에 mkcert root CA를 설치해야 경고가 사라짐. **강단 PC에 설치 권한이 있는지 확인하지 못함.** 권한이 없으면 경고 화면을 넘기고 시연해야 함
   - cookie에 든 것은 JWT가 아니라 refresh token임(access token은 화면의 메모리). `Secure`를 붙일 대상은 refresh token cookie임
 - **배포-3 배포 환경 분리(아직)** — `main`의 코드로 뜬 사이트와 `dev`의 코드로 뜬 사이트를 한 PC에서 함께 띄움
@@ -248,9 +253,9 @@
   - 묶음: `demo`는 시작 계정(`pass1234`)과 시작 과제가 들어감. 이 계정은 저장소에 공개된 시연용 가짜 계정이고 묶음은 이 PC 밖으로 열리지 않아서 그대로 씀. `prod`는 넣지 않음(실제 확인함)
   - 관리자: 실제 학생이 쓰게 되면 `prod`로 넘김. `demo`에서 쓴 데이터는 reset으로 지운 뒤 바꿈
 - **CORS와 포트**
-  - 묶음: 화면 `127.0.0.1:5173`, 백엔드 `127.0.0.1:8080`만 엶. PostgreSQL·MinIO는 호스트 포트를 열지 않음. CORS는 기본값 `http://localhost:5173` 그대로. 화면은 같은 주소의 `/api`로 부르고 화면 컨테이너의 nginx가 백엔드로 넘김
+  - 묶음: 화면 `127.0.0.1:5173`, 백엔드 `127.0.0.1:8080`만 엶. PostgreSQL·MinIO는 호스트 포트를 열지 않음. (배포-2부터 화면은 proxy의 `127.0.0.1:443`·`80`, CORS는 `https://localhost`. 아래는 2026.11.12의 기록임) CORS는 기본값 `http://localhost:5173` 그대로. 화면은 같은 주소의 `/api`로 부르고 화면 컨테이너의 nginx가 백엔드로 넘김
   - 주소로 올리면: 화면 주소를 `CORS_ALLOWED_ORIGINS`에 넣고, 구글 OAuth의 승인된 출처에 그 주소를 넣음. 화면과 백엔드를 한 주소 아래 두면(`/api`) 화면 이미지를 다시 빌드하지 않아도 됨
-  - 주소로 올리면: https로 열고 `REFRESH_COOKIE_SECURE`는 운영 설정 기본값(`true`) 그대로 둠. 실행 묶음의 compose 파일은 http라 `false`를 넣으므로 그 줄을 지움
+  - 주소로 올리면: https로 열고 `REFRESH_COOKIE_SECURE`는 운영 설정 기본값(`true`) 그대로 둠. 실행 묶음의 compose 파일은 배포-2부터 https라 `true`를 넣음
 - **백업**
   - 묶음: O-4 스크립트를 `backup/`에 넣고 묶음 컨테이너 이름으로 쓰는 명령을 안내함. 실제로 묶음 컨테이너를 백업해 확인함
   - 하지 않음: 자동 예약, 다른 곳 보관, 암호화, 기간 지난 묶음 자동 삭제. 묶음은 받는 사람의 PC에서 시연 동안만 켜는 것이라 받는 사람이 정함. 안내 문서에 개인정보와 보관 기간을 적음
@@ -268,7 +273,7 @@
 - **켜 둔 서버를 백업하면 DB와 파일이 어긋날 수 있음** — 백업은 데이터베이스를 먼저, 버킷 파일을 나중에 담음. 그 사이의 업로드는 주인 없는 파일로만 남아 해가 없지만, 그 사이의 산출물 삭제는 되살린 뒤 다운로드 404가 됨. 서버를 멈추고 백업하는 것을 권장하고 강제하지 않음(O-4)
 - **백업은 같은 컴퓨터에만 있음** — 백업 묶음이 `infra/backup/bundles/`(실행 묶음은 그 폴더의 `backup/bundles/`)에 쌓임. 디스크가 고장 나면 함께 잃음. 실행 묶음에서는 다른 곳 보관을 받는 사람에게 안내만 하고 자동으로 하지 않음(O-3)
 - **실행 묶음의 이미지는 amd64만 있음** — Apple Silicon Mac에서는 Docker Desktop의 변환으로 돌아 느림. arm64까지 넣으면 묶음이 두 배가 되어 넣지 않음(O-3)
-- **실행 묶음의 포트는 5173, 8080으로 고정임** — 백엔드의 허용 주소(`cors.allowed-origins`)와 구글 로그인이 `localhost:5173` 기준임. 8080은 compose 파일에 고정됨(화면은 쓰지 않음). 같은 PC에서 개발용 백엔드·화면 서버와 동시에 켤 수 없음. 개발 DB·MinIO와는 동시에 켜짐(O-3)
+- **실행 묶음의 포트는 443, 80, 8080으로 고정임** — 백엔드의 허용 주소(`CORS_ALLOWED_ORIGINS`)와 구글 로그인이 `https://localhost` 기준임(배포-2). 8080은 compose 파일에 고정됨(화면은 쓰지 않음). 같은 PC에서 개발용 백엔드·화면 서버와 동시에 켤 수 없음. 개발 DB·MinIO와는 동시에 켜짐(O-3)
 - **실행 묶음의 `.env`를 잃으면 데이터를 열 수 없음** — PostgreSQL 비밀번호가 처음 `.env`의 값으로 고정됨. start가 새 값으로 덮어쓰지 않고 멈추며, `.env`를 되살리거나 reset 해야 함(O-3)
 - **백업 묶음에는 주인 없는 파일도 들어감** — 버킷을 통째로 담기 때문임. 2026.11.12 개발 데이터는 파일 257개 중 산출물 행이 가리키는 것이 3개였음(나머지는 아래 "개발 데이터베이스를 다시 만들면" 항목의 파일)
 - **개발 데이터베이스를 다시 만들면 시작 파일이 주인 없이 남음** — 서버를 다시 켤 때는 쌓이지 않음(O-1). `public` 스키마를 처음부터 다시 만들면 MinIO `footprint` 버킷의 이전 시작 파일 3개와 올린 파일이 남음. 화면에는 보이지 않음. 테스트 버킷(`footprint-test`)은 테스트의 Spring context가 뜰 때마다 시작 파일 3개가 쌓임

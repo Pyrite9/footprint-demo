@@ -40,7 +40,7 @@ flowchart TB
 ```
 
 - 화면은 **PostgreSQL이나 MinIO를 직접 부르지 않음.** 모든 데이터는 8080을 거침
-- 브라우저는 백엔드를 화면과 같은 주소의 `/api`로 부름(예: `http://localhost:5173/api/auth/login`). 개발은 Vite 개발 서버(`frontend/vite.config.js`의 `server.proxy`), 데모와 실행 묶음은 화면 컨테이너의 nginx(`frontend/nginx.conf`)가 `/api`를 떼고 백엔드로 넘김
+- 브라우저는 백엔드를 화면과 같은 주소의 `/api`로 부름(예: `http://localhost:5173/api/auth/login`). 실행 묶음에서는 `https://localhost/api/auth/login`임. 개발은 Vite 개발 서버(`frontend/vite.config.js`의 `server.proxy`), 데모와 실행 묶음은 화면 컨테이너의 nginx(`frontend/nginx.conf`)가 `/api`를 떼고 백엔드로 넘김
   - 이유: 화면(`localhost:5173`)과 백엔드(`127.0.0.1:8080`)는 브라우저가 다른 site로 봐서 cookie를 보내지 않음. 같은 주소로 부르면 cookie가 실리고 화면 요청에 CORS가 필요 없음
   - 백엔드의 8080은 그대로 열림. Postman, 상태 확인, 테스트가 씀. 가짜 API(3001)는 화면이 직접 부름
 - 파일 본문만 MinIO에 있고, 파일 위치·이름·크기는 PostgreSQL에 있음
@@ -52,7 +52,8 @@ flowchart TB
 - 백엔드는 환경 변수 없이 켜면 개발 설정, `SPRING_PROFILES_ACTIVE=prod`면 운영 설정임(O-2). 운영 설정은 `application.yml` 위에 `application-prod.yml`을 덮어써서 시작 데이터와 이메일·비밀번호 로그인을 끄고, 켜기 전에 `ProductionSettingsChecker`가 비밀값을 검사함. 백엔드를 직접 부를 수 있는 화면 주소(CORS)는 `CORS_ALLOWED_ORIGINS`
 - 백엔드의 상태 확인 주소는 `GET /actuator/health` 하나임(O-8). token 없이 `UP`/`DOWN`만 돌려주고 데이터베이스에 닿는지 봄(MinIO는 보지 않음). 맨 위 `docker-compose.yml`의 backend healthcheck가 이 주소를 부름. 다른 actuator 주소는 열지 않음
 - 로그는 파일 없이 표준 출력으로만 나감. docker compose로 켜면 `docker logs footprint-demo-backend`로 읽음. 운영 설정은 SQL을 찍지 않음
-- 제출용 실행 묶음(O-3, `docs/bundle.md`)도 위 그림과 같은 컨테이너 4개임. 다른 점
+- 제출용 실행 묶음(O-3, `docs/bundle.md`)은 위 그림의 컨테이너 4개에 https proxy 하나를 더한 5개임(배포-2). 다른 점
+  - 화면 주소가 `https://localhost`임. proxy(nginx)가 443에서 https를 풀고 화면 컨테이너에 http로 넘김. 화면 컨테이너의 5173은 밖으로 열지 않음. 요청이 지나는 길은 `docs/bundle.md` "https 구조"
   - 이미지를 소스로 빌드하지 않고 묶음의 tar에서 넣음. compose 이름과 컨테이너 이름이 `footprint-bundle`이라 개발 환경과 섞이지 않음
   - PostgreSQL·MinIO는 호스트 포트를 열지 않음(그림의 5432, 9000, 9001이 밖에서 보이지 않음). 백엔드만 compose 안의 네트워크로 접속함
   - 화면 컨테이너의 nginx도 compose 안의 네트워크로 백엔드(서비스 이름 `backend`)를 부름

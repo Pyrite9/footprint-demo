@@ -9,7 +9,7 @@ footprint:
   # 구글 로그인(POST /auth/google)은 그대로입니다.
   password-login: false
   # refresh token cookie에 Secure를 붙입니다. https로 연 화면에서만 cookie가 실립니다.
-  # http로 여는 곳(실행 묶음 등)은 환경 변수 REFRESH_COOKIE_SECURE=false로 끕니다.
+  # http로 여는 곳(맨 위 docker-compose.yml)은 환경 변수 REFRESH_COOKIE_SECURE=false로 끕니다. 실행 묶음은 https라서 켭니다.
   refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:true}
 
 # 아래는 상태 확인과 로그(O-8)입니다. 로그는 파일로 남기지 않고 표준 출력으로 내보냅니다. 운영자는 docker logs로 읽습니다.

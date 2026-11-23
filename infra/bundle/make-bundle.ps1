@@ -2,8 +2,8 @@
 # 사용법(저장소 맨 위에서): .\infra\bundle\make-bundle.ps1
 #   버전을 직접 정하려면: .\infra\bundle\make-bundle.ps1 -Version 2026.12.11
 # 결과: infra\bundle\out\footprint-demo\ 폴더. 이 폴더를 통째로 USB에 복사합니다. out 폴더는 저장소에 올라가지 않습니다(.gitignore).
-# 하는 일: 이미지 빌드(백엔드 1개, 화면 2개) → 묶음 폴더 만들기 → 이미지를 tar로 저장 → 버전·해시 파일 쓰기
-# 인터넷이 필요합니다(빌드할 때 Gradle·npm 의존성과 기반 이미지를 받음). 받는 컴퓨터는 인터넷 없이 켭니다.
+# 하는 일: 이미지 빌드(백엔드 1개, 화면 2개) → mkcert 받기·확인 → 묶음 폴더 만들기 → 이미지를 tar로 저장 → 버전·해시 파일 쓰기
+# 인터넷이 필요합니다(빌드할 때 Gradle·npm 의존성과 기반 이미지, 처음 한 번 mkcert를 받음). 받는 컴퓨터는 인터넷 없이 켭니다.
 param(
     # 이미지 tag에 붙는 묶음 버전입니다. 기본은 오늘 날짜(예: 2026.11.12)입니다.
     [string]$Version = (Get-Date -Format "yyyy.MM.dd"),
@@ -36,8 +36,29 @@ $frontendProdImage = "footprint-frontend:$Version-prod"
 # PostgreSQL과 MinIO는 저장소의 infra/docker-compose.yml과 같은 이미지입니다. 그쪽을 바꾸면 여기와 template/docker-compose.yml도 바꿉니다.
 $postgresImage = "postgres:17"
 $minioImage = "pgsty/minio:RELEASE.2026-08-04T00-00-00Z"
+# https proxy(nginx)는 frontend/Dockerfile의 화면 이미지 base와 같은 이미지입니다. 그쪽을 바꾸면 여기와 template/docker-compose.yml도 바꿉니다.
+$proxyImage = "nginx:1.28-alpine"
 
-# 1. Docker가 켜져 있는지 확인합니다.
+# 받는 PC에서 https 인증서를 만드는 mkcert입니다. 운영체제마다 실행 파일이 하나씩 있습니다(start.ps1, start.sh가 고름).
+# 받은 파일은 infra\bundle\cache\mkcert에 두고 다음부터 다시 받지 않습니다(.gitignore).
+# sha256: 받은 파일이 공개된 파일과 같은지 비교하는 고정값입니다. 다르면 묶음을 만들지 않고 멈춥니다.
+$mkcertVersion = "v1.4.4"
+$mkcertCacheDir = Join-Path $PSScriptRoot "cache\mkcert"
+$mkcertFiles = [ordered]@{
+    "mkcert-windows-amd64.exe" = @{ Asset = "mkcert-$mkcertVersion-windows-amd64.exe"; Sha256 = 'd2660b50a9ed59eada480750561c96abc2ed4c9a38c6a24d93e30e0977631398' }
+    "mkcert-darwin-amd64"      = @{ Asset = "mkcert-$mkcertVersion-darwin-amd64"; Sha256 = 'a32dfab51f1845d51e810db8e47dcf0e6b51ae3422426514bf5a2b8302e97d4e' }
+    "mkcert-darwin-arm64"      = @{ Asset = "mkcert-$mkcertVersion-darwin-arm64"; Sha256 = 'c8af0df44bce04359794dad8ea28d750437411d632748049d08644ffb66a60c6' }
+    "mkcert-linux-amd64"       = @{ Asset = "mkcert-$mkcertVersion-linux-amd64"; Sha256 = '6d31c65b03972c6dc4a14ab429f2928300518b26503f58723e532d1b0a3bbb52' }
+}
+
+# 1. mkcert의 고정값이 채워져 있는지 먼저 봅니다. 빌드에 몇 분이 걸리므로, 끝에 가서 멈추지 않게 처음에 확인합니다.
+foreach ($name in $mkcertFiles.Keys) {
+    if ($mkcertFiles[$name].Sha256 -notmatch '^[0-9a-f]{64}$') {
+        throw "make-bundle.ps1의 mkcert SHA-256 값을 채워야 합니다: $name"
+    }
+}
+
+# Docker가 켜져 있는지도 확인합니다.
 docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw "Docker가 켜져 있지 않습니다. Docker Desktop을 켠 뒤 다시 실행하세요." }
 
@@ -54,10 +75,30 @@ Invoke-Docker build @cacheArgs --platform $platform -t $frontendDemoImage `
 Invoke-Docker build @cacheArgs --platform $platform -t $frontendProdImage `
     --build-arg VITE_API_URL=/api --build-arg VITE_PASSWORD_LOGIN=false $frontendDir
 
-# 3. PostgreSQL·MinIO 이미지가 이 컴퓨터에 없으면 받습니다. 있으면 그대로 씁니다(개발 환경이 쓰는 것과 같은 이미지).
-foreach ($image in @($postgresImage, $minioImage)) {
+# 3. PostgreSQL·MinIO·proxy 이미지가 이 컴퓨터에 없으면 받습니다. 있으면 그대로 씁니다(개발 환경과 화면 빌드가 쓰는 것과 같은 이미지).
+foreach ($image in @($postgresImage, $minioImage, $proxyImage)) {
     docker image inspect $image *> $null
     if ($LASTEXITCODE -ne 0) { Invoke-Docker pull --platform $platform $image }
+}
+
+# mkcert 실행 파일을 받습니다. cache에 이미 있으면 받지 않습니다. 받은 파일이든 있던 파일이든 SHA-256을 고정값과 비교합니다.
+New-Item -ItemType Directory -Path $mkcertCacheDir -Force | Out-Null
+foreach ($name in $mkcertFiles.Keys) {
+    $cached = Join-Path $mkcertCacheDir $name
+    if (-not (Test-Path $cached)) {
+        $url = "https://github.com/FiloSottile/mkcert/releases/download/$mkcertVersion/$($mkcertFiles[$name].Asset)"
+        Write-Host "mkcert를 받습니다: $url"
+        # Windows PowerShell 5.1이 오래된 TLS로 접속해 GitHub가 거절하는 일이 있어서 TLS 1.2를 켭니다.
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        # -UseBasicParsing: Windows PowerShell 5.1에서 Internet Explorer 구성 요소 없이 받습니다.
+        Invoke-WebRequest -Uri $url -OutFile $cached -UseBasicParsing -ErrorAction Stop
+    }
+    $hash = (Get-FileHash -Path $cached -Algorithm SHA256).Hash.ToLower()
+    if ($hash -ne $mkcertFiles[$name].Sha256) {
+        # 잘못 받은 파일이 cache에 남아 다음에도 쓰이지 않게 지웁니다.
+        Remove-Item -Path $cached -Force
+        throw "mkcert 파일의 SHA-256이 고정값과 다릅니다: $name (받은 값 $hash). 파일을 지웠습니다."
+    }
 }
 
 # 4. 묶음 폴더를 새로 만듭니다. 이전 결과가 있으면 지웁니다(out 폴더는 이 스크립트가 만든 것만 들어 있음).
@@ -71,6 +112,14 @@ Get-ChildItem -Path $templateDir -File | Where-Object { $_.Name -ne "docker-comp
     Copy-Item -Destination $outDir
 $compose = [System.IO.File]::ReadAllText((Join-Path $templateDir "docker-compose.yml"), $utf8)
 [System.IO.File]::WriteAllText((Join-Path $outDir "docker-compose.yml"), $compose.Replace("__VERSION__", $Version), $utf8)
+# 위 복사는 파일만 옮깁니다. https proxy의 설정 폴더는 따로 복사합니다.
+Copy-Item -Path (Join-Path $templateDir "proxy") -Destination $outDir -Recurse
+
+# mkcert 실행 파일 4개를 tools 폴더에 넣습니다. 인증서(certs)는 넣지 않습니다. 받는 PC의 start가 만듭니다.
+New-Item -ItemType Directory -Path (Join-Path $outDir "tools") -ErrorAction Stop | Out-Null
+foreach ($name in $mkcertFiles.Keys) {
+    Copy-Item -Path (Join-Path $mkcertCacheDir $name) -Destination (Join-Path $outDir "tools")
+}
 
 # 백업·복구 스크립트(O-4)를 넣습니다. 묶음 안에서는 backup 폴더에 있어서, 스크립트가 읽는 ..\.env가 묶음의 .env가 됩니다.
 # 복구 연습용 compose 파일(docker-compose.restore-check.yml)은 저장소의 infra 폴더가 있어야 쓰여서 넣지 않습니다.
@@ -86,6 +135,7 @@ $images = [ordered]@{
     "footprint-frontend-prod.tar" = $frontendProdImage
     "postgres.tar"                = $postgresImage
     "minio.tar"                   = $minioImage
+    "nginx.tar"                   = $proxyImage
 }
 $imageLines = @("# tar 파일 이름|이미지 이름. start 스크립트가 이 컴퓨터에 없는 이미지만 docker load 합니다")
 foreach ($tarName in $images.Keys) {
