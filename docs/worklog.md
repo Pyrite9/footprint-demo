@@ -2811,3 +2811,44 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - `git archive`(worktree 아님), `origin/*` 기준, 묶음에 넣지 않는 것, `X-Footprint-Site` header, `default_server` 404
   - project·컨테이너 이름(`footprint-main-*`, `footprint-dev-*`, `footprint-sites-proxy`), 폴더 이름 `infra/sites`, 문서 이름 `docs/branch-sites.md`
   - 사이트를 개발 설정으로 켜는 것, 백엔드 8080을 열지 않는 것
+
+## 2026.11.24 인증-3 refresh token 재사용 감지와 만료 행 정리 (멘토링 과제)
+- 결정:
+  - 인증-2의 "재사용 감지는 두지 않음"(`docs/api-draft.md`)을 뒤집음. 관리자의 "refresh token도 이번에"와 TODO 27번 추천안에 따름. 그때의 이유(여러 탭이 동시에 재발급)는 화면이 Web Locks로 재발급을 한 번에 하나만 하게 해서 대부분 풀림
+  - 묶음(family)을 둠: `refresh_token`에 `family_id`(UUID 36자), `used_at` 칸을 더함. 로그인하면 새 묶음, 재발급한 값은 쓴 값의 묶음과 만료 시각을 물려받음. 선택지: 회원의 token을 모두 끊음. 고르지 않은 이유: 한 브라우저의 일로 다른 브라우저(다른 기기)까지 로그아웃됨
+  - 쓴 행을 지우지 않고 쓴 시각을 적어 남김. 지우면 "이미 쓴 값"과 "모르는 값"을 구분할 수 없음
+  - 이미 쓴 값이 다시 오면 그 묶음의 행을 모두 지우고 401. 문장과 cookie 지우기는 다른 401과 같음. 로그에 경고 한 줄(회원 id만)
+  - 동시 요청은 `update … where usedAt is null`이 고친 행의 수로 판단하고, 늦은 쪽(0)은 재사용과 똑같이 처리함. 그래서 먼저 성공한 쪽이 받은 값도 끊김. 선택지: 늦은 쪽에 401만 줌. 고르지 않은 이유: 순서대로 온 재사용과 동시에 온 재사용의 결과가 달라져 규칙이 둘이 됨
+  - 재사용 때 묶음을 지운 뒤 401 예외를 던지므로 `@Transactional(noRollbackFor = UnauthorizedException.class)`를 `RefreshTokenService.use`와 `AuthService.refresh` 두 곳에 붙임. 없으면 예외로 rollback 되어 지운 묶음이 되살아남. 선택지: `REQUIRES_NEW`로 따로 commit. 고르지 않은 이유: 트랜잭션이 둘이 되어 초심자가 따라가기 어려움
+  - 로그아웃은 그 값이 속한 묶음을 모두 지움(쓴 행 포함)
+  - 만료 행은 서버가 60분마다 지움(`@Scheduled`, `footprint.refresh-token-cleanup-minutes`, 환경 변수 `REFRESH_TOKEN_CLEANUP_MINUTES`). `@EnableScheduling`은 새 `config/SchedulingConfig`에 둠. 로그인할 때 그 회원의 만료 행을 지우던 코드는 뺌(지우는 곳을 하나로)
+  - Entity 칸 변경: `RefreshToken`에 `familyId`(not null), `usedAt`(null 허용). migration `V4__add_refresh_token_family.sql`. 이미 있던 행은 행마다 다른 묶음 id를 넣음. 인덱스는 더하지 않음(행이 적음)
+  - API 주소, 응답 모양, 오류 code, cookie는 그대로. 새 의존성 없음. 화면과 가짜 API의 동작은 그대로(가짜 API는 주석 한 줄)
+- 만든·고친 파일:
+  - 새 파일: `backend/src/main/java/com/footprint/backend/config/SchedulingConfig.java`, `backend/src/main/resources/db/migration/V4__add_refresh_token_family.sql`, `backend/src/test/java/com/footprint/backend/RefreshTokenReuseRuleTests.java`
+  - 백엔드: `entity/RefreshToken.java`, `repository/RefreshTokenRepository.java`, `service/RefreshTokenService.java`, `service/AuthService.java`, `application.yml`, `RefreshTokenRuleTests.java`
+  - 문서: `docs/api-draft.md`(코드보다 먼저 씀), `docs/erd.md`, `TODO.md`, `CLAUDE.md`("업무 규칙"의 로그인 token 줄), `backend/README.md`(테스트 목록)
+  - 주석만: `frontend/mock/middleware.cjs`
+- 작업 방식: master가 `docs/api-draft.md`에 규칙을 먼저 적고, 백엔드 작성은 Opus 하위 작업에 맡김. master가 diff 전문과 새 파일을 읽어 검수하고, 테스트 재실행, 실제 서버 확인, 문서, 이 기록, commit을 함
+- 확인(master가 직접 실행함):
+  - `gradlew test --rerun-tasks` 성공. 테스트 217개, 실패 0. `gradlew build` 성공
+  - `bootRun`으로 켠 서버(개발 DB)에서 curl: 로그인 → 재발급 2번(200, 200) 뒤 그 회원의 행이 묶음 2개, 행 4개, 쓴 행 2개 → 처음 값을 다시 보내면 401(`Max-Age=0` cookie) → 가장 최근 값도 401 → 다른 로그인(다른 묶음)은 200 → 남은 행은 묶음 1개 → 로그아웃 204 뒤 행 0개
+  - 서버 로그에 경고 한 줄 "이미 쓴 refresh token이 다시 와서 … 회원 id: 2". token 값과 이메일은 없음
+  - Flyway가 개발 DB에 `V4`를 적용함. `refresh_token`에 `family_id`(not null), `used_at` 칸이 생김
+  - `frontend`에서 `npm run build`, `npm run lint` 통과
+  - 하위 작업 보고(master가 다시 해 보지 않음): `noRollbackFor` 두 곳을 빼면 `RefreshTokenReuseRuleTests.reusedTokenEndsWholeFamily`가 실패함
+- 확인하지 않은 것:
+  - 같은 값으로 동시에 온 두 요청(`markUsed`가 0을 돌려주는 경로). PostgreSQL의 행 잠금 동작에 기대고 테스트는 없음
+  - `@Scheduled`가 실제로 60분 뒤에 도는 것. 정리 메서드는 테스트가 직접 불러 확인함
+  - 행이 이미 있는 DB에 `V4`를 적용하는 경우(개발 DB에는 행이 0개였음)
+  - 브라우저 화면(재사용 뒤 로그인 화면으로 가는지), 실행 묶음과 branch 사이트에서의 동작
+- 읽을 때 볼 곳:
+  - `RefreshTokenService.use`. 검사 순서와 `noRollbackFor` 주석
+  - `RefreshTokenRepository.markUsed`. `where … usedAt is null`이 동시 요청 중 하나만 통과시키는 이유
+  - `RefreshTokenReuseRuleTests` 맨 위 주석. 이 클래스만 `@Transactional`이 없는 이유
+  - `V4__add_refresh_token_family.sql`. null 허용으로 더하고 → 채우고 → not null로 바꾸는 순서
+- 문서와 코드가 어긋났던 것: `docs/api-draft.md`의 "재사용 감지는 두지 않음"(인증-2 결정)과 TODO 27번. 이번 단위에서 api-draft를 고쳐 맞춤
+- 내가 채운 가정:
+  - 끊는 범위를 회원 전체가 아니라 묶음으로 한 것, 동시 요청의 늦은 쪽을 재사용으로 처리하는 것
+  - 로그아웃이 묶음 전체를 지우는 것, 정리 간격 60분, 로그인 때 정리를 뺀 것
+  - 경고 로그에 회원 id를 남기는 것, 칸 이름 `family_id`·`used_at`, 묶음 id를 UUID 문자열로 한 것

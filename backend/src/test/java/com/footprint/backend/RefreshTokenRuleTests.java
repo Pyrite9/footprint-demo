@@ -2,6 +2,7 @@ package com.footprint.backend;
 
 import com.footprint.backend.entity.RefreshToken;
 import com.footprint.backend.repository.RefreshTokenRepository;
+import com.footprint.backend.service.RefreshTokenService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,13 +51,16 @@ class RefreshTokenRuleTests {
     private final MockMvc mockMvc;
     private final TestApi api;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenService refreshTokenService;
     private final EntityManager entityManager;
 
     @Autowired
-    RefreshTokenRuleTests(MockMvc mockMvc, RefreshTokenRepository refreshTokenRepository, EntityManager entityManager) {
+    RefreshTokenRuleTests(MockMvc mockMvc, RefreshTokenRepository refreshTokenRepository,
+                          RefreshTokenService refreshTokenService, EntityManager entityManager) {
         this.mockMvc = mockMvc;
         this.api = new TestApi(mockMvc);
         this.refreshTokenRepository = refreshTokenRepository;
+        this.refreshTokenService = refreshTokenService;
         this.entityManager = entityManager;
     }
 
@@ -88,6 +92,8 @@ class RefreshTokenRuleTests {
     }
 
     // 재발급하면 새 access token과 새 refresh token을 줍니다. 쓴 refresh token은 다시 쓸 수 없습니다(교체).
+    // 쓴 값을 다시 보내면 묶음이 끊겨서 새 값도 못 쓰게 되므로, 새 값을 먼저 쓴 뒤에 쓴 값을 다시 보냅니다.
+    // 묶음이 실제로 지워지는지는 RefreshTokenReuseRuleTests가 확인합니다.
     @Test
     void refreshRotatesToken() throws Exception {
         String first = loginCookie();
@@ -105,20 +111,47 @@ class RefreshTokenRuleTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value(EMAIL));
 
-        TestApi.expectError(refresh(first), 401, "UNAUTHORIZED");
         refresh(second).andExpect(status().isOk());
+        TestApi.expectError(refresh(first), 401, "UNAUTHORIZED");
     }
 
-    // 재발급해도 만료 시각은 처음 로그인의 것을 그대로 물려받습니다(절대 만료).
+    // 재발급해도 만료 시각과 묶음 id는 처음 로그인의 것을 그대로 물려받습니다(절대 만료).
     @Test
-    void refreshKeepsAbsoluteExpiry() throws Exception {
+    void refreshKeepsFamilyAndAbsoluteExpiry() throws Exception {
         String first = loginCookie();
-        LocalDateTime firstExpiresAt = refreshTokenRepository.findByTokenHash(sha256(first)).orElseThrow().getExpiresAt();
+        RefreshToken firstRow = refreshTokenRepository.findByTokenHash(sha256(first)).orElseThrow();
 
         String second = cookieValue(refresh(first).andReturn().getResponse().getHeader(HttpHeaders.SET_COOKIE));
 
-        LocalDateTime secondExpiresAt = refreshTokenRepository.findByTokenHash(sha256(second)).orElseThrow().getExpiresAt();
-        assertThat(secondExpiresAt).isEqualTo(firstExpiresAt);
+        RefreshToken secondRow = refreshTokenRepository.findByTokenHash(sha256(second)).orElseThrow();
+        assertThat(secondRow.getExpiresAt()).isEqualTo(firstRow.getExpiresAt());
+        assertThat(secondRow.getFamilyId()).hasSize(36).isEqualTo(firstRow.getFamilyId());
+    }
+
+    // 재발급하면 쓴 행은 지워지지 않고 쓴 시각과 함께 남습니다. 새 행은 아직 쓰지 않은 상태입니다.
+    @Test
+    void refreshKeepsUsedRowWithUsedAt() throws Exception {
+        String first = loginCookie();
+
+        String second = cookieValue(refresh(first).andExpect(status().isOk()).andReturn().getResponse().getHeader(HttpHeaders.SET_COOKIE));
+        // 쓴 시각은 update query로 적어서, 이 테스트의 트랜잭션 안에 남은 Entity에는 반영되지 않습니다. 비워서 데이터베이스에서 다시 읽게 합니다.
+        entityManager.clear();
+
+        RefreshToken firstRow = refreshTokenRepository.findByTokenHash(sha256(first)).orElseThrow();
+        assertThat(firstRow.isUsed()).isTrue();
+        assertThat(firstRow.getUsedAt()).isNotNull();
+        assertThat(refreshTokenRepository.findByTokenHash(sha256(second)).orElseThrow().isUsed()).isFalse();
+    }
+
+    // 로그인할 때마다 새 묶음을 만듭니다. 같은 회원이라도 두 번 로그인하면 묶음 id가 다릅니다.
+    @Test
+    void eachLoginStartsNewFamily() throws Exception {
+        String first = loginCookie();
+        String second = loginCookie();
+
+        String firstFamily = refreshTokenRepository.findByTokenHash(sha256(first)).orElseThrow().getFamilyId();
+        String secondFamily = refreshTokenRepository.findByTokenHash(sha256(second)).orElseThrow().getFamilyId();
+        assertThat(firstFamily).isNotEqualTo(secondFamily);
     }
 
     // 만료 시각이 지난 refresh token은 401이고 같은 문장입니다.
@@ -171,6 +204,37 @@ class RefreshTokenRuleTests {
         assertThat(setCookie).contains("Max-Age=0");
         assertThat(refreshTokenRepository.findByTokenHash(sha256(value))).isEmpty();
         TestApi.expectError(refresh(value), 401, "UNAUTHORIZED");
+    }
+
+    // 로그아웃하면 그 값이 속한 묶음의 행을 모두 지웁니다(쓴 행 포함). 같은 회원의 다른 로그인(다른 묶음)은 남습니다.
+    @Test
+    void logoutDeletesWholeFamily() throws Exception {
+        String first = loginCookie();
+        String second = cookieValue(refresh(first).andExpect(status().isOk()).andReturn().getResponse().getHeader(HttpHeaders.SET_COOKIE));
+        String otherLogin = loginCookie();
+
+        logout(second).andExpect(status().isNoContent());
+
+        assertThat(refreshTokenRepository.findByTokenHash(sha256(first))).isEmpty();
+        assertThat(refreshTokenRepository.findByTokenHash(sha256(second))).isEmpty();
+        refresh(otherLogin).andExpect(status().isOk());
+    }
+
+    // 만료 행 정리는 만료 시각이 지난 행만 지웁니다. 서버는 정해진 간격마다 부르고, 테스트는 직접 부릅니다.
+    @Test
+    void cleanupDeletesOnlyExpiredRows() throws Exception {
+        String expired = loginCookie();
+        String valid = loginCookie();
+        entityManager.createQuery("update RefreshToken r set r.expiresAt = :past where r.tokenHash = :tokenHash")
+                .setParameter("past", LocalDateTime.now().minusSeconds(1))
+                .setParameter("tokenHash", sha256(expired))
+                .executeUpdate();
+
+        refreshTokenService.deleteExpired();
+        entityManager.clear();
+
+        assertThat(refreshTokenRepository.findByTokenHash(sha256(expired))).isEmpty();
+        assertThat(refreshTokenRepository.findByTokenHash(sha256(valid))).isPresent();
     }
 
     // 로그아웃은 cookie가 없거나 모르는 값이어도 204입니다. 여러 번 눌러도 결과가 같습니다.

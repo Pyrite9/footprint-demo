@@ -22,6 +22,7 @@ import java.util.List;
 // 로그인을 확인하고 token을 발급합니다. 12.11 데모는 구글 로그인이 기본이고, 이메일·비밀번호 로그인은 시작 계정용(개발·백업)입니다.
 // 운영 설정(prod)에서는 이메일·비밀번호 로그인이 꺼집니다(login 메서드 첫 줄).
 // 로그인하면 access token(JWT, 10분)과 refresh token(24시간)을 함께 줍니다. refresh token으로 access token을 다시 받고(refresh), 로그아웃하면 지웁니다.
+// 로그인 한 번에 refresh token 묶음(family) 하나를 새로 만듭니다. 재발급한 값은 같은 묶음에 들어가고, 로그아웃하면 묶음째 지웁니다.
 @Service
 public class AuthService {
 
@@ -101,19 +102,22 @@ public class AuthService {
         return createLoginTokens(member);
     }
 
-    // cookie의 refresh token으로 새 access token과 새 refresh token을 줍니다(교체). 쓴 refresh token은 지워져 다시 쓸 수 없습니다.
-    // 검사 순서: Origin → cookie → 데이터베이스의 행 → 만료 시각. Origin이 틀리면 403, 나머지는 401입니다.
+    // cookie의 refresh token으로 새 access token과 새 refresh token을 줍니다(교체). 쓴 refresh token에는 쓴 시각이 적혀 다시 쓸 수 없습니다.
+    // 쓴 값이 다시 오면(재사용) 그 묶음의 refresh token을 모두 지우고 401입니다. 그 로그인에서 가장 최근에 받은 값도 끊깁니다.
+    // 검사 순서: Origin → cookie → 데이터베이스의 행 → 이미 쓴 값인가 → 만료 시각. Origin이 틀리면 403, 나머지는 401입니다.
     // 교수로 올리기(X-1)는 하지 않습니다. 구글 로그인 때만 합니다.
-    @Transactional
+    // noRollbackFor: 재사용 때 refreshTokenService.use가 묶음을 지운 뒤 UnauthorizedException을 던집니다.
+    // 이 메서드의 트랜잭션이 그 예외로 rollback 되면 지운 묶음이 되살아나서, 401일 때는 rollback 하지 않고 commit 합니다.
+    @Transactional(noRollbackFor = UnauthorizedException.class)
     public LoginTokens refresh(String origin, String refreshToken) {
         checkOrigin(origin);
         RefreshToken used = refreshTokenService.use(refreshToken);
-        // 만료 시각은 쓴 token의 것을 그대로 물려줍니다. 재발급해도 로그인한 시각부터 24시간이 지나면 끝납니다(절대 만료).
+        // 만료 시각과 묶음 id는 쓴 token의 것을 그대로 물려줍니다. 재발급해도 로그인한 시각부터 24시간이 지나면 끝납니다(절대 만료).
         // 회원은 데이터베이스에서 읽은 것이라, access token의 memberType도 지금의 회원 유형입니다.
-        return createTokens(used.getMember(), used.getExpiresAt());
+        return createTokens(used.getMember(), used.getExpiresAt(), used.getFamilyId());
     }
 
-    // 로그아웃: cookie의 refresh token을 지웁니다. cookie가 없거나 이미 지운 값이어도 성공입니다.
+    // 로그아웃: cookie의 refresh token이 속한 묶음을 모두 지웁니다. cookie가 없거나 이미 지운 값이어도 성공입니다.
     // 이미 준 access token은 서버가 저장하지 않아서 지울 수 없고, 만료(최대 10분)까지 유효합니다.
     @Transactional
     public void logout(String origin, String refreshToken) {
@@ -130,15 +134,15 @@ public class AuthService {
         }
     }
 
-    // 로그인에 성공한 회원에게 token 두 개를 줍니다. 그 회원의 만료된 refresh token을 먼저 지워 행이 쌓이지 않게 합니다.
+    // 로그인에 성공한 회원에게 token 두 개를 줍니다. refresh token은 새 묶음으로 시작합니다.
+    // 만료된 refresh token은 여기서 지우지 않고 RefreshTokenService.deleteExpired가 정해진 간격마다 지웁니다.
     private LoginTokens createLoginTokens(Member member) {
-        refreshTokenService.deleteExpired(member);
-        return createTokens(member, refreshTokenService.expiresAtFromNow());
+        return createTokens(member, refreshTokenService.expiresAtFromNow(), refreshTokenService.newFamilyId());
     }
 
-    // access token과, 정한 시각에 만료되는 refresh token을 만듭니다.
-    private LoginTokens createTokens(Member member, LocalDateTime refreshTokenExpiresAt) {
-        String refreshToken = refreshTokenService.issue(member, refreshTokenExpiresAt);
+    // access token과, 정한 시각에 만료되고 정한 묶음에 속하는 refresh token을 만듭니다.
+    private LoginTokens createTokens(Member member, LocalDateTime refreshTokenExpiresAt, String familyId) {
+        String refreshToken = refreshTokenService.issue(member, refreshTokenExpiresAt, familyId);
         return new LoginTokens(jwtProvider.createToken(member), refreshToken, refreshTokenExpiresAt);
     }
 

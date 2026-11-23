@@ -67,6 +67,9 @@ footprint:
   password-login: true
   # refresh token 유효 시간(시간)입니다. 로그인한 시각부터 세고, 재발급해도 늘어나지 않습니다. service/RefreshTokenService가 읽습니다.
   refresh-token-hours: ${REFRESH_TOKEN_HOURS:24}
+  # 만료된 refresh token 행을 지우는 간격(분)입니다. 서버가 켜진 뒤 이만큼 지나 처음 지우고, 그 뒤로 이 간격마다 지웁니다.
+  # service/RefreshTokenService가 읽습니다(@Scheduled).
+  refresh-token-cleanup-minutes: ${REFRESH_TOKEN_CLEANUP_MINUTES:60}
   # refresh token cookie에 Secure를 붙일지 정합니다. 붙이면 https 요청에만 cookie가 실립니다. controller/AuthController가 읽습니다.
   # 개발은 http라 false입니다. 운영 설정(application-prod.yml)의 기본값은 true입니다.
   refresh-cookie-secure: ${REFRESH_COOKIE_SECURE:false}
