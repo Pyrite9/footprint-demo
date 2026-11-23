@@ -100,7 +100,7 @@ if (-not (Test-Path $certFile) -or -not (Test-Path $keyFile)) {
     & $mkcert -install
     $caInstalled = ($LASTEXITCODE -eq 0)
     # (b) 인증서를 만듭니다. 앞 단계가 실패해도 만들 수 있습니다(CA는 신뢰 목록에 없는 채로 만들어져 있음).
-    #     뒤의 두 이름(main·dev.footprint.localhost)은 지금 쓰지 않습니다. 다음 배포 단계에서 쓰려고 미리 넣습니다.
+    #     뒤의 두 이름(main·dev.footprint.localhost)은 묶음에서 쓰지 않습니다. branch 사이트(저장소의 infra/sites)는 인증서를 따로 만듭니다.
     New-Item -ItemType Directory -Path $certDir -Force | Out-Null
     & $mkcert -cert-file $certFile -key-file $keyFile localhost 127.0.0.1 ::1 main.footprint.localhost dev.footprint.localhost
     if ($LASTEXITCODE -ne 0) { Stop-WithMessage "https 인증서를 만들지 못했습니다. 위의 mkcert 메시지를 확인하세요." }

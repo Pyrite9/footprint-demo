@@ -413,6 +413,7 @@ frontend/   React
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
   backup/   백업·복구 스크립트(Windows .ps1, macOS·Linux .sh). 만든 묶음은 bundles/에 쌓이고 저장소에 올라가지 않음
   bundle/   제출용 실행 묶음. make-bundle.ps1(만드는 스크립트), template/(묶음에 들어갈 파일 원본). 결과 out/은 저장소에 올라가지 않음
+  sites/    main·dev branch의 사이트를 한 PC에서 함께 켬(배포 환경 분리). site.yml(사이트 하나), proxy.yml·proxy/(주소로 나눠 보내는 https proxy), start·stop 스크립트
 docs/       실행 안내, 구조 그림, ERD, API 명세, Postman 모음, 작업 기록, 노트북 설정 지시서, 백업·복구 안내, 실행 묶음 안내
   assets/       README 로고
   screenshots/  README "화면"에 쓰는 화면 사진
@@ -444,6 +445,7 @@ TODO.md     남은 일, 완성 범위와 규칙
 | [`docs/api-draft.md`](docs/api-draft.md) | API 명세. 코드보다 이 문서를 먼저 씀 |
 | [`docs/postman/`](docs/postman/) | API를 데모 흐름 순서로 모은 Postman 모음과 쓰는 방법 |
 | [`docs/bundle.md`](docs/bundle.md) | 제출용 실행 묶음을 만들고 USB에 담는 방법 |
+| [`docs/branch-sites.md`](docs/branch-sites.md) | `main`과 `dev` branch의 사이트를 한 PC에서 함께 켜는 방법(배포 환경 분리) |
 | [`docs/backup-restore.md`](docs/backup-restore.md) | DB와 올린 파일을 한 묶음으로 백업하고 빈 환경에 되살리는 방법 |
 | [`docs/worklog.md`](docs/worklog.md) | 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정 |
 | [`docs/laptop-setup.md`](docs/laptop-setup.md) | 다른 컴퓨터(Arch Linux 노트북)에 이 저장소를 올려 작업하는 설정 |
