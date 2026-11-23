@@ -6,7 +6,7 @@
 - 12.11 학기 발표와 12.15 PBL 결과물 제출 날짜는 남아 있지만 범위를 정하는 기준이 아님. 그날에는 그때까지 된 것을 보여 줌
 - 예전의 1단계·2단계·3단계 구분은 쓰지 않음. 1절의 구현 순서만 따름
 
-**남은 일 한눈에 (2026.11.12)** — 1절 구현 순서는 모두 만듦. 남은 것은 만들기가 아니라 확인과 관리자 작업임
+**남은 일 한눈에 (2026.11.23)** — 1절 구현 순서 23번까지는 모두 만듦. 2026.11.23에 멘토링 과제로 24~27번을 더함(24번은 됨, 25~27번이 남음)
 
 - 관리자가 할 일
   - 구글 로그인 동의 화면: Google Cloud 콘솔에서 "테스트 중"이면 쓸 계정을 테스트 사용자로 넣거나 "프로덕션"으로 게시함(4절)
@@ -50,6 +50,10 @@
 | 21 | O-3, O-4 | **됨(2026.11.12). 로컬 실행 묶음.** 배포 구성(O-3)은 Docker compose 로컬 실행 묶음과 그 묶음을 만드는 스크립트, 백업·복구(O-4)는 로컬 compose 기준 스크립트 | 없음 |
 | 22 | 인증-1 | **됨(2026.11.12).** 화면이 백엔드를 같은 origin의 `/api`로 부르기(개발은 Vite proxy, 데모·묶음은 nginx). 23의 cookie가 실리게 하려는 전제. 관리자 결정(2026.11.12)으로 더함 | 없음 |
 | 23 | 인증-2 | **됨(2026.11.12).** access token 10분 + refresh token(httpOnly cookie, 24시간 절대 만료, 쓰면 교체). access token은 화면의 메모리에만 둠. 관리자 결정(2026.11.12)으로 더함 | 없음 |
+| 24 | 배포-1 | **됨(2026.11.23).** branch 흐름(작업 branch → `dev` → `main`)과 CI trigger에 `dev` 더하기. 멘토링 과제, 관리자 결정(2026.11.23)으로 더함 | 없음 |
+| 25 | 배포-2 | 실행 묶음을 https로 바꿈. reverse proxy 하나에서 TLS를 끝내고 인증서는 mkcert로 발급함. refresh token cookie에 `Secure`를 켬 | 없음 |
+| 26 | 배포-3 | 배포 환경 분리. `main`과 `dev`를 각각 띄우고 proxy가 주소(`main.footprint.localhost`, `dev.footprint.localhost`)로 나눠 보냄. 25가 전제임 | 없음 |
+| 27 | 인증-3 | refresh token 재사용 감지와 만료 행 정리. 인증-2에서 "없음"으로 남긴 둘 | 없음 |
 
 - 더할 API의 주소는 `docs/api-draft.md`의 "완성 범위에서 더할 API"에 있음
 - 각 단위의 규칙은 그 단위를 만드는 commit부터 적용함. 그 전에는 아래 규칙과 코드가 달라도 고장이 아님
@@ -92,7 +96,7 @@
 
 - **O-5 테스트 분리와 보강** — 테스트는 같은 PostgreSQL의 전용 스키마에서 돌아 개발 데이터를 지우지 않음. PostgreSQL과 MinIO는 그대로 켜져 있어야 함
   - 접근 범위, 중복 같은 지금 규칙을 통합 테스트로 묶음. 이후 단위는 자기 규칙의 테스트를 같은 commit에 넣음
-- **O-6 CI** — main push와 PR마다 백엔드 빌드·테스트(`infra`의 compose로 PostgreSQL, MinIO를 켬), 화면 빌드·lint를 돌림. 2026.11.12 push 뒤 `095cfb6`에서 backend, frontend 둘 다 성공함
+- **O-6 CI** — main·dev push(dev는 2026.11.23 배포-1에서 더함)와 PR마다 백엔드 빌드·테스트(`infra`의 compose로 PostgreSQL, MinIO를 켬), 화면 빌드·lint를 돌림. 2026.11.12 push 뒤 `095cfb6`에서 backend, frontend 둘 다 성공함
 - **X-3 조장 교체** — 과제를 만든 교수가 기록 단계에서 같은 조의 다른 조원을 새 조장으로 바꿈. 이전 조장은 일반 조원으로 남고 역할과 기록은 그대로임. 이전 조장, 새 조장, 바뀐 시각을 이력으로 남김
 - **O-7 주인 없는 파일 정리** — 업로드 중 데이터베이스 저장이 실패하면 올린 파일을 지움. R-1-3의 파일 삭제 코드를 씀
 - **X-5 평가 결과 CSV** — 교수가 조 단위로 받음. 열은 평가자, 대상, 항목 6개, 의견, 제출 시각이고 **합계·평균·순위 열은 없음.** Excel이 한글을 읽도록 UTF-8 BOM을 붙임. `=`, `+`, `-`, `@`로 시작하는 의견은 수식으로 실행되지 않게 앞에 `'`를 붙임
@@ -160,6 +164,24 @@
   - 화면은 access token을 메모리에만 둠. 새로고침하거나 탭을 새로 열면 `RequireLogin`이 재발급으로 다시 받음. 401을 받으면 재발급하고 한 번만 다시 보냄. 재발급은 탭 안에서 하나, 탭끼리는 Web Locks로 차례대로 함
   - cookie를 브라우저의 탭이 함께 써서 **탭마다 다른 계정으로 로그인하는 것은 안 됨**(관리자 결정 2026.11.12)
   - 가짜 API는 cookie를 주고받지만 교체·만료는 하지 않음(cookie에 회원 번호를 담음)
+- **배포-1 branch 흐름(됨, 2026.11.23)** — 멘토링에서 정한 과제 "운영과 개발 나누기"의 첫 단위. 멘토 확인(2026.11.23): 뜻은 배포 환경 분리이고, 개발은 `dev`에서 딴 branch에서 하고 `dev`에 merge 한 뒤 `main`에 merge 함
+  - branch는 셋: `main`(시연할 안정판), `dev`(개발판), 작업 branch(단위 업무 하나에 하나, `dev`에서 땀)
+  - 작업 branch 이름은 commit 메시지의 머리말과 같은 꼴: `feat/…`, `fix/…`, `docs/…`, `chore/…`, `refactor/…`
+  - `main`과 `dev`에는 직접 commit 하지 않음. 작업 branch → `dev`, `dev` → `main`은 사람이 GitHub에서 연 PR로 merge 함(merge commit을 남김). AI 도구는 PR을 만들지 않음
+  - CI는 `main`·`dev` push와 PR마다 돎. PR의 CI가 통과한 뒤에 merge 함
+  - `main`의 branch 보호(CI 통과 필수)는 GitHub 설정이라 관리자가 정해서 검(아직 걸지 않음)
+- **배포-2 https(아직)** — 멘토 확인(2026.11.23): mkcert로 발급하고 실행 PC에서만 https가 되면 됨. 확인 기준은 브라우저에서 cookie의 `Secure`를 보는 것
+  - TLS는 reverse proxy 하나에서 끝내고 뒤의 화면과 백엔드는 http로 둠(추천안. 멘토 답이 없었음). 백엔드에 직접 인증서를 넣지 않음
+  - 실행 묶음의 구조를 https로 바꿈(2026.11.23 관리자 결정 "구조는 변환"). http 묶음을 따로 남기지 않음
+  - 받는 PC에 mkcert root CA를 설치해야 경고가 사라짐. **강단 PC에 설치 권한이 있는지 확인하지 못함.** 권한이 없으면 경고 화면을 넘기고 시연해야 함
+  - cookie에 든 것은 JWT가 아니라 refresh token임(access token은 화면의 메모리). `Secure`를 붙일 대상은 refresh token cookie임
+- **배포-3 배포 환경 분리(아직)** — `main`의 코드로 뜬 사이트와 `dev`의 코드로 뜬 사이트를 한 PC에서 함께 띄움
+  - 주소는 `main.footprint.localhost`, `dev.footprint.localhost`(멘토 확인: 주소는 자유). `.localhost`는 브라우저가 자기 PC로 풀어 줘서 hosts 파일을 고치지 않음
+  - 환경마다 화면, 백엔드, PostgreSQL, MinIO를 따로 둠. 데이터가 섞이지 않음
+  - 구글 로그인: OAuth Client의 승인된 출처에 새 주소를 더해야 함. `.localhost` 주소를 받아 주는지 확인하지 못함
+- **인증-3 refresh token 보강(아직)** — 범위는 추천안임(관리자는 "refresh token도 이번에"까지만 정함)
+  - 재사용 감지: 이미 쓴 refresh token이 다시 오면 그 로그인에서 나온 token을 모두 끊음. 지금은 401만 주고 다른 token은 그대로임
+  - 만료 행 정리: 만료된 행을 서버가 주기적으로 지움. 지금은 그 회원이 다시 로그인할 때만 지움
 
 ### 늘어나는 데이터
 
@@ -267,4 +289,5 @@
 - 코드를 처음 읽는 조원에게는 `docs/architecture.md`를 먼저 보게 함. 구조 그림이 있음
 - 코드 규칙은 `CLAUDE.md`에 있음. 계층, 명명, 금지 목록이 그 파일 하나에 모여 있음
 - API를 더하거나 바꿀 때는 `docs/api-draft.md`를 먼저 고치고, 가짜 API(`frontend/db.json`, `frontend/mock/middleware.cjs`)를 같은 작업 안에서 맞춤
+- branch 흐름: `dev`에서 작업 branch를 따서 작업하고 PR로 `dev`에 넣음. `main`과 `dev`에는 직접 commit 하지 않음(1절 "배포-1")
 - 결정과 이유는 `docs/worklog.md`에 남김

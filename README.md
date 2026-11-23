@@ -338,7 +338,7 @@ flowchart TB
 - O-3 배포 구성: Docker compose 기반 로컬 실행 묶음(2026.11.12 관리자 결정). `docs/getting-started.md`의 "제출용 실행 묶음"과 `docs/bundle.md`
 - O-4 백업·복구: `infra/backup`의 스크립트로 DB와 올린 파일을 같은 시점의 묶음으로 백업하고, 빈 환경에만 되살림. 데이터가 있는 곳에는 덮어쓰지 않고 멈춤. `docs/backup-restore.md`
 - O-5 테스트 분리와 보강: 업무 규칙마다 통합 테스트(`backend/src/test`의 `XxxRuleTests`)를 둠. 테스트는 같은 PostgreSQL의 전용 스키마에서 돌아 개발 데이터를 지우지 않음
-- O-6 CI: main push와 PR마다 GitHub Actions(`.github/workflows/ci.yml`)가 백엔드 빌드·테스트, 화면 빌드·lint를 돌림
+- O-6 CI: main·dev push와 PR마다 GitHub Actions(`.github/workflows/ci.yml`)가 백엔드 빌드·테스트, 화면 빌드·lint를 돌림
 - O-7 주인 없는 파일 정리: 업로드 중 데이터베이스 저장이 실패하면 MinIO에 올린 파일을 지움
 - O-8 상태 확인과 로그
   - `GET /actuator/health`를 token 없이 부르면 서버와 데이터베이스가 살아 있는지 `UP`/`DOWN`만 돌려줌. 다른 actuator 주소는 닫혀 있음
@@ -417,7 +417,7 @@ docs/       실행 안내, 구조 그림, ERD, API 명세, Postman 모음, 작�
   assets/       README 로고
   screenshots/  README "화면"에 쓰는 화면 사진
 docker-compose.yml  한 번에 실행(백엔드, nginx, infra의 PostgreSQL·MinIO)
-.github/workflows/ci.yml  main push와 PR마다 빌드·테스트·lint를 돌림
+.github/workflows/ci.yml  main·dev push와 PR마다 빌드·테스트·lint를 돌림
 TODO.md     남은 일, 완성 범위와 규칙
 ```
 
@@ -455,6 +455,7 @@ TODO.md     남은 일, 완성 범위와 규칙
 ## 팀과 기여
 
 - 6명 조별과제 팀의 PBL 결과물. 조원 코드는 이 저장소의 같은 파일에 끼워 넣음
+- branch는 `main`(시연할 안정판), `dev`(개발판), 작업 branch 셋. `dev`에서 작업 branch(`feat/…`, `fix/…`)를 따서 작업하고, PR로 `dev`에 넣은 뒤 `dev`를 PR로 `main`에 넣음. `main`과 `dev`에는 직접 commit 하지 않음
 - 함께 일하는 규칙(처음 읽을 문서, API를 바꿀 때의 순서, 결정 기록)은 `TODO.md` 6절 "조원과 함께 일할 때"
 - 업무 규칙과 코드 규칙은 `CLAUDE.md`. 규칙을 바꾸려면 먼저 정하고 문서를 고친 뒤 코드를 고침
 
