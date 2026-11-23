@@ -1,7 +1,7 @@
 // 가짜 API(json-server)에 실제 백엔드와 같은 규칙을 붙입니다. 주소마다 handle 함수 하나가 실제 API 하나를 흉내 냅니다.
 // json-server 0.17.4가 이 파일을 require로 읽기 때문에 이 파일만 CommonJS(require, module.exports)로 씁니다.
 // token은 "mock-token-<회원 id>" 문자열입니다. 실제 JWT와 달리 서명이 없으므로 화면은 token을 풀어 읽지 않습니다.
-// refresh token은 "mock-refresh-<회원 id>" 문자열이고 cookie(refreshToken)로 오갑니다. 실제와 달리 만료, 교체, Origin 검사가 없습니다.
+// refresh token은 "mock-refresh-<회원 id>" 문자열이고 cookie(refreshToken)로 오갑니다. 실제와 달리 만료, 교체, 재사용 감지, Origin 검사가 없습니다.
 // 데이터는 db.json에 있습니다. req.app.db는 json-server가 db.json을 읽어 둔 lowdb이고, .write()를 부르면 파일에 저장됩니다.
 
 // crypto, fs, path는 Node.js에 들어 있는 모듈입니다. 초대 코드(UUID)를 만들고, 산출물 파일을 mock/files에 읽고 씁니다.
