@@ -72,7 +72,7 @@
   - 이유: 인증서의 개인 key를 묶음(USB)에 싣지 않으려는 것. 묶음에서 key가 새면 그 인증서를 믿는 PC에서 다른 사람이 `localhost`인 척할 수 있음. 받는 PC에서 만들면 key와 로컬 인증 기관이 그 PC 밖으로 나가지 않음
   - 묶음에는 mkcert 실행 파일만 넣음(`tools/`). `make-bundle.ps1`이 GitHub release에서 받아 스크립트 안의 고정 SHA-256과 비교하고, 다르면 묶음을 만들지 않음
   - start가 `certs/footprint.pem`이 없을 때만 (1) `mkcert -install`로 이 PC에 로컬 인증 기관을 만들어 신뢰 목록에 넣고(Windows 확인 창, macOS 비밀번호) (2) 인증서를 만듦. (1)이 거절되거나 실패해도 멈추지 않고 인증서를 만들어 켬. 그때는 브라우저 경고 화면에서 "고급 → 계속"으로 넘어감
-  - 인증서의 이름: `localhost`, `127.0.0.1`, `::1`, `main.footprint.localhost`, `dev.footprint.localhost`. 뒤 둘은 다음 단위(배포-3)에서 씀. 지금 proxy는 `localhost`만 받음
+  - 인증서의 이름: `localhost`, `127.0.0.1`, `::1`, `main.footprint.localhost`, `dev.footprint.localhost`. 묶음의 proxy는 `localhost`만 받고 뒤 둘은 쓰지 않음. branch 사이트(`docs/branch-sites.md`)는 인증서를 `infra/sites/certs`에 따로 만듦
   - reset은 인증서와 로컬 인증 기관을 지우지 않음. 빼는 법은 받는 사람용 `README.md` "https 인증서"(`mkcert -uninstall`)
   - Firefox는 Windows의 신뢰 목록을 기본으로 쓰지 않아 경고가 뜰 수 있음. Chrome·Edge로 엶
 - **cookie의 `Secure` 확인 방법**

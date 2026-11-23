@@ -2767,3 +2767,47 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 인증서의 이름 5개(`localhost`, `127.0.0.1`, `::1`, `main.footprint.localhost`, `dev.footprint.localhost`)와 파일 이름
   - `reset`이 인증서와 로컬 CA를 지우지 않는 것
   - Windows 확인 창과 Chrome 경고의 문구는 실제 화면과 대조하지 않고 적음
+
+## 2026.11.23 배포-3 배포 환경 분리 (main·dev 사이트를 한 PC에서 함께 켬, 멘토링 과제)
+- 결정:
+  - 사이트 하나의 compose 파일(`infra/sites/site.yml`)을 project 이름만 바꿔 두 번 켬(`-p footprint-main`, `-p footprint-dev`). 선택지: 한 compose 파일에 서비스 8개를 이름을 바꿔 다 적음. 고르지 않은 이유: 같은 내용을 두 번 적어 어긋나기 쉽고, 화면 이미지의 nginx가 백엔드를 `backend`라는 이름으로 찾아서(`frontend/nginx.conf`) network alias를 따로 배워야 함
+  - proxy는 따로 둔 compose(`proxy.yml`)가 두 사이트의 기본 network에 `external`로 붙음. 화면 컨테이너는 `container_name`(`footprint-main-frontend`)으로 찾음. 선택지: 공용 network를 하나 만들어 화면 둘을 거기에 붙임. 고르지 않은 이유: network 설정이 `site.yml`에도 들어가 읽을 곳이 늘어남
+  - 코드는 `git archive`로 `origin/main`, `origin/dev`의 `backend`, `frontend`를 `infra/sites/src/<branch>`에 꺼냄. 선택지: `git worktree`(관리자에게 처음 말한 방식), compose의 git 주소 build. 고르지 않은 이유: worktree는 등록 상태가 남아 다시 켤 때 경우가 갈리고 그 폴더에서 실수로 commit 할 수 있음. git 주소 build는 무엇을 빌드하는지 PC에서 보이지 않음
+  - 기준은 로컬 branch가 아니라 `origin/*`임. merge가 GitHub의 PR로만 일어나서 로컬 `main`·`dev`는 뒤처질 수 있음
+  - 실행 묶음(USB)에는 넣지 않음. 저장소와 git이 있어야 하는 구조이고, 넣으면 이미지가 두 배가 됨
+  - 사이트는 호스트 포트를 열지 않고 개발 설정(시작 데이터, 이메일·비밀번호 로그인)과 저장소의 개발용 기본 비밀번호로 켬. 백엔드에는 `REFRESH_COOKIE_SECURE=true`, `CORS_ALLOWED_ORIGINS=https://<branch>.footprint.localhost`만 줌
+  - proxy는 응답에 `X-Footprint-Site: main|dev` header를 붙임. 지금 두 branch의 화면이 같아서 어느 사이트가 답했는지 볼 방법이 필요함
+  - 두 이름이 아닌 주소(`https://localhost`)는 `default_server` 블록이 404로 답함. 없으면 nginx가 첫 블록(main)으로 보냄
+  - 인증서는 `infra/sites/certs`에 따로 만듦(두 이름만). mkcert는 `infra/bundle/cache/mkcert`의 파일이나 PATH의 것을 씀. 새 의존성 없음
+  - http(80)는 302, HSTS 없음(배포-2와 같은 이유)
+  - Java·React 코드는 고치지 않음
+- 만든·고친 파일:
+  - 새 파일: `infra/sites/`의 `site.yml`, `proxy.yml`, `proxy/nginx.conf`, `start.ps1`, `start.sh`, `stop.ps1`, `stop.sh`, `docs/branch-sites.md`
+  - 고친 파일: `.gitignore`(`infra/sites/src/`, `infra/sites/certs/`), `README.md`, `TODO.md`, `CLAUDE.md`(폴더 목록 두 줄), `docs/bundle.md`(한 줄)
+  - 주석만: `infra/bundle/template/start.ps1`, `start.sh`("다음 배포 단계에서 쓰려고"를 "묶음에서 쓰지 않음"으로)
+- 작업 방식: 파일 작성은 Opus 하위 작업에 맡기고 master가 새 파일 전문을 읽어 검수함. 실행 확인, 문서 줄 고치기, 이 기록, commit은 master가 함
+- 확인(master가 직접 실행함. Windows, 로컬 CA를 신뢰 목록에 넣지 않은 상태, 인증서는 배포-2 때 발급한 것을 `infra/sites/certs`에 복사함):
+  - `start.ps1` 성공(종료 코드 0). main은 `78ee41f`, dev는 `c3fae7e`의 코드로 빌드됨. 컨테이너 9개, 백엔드·DB·MinIO 모두 healthy
+  - `https://main.…/` 200 `X-Footprint-Site: main`, `https://dev.…/` 200 `X-Footprint-Site: dev`. 두 주소의 `/api/actuator/health` 모두 `UP`
+  - `http://main.…/teams/1` → 302 `https://main.…/teams/1`. `https://localhost/` → 404. HSTS header 없음
+  - dev에서 로그인 200, `Set-Cookie`에 `Secure; HttpOnly; SameSite=Strict`. `refresh_token` 행이 dev DB에 1, main DB에 0
+  - dev의 refresh token을 main에 보내면 401. dev에 `Origin`을 main 주소로 보내면 403. 맞는 `Origin`이면 200
+  - `openssl s_client`에 SNI와 mkcert의 `rootCA.pem`을 주면 두 이름 모두 `Verify return code: 0 (ok)`
+  - `stop.ps1` 성공. 컨테이너와 network가 지워지고 volume 4개는 남음. `src` 폴더와 network가 없는 상태에서 다시 실행해도 종료 코드 0
+  - `start.ps1`을 다시 실행해도 성공. dev DB의 `refresh_token` 행 1개가 그대로 남아 있음(끄고 켜도 데이터 유지)
+  - `backend`에서 `gradlew build` 성공, `frontend`에서 `npm run build`, `npm run lint` 통과. 이번 단위는 Java·React 코드를 고치지 않아 이 확인이 사이트 동작을 뜻하지는 않음
+- 확인하지 않은 것:
+  - 브라우저 화면. 위는 모두 curl과 openssl임. `*.localhost`를 브라우저가 풀어 주는지, 경고 없이 열리는지, cookie가 주소마다 따로 보이는지는 관리자가 봐야 함
+  - `start`의 인증서 단계(mkcert 찾기, `-install`, 발급). 인증서를 복사해 두어 건너뜀
+  - `start.sh`, `stop.sh`(macOS·Linux). `bash -n` 문법 검사만 함(하위 작업 보고)
+  - 인터넷이 없을 때의 2단계, 업로드, 화면에서 만든 데이터의 분리(과제 등록 등), 구글 로그인
+  - 구글 OAuth가 `https://main.footprint.localhost` 같은 원본을 받아 주는지
+- 읽을 때 볼 곳:
+  - `infra/sites/site.yml`의 `${SITE:?…}`. 값이 없으면 멈추는 문법이고 `start`·`stop`이 환경 변수로 넣음
+  - `infra/sites/proxy.yml`의 `external: true`. 사이트가 먼저 켜져 있어야 proxy가 켜지는 이유
+  - `infra/sites/proxy/nginx.conf`의 `server_name`. 포트 하나(443)에서 주소로 블록을 고름
+  - `start.ps1` 3단계의 `git archive`. 작업 폴더를 바꾸지 않고 그 branch의 파일만 꺼냄
+- 내가 채운 가정:
+  - `git archive`(worktree 아님), `origin/*` 기준, 묶음에 넣지 않는 것, `X-Footprint-Site` header, `default_server` 404
+  - project·컨테이너 이름(`footprint-main-*`, `footprint-dev-*`, `footprint-sites-proxy`), 폴더 이름 `infra/sites`, 문서 이름 `docs/branch-sites.md`
+  - 사이트를 개발 설정으로 켜는 것, 백엔드 8080을 열지 않는 것

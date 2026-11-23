@@ -6,7 +6,7 @@
 - 12.11 학기 발표와 12.15 PBL 결과물 제출 날짜는 남아 있지만 범위를 정하는 기준이 아님. 그날에는 그때까지 된 것을 보여 줌
 - 예전의 1단계·2단계·3단계 구분은 쓰지 않음. 1절의 구현 순서만 따름
 
-**남은 일 한눈에 (2026.11.23)** — 1절 구현 순서 23번까지는 모두 만듦. 2026.11.23에 멘토링 과제로 24~27번을 더함(24·25번은 됨, 26·27번이 남음)
+**남은 일 한눈에 (2026.11.23)** — 1절 구현 순서 23번까지는 모두 만듦. 2026.11.23에 멘토링 과제로 24~27번을 더함(24~26번은 됨, 27번이 남음)
 
 - 관리자가 할 일
   - 구글 로그인 동의 화면: Google Cloud 콘솔에서 "테스트 중"이면 쓸 계정을 테스트 사용자로 넣거나 "프로덕션"으로 게시함(4절)
@@ -52,7 +52,7 @@
 | 23 | 인증-2 | **됨(2026.11.12).** access token 10분 + refresh token(httpOnly cookie, 24시간 절대 만료, 쓰면 교체). access token은 화면의 메모리에만 둠. 관리자 결정(2026.11.12)으로 더함 | 없음 |
 | 24 | 배포-1 | **됨(2026.11.23).** branch 흐름(작업 branch → `dev` → `main`)과 CI trigger에 `dev` 더하기. 멘토링 과제, 관리자 결정(2026.11.23)으로 더함 | 없음 |
 | 25 | 배포-2 | **됨(2026.11.23).** 실행 묶음을 https로 바꿈. reverse proxy 하나에서 TLS를 끝내고 인증서는 mkcert로 발급함. refresh token cookie에 `Secure`를 켬 | 없음 |
-| 26 | 배포-3 | 배포 환경 분리. `main`과 `dev`를 각각 띄우고 proxy가 주소(`main.footprint.localhost`, `dev.footprint.localhost`)로 나눠 보냄. 25가 전제임 | 없음 |
+| 26 | 배포-3 | **됨(2026.11.23).** 배포 환경 분리. `main`과 `dev`를 각각 띄우고 proxy가 주소(`main.footprint.localhost`, `dev.footprint.localhost`)로 나눠 보냄. 25가 전제임 | 없음 |
 | 27 | 인증-3 | refresh token 재사용 감지와 만료 행 정리. 인증-2에서 "없음"으로 남긴 둘 | 없음 |
 
 - 더할 API의 주소는 `docs/api-draft.md`의 "완성 범위에서 더할 API"에 있음
@@ -180,7 +180,9 @@
   - 구글 로그인을 묶음에서 쓰려면 OAuth Client의 승인된 JavaScript 원본에 `https://localhost`를 더해야 함(관리자 작업, 아직 안 함)
   - 받는 PC에 mkcert root CA를 설치해야 경고가 사라짐. **강단 PC에 설치 권한이 있는지 확인하지 못함.** 권한이 없으면 경고 화면을 넘기고 시연해야 함
   - cookie에 든 것은 JWT가 아니라 refresh token임(access token은 화면의 메모리). `Secure`를 붙일 대상은 refresh token cookie임
-- **배포-3 배포 환경 분리(아직)** — `main`의 코드로 뜬 사이트와 `dev`의 코드로 뜬 사이트를 한 PC에서 함께 띄움
+- **배포-3 배포 환경 분리(됨)** — `main`의 코드로 뜬 사이트와 `dev`의 코드로 뜬 사이트를 한 PC에서 함께 띄움. 켜는 법은 `docs/branch-sites.md`
+  - 코드는 작업 폴더가 아니라 GitHub의 `origin/main`, `origin/dev`에서 꺼냄. 새 코드는 `infra/sites/start`를 다시 실행해야 반영됨
+  - 실행 묶음에는 넣지 않음. 묶음과 같은 포트(443, 80)라 동시에 켜지 못함
   - 주소는 `main.footprint.localhost`, `dev.footprint.localhost`(멘토 확인: 주소는 자유). `.localhost`는 브라우저가 자기 PC로 풀어 줘서 hosts 파일을 고치지 않음
   - 환경마다 화면, 백엔드, PostgreSQL, MinIO를 따로 둠. 데이터가 섞이지 않음
   - 구글 로그인: OAuth Client의 승인된 출처에 새 주소를 더해야 함. `.localhost` 주소를 받아 주는지 확인하지 못함

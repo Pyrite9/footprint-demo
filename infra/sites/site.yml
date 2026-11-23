@@ -1,0 +1,96 @@
+# branch 사이트 하나(화면, 백엔드, PostgreSQL, MinIO)의 compose 파일입니다(배포-3).
+# 같은 파일을 project 이름만 바꿔 두 번 켭니다. main 사이트는 -p footprint-main, dev 사이트는 -p footprint-dev입니다.
+#   docker compose -p footprint-main -f site.yml up -d --build   (환경 변수 SITE=main)
+# 그래서 이 파일에는 name:을 쓰지 않습니다. name:을 쓰면 두 사이트가 같은 이름이 되어 컨테이너와 volume이 섞입니다.
+# 직접 켜지 않고 start 스크립트(start.ps1, start.sh)로 켭니다. 스크립트가 SITE를 넣고 그 branch의 코드를 꺼내 둡니다.
+# 저장소의 맨 위 docker-compose.yml, infra/docker-compose.yml과 내용이 겹칩니다(이미지, healthcheck). 그쪽을 바꾸면 이 파일도 맞춥니다.
+
+# ${SITE:?문장}: 환경 변수 SITE(main 또는 dev)를 읽고, 없으면 그 문장을 보여 주며 멈춥니다.
+# 이 파일은 .env 파일을 쓰지 않습니다. 비밀번호는 아래에 적은 개발용 기본값(infra/.env.example과 같음)입니다.
+# 기본값이 저장소에 공개되어 있어도 괜찮은 이유: 어느 서비스도 ports가 없어서, 이 PC의 다른 프로그램도 데이터베이스와 MinIO에 접속하지 못합니다.
+services:
+  postgres:
+    image: postgres:17
+    container_name: footprint-${SITE:?SITE가 없습니다. start 스크립트로 켜세요}-postgres
+    environment:
+      POSTGRES_DB: footprint
+      POSTGRES_USER: footprint
+      POSTGRES_PASSWORD: change-me
+    # ports가 없습니다. 두 사이트가 같은 PC에서 뜨므로, 포트를 열면 서로 부딪힙니다. 백엔드만 compose 안의 네트워크로 접속합니다.
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U footprint -d footprint"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    container_name: footprint-${SITE:?SITE가 없습니다. start 스크립트로 켜세요}-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: footprint
+      MINIO_ROOT_PASSWORD: change-me-please
+    # ports가 없습니다. 올린 파일은 백엔드를 거쳐서만 내려받습니다. MinIO 콘솔(9001)도 열지 않습니다.
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    # src/<branch>는 start 스크립트가 그 branch(origin/main 또는 origin/dev)에 commit 된 코드를 풀어 두는 폴더입니다.
+    # 지금 작업 중인 저장소 폴더(backend/)가 아니라 그 폴더의 코드로 이미지를 만듭니다.
+    build: ./src/${SITE:?SITE가 없습니다. start 스크립트로 켜세요}/backend
+    container_name: footprint-${SITE:?SITE가 없습니다. start 스크립트로 켜세요}-backend
+    # SPRING_PROFILES_ACTIVE를 넣지 않습니다. 개발 설정이라서 시작 데이터와 이메일·비밀번호 로그인이 됩니다.
+    # DB·MinIO 계정은 넣지 않습니다. application.yml의 기본값이 위의 postgres, minio에 적은 값과 같습니다.
+    environment:
+      # 컨테이너끼리는 서비스 이름(postgres, minio)으로 찾아갑니다. 같은 project 안의 서비스로 가서, 다른 사이트의 DB와 섞이지 않습니다.
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      STORAGE_ENDPOINT: http://minio:9000
+      # refresh token cookie에 Secure를 붙입니다. 브라우저가 보는 주소가 https라서 cookie가 실립니다.
+      REFRESH_COOKIE_SECURE: "true"
+      # 이 사이트의 화면 주소(Origin)입니다. refresh token 요청의 Origin 검사(AuthService.checkOrigin)와 CORS가 이 값을 씁니다.
+      # 브라우저가 보내는 Origin과 글자가 똑같아야 합니다. 443은 https의 기본 포트라서 브라우저가 포트를 붙이지 않습니다.
+      CORS_ALLOWED_ORIGINS: https://${SITE:?SITE가 없습니다. start 스크립트로 켜세요}.footprint.localhost
+      # 컨테이너의 기본 시간대는 UTC라서 기록 시각이 9시간 이르게 저장됩니다. 한국 시간으로 맞춥니다.
+      TZ: Asia/Seoul
+    # ports가 없습니다. 화면은 화면 컨테이너의 nginx를 거쳐 compose 안의 네트워크(서비스 이름 backend)로 부릅니다(frontend/nginx.conf).
+    # DB와 MinIO의 healthcheck가 통과한 뒤에 켭니다. 서버가 켜지면서 테이블(Flyway migration), 시작 데이터, 버킷을 만들기 때문입니다.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    # 상태 확인 주소로 서버가 요청을 받을 수 있는지 봅니다. start 스크립트의 docker compose up --wait가 이 결과가 healthy가 될 때까지 기다립니다.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  frontend:
+    build:
+      # backend와 같이 start 스크립트가 꺼내 둔 그 branch의 코드로 이미지를 만듭니다.
+      context: ./src/${SITE:?SITE가 없습니다. start 스크립트로 켜세요}/frontend
+      args:
+        # 화면이 부르는 백엔드 주소입니다. 화면과 같은 주소의 /api이고, 화면 컨테이너의 nginx가 /api를 떼고 backend 서비스로 넘깁니다.
+        VITE_API_URL: /api
+    container_name: footprint-${SITE:?SITE가 없습니다. start 스크립트로 켜세요}-frontend
+    # ports가 없습니다. 브라우저는 proxy(proxy.yml)를 거쳐서만 화면에 닿습니다. proxy가 이 컨테이너 이름(footprint-main-frontend 등)으로 부릅니다.
+    depends_on:
+      - backend
+
+# 데이터가 남는 곳입니다. project 이름이 앞에 붙어서 footprint-main_postgres-data, footprint-dev_postgres-data처럼 사이트마다 따로 생깁니다.
+# stop 스크립트로 꺼도 남습니다.
+volumes:
+  postgres-data:
+  minio-data:
+
+# networks 절을 쓰지 않습니다. compose가 project마다 기본 network(footprint-main_default, footprint-dev_default)를 만들고, proxy가 이 둘에 붙습니다(proxy.yml).
