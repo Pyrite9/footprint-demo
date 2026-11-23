@@ -190,6 +190,7 @@ docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.m
 - 적용되지 않는 세션: 모델이 Fable 계열이 아닌 세션, **다른 세션이 띄운 하위 세션과 Agent 도구 subagent(모델과 무관)**. 맡은 일을 직접 하고 하위 세션을 또 띄우지 않는다.
 - 하위 세션 도구가 없는 환경이면 Agent 도구 subagent로 같은 방식을 따르고, 그것도 없으면 직접 한다.
 - 이 절은 누가 작업하는지만 정한다. 하위 세션도 이 파일의 다른 규칙을 모두 그대로 지킨다.
+- 하위 세션은 worktree를 따로 만들지 않고 이 checkout에서 작업한다. 하위 세션은 commit 하지 않는데, worktree에서 commit 하지 않은 변경은 이 checkout으로 넘어오지 않아서 master가 검수할 수 없다.
 
 ### master가 하는 일
 
@@ -197,7 +198,9 @@ docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.m
 - 쪼개는 범위는 **단위 업무 하나의 안**이다("작업 방식"). 서로 다른 단위 업무를 동시에 띄우지 않는다. 한 단위 안에서는 master가 `docs/api-draft.md`에 API 주소와 응답 모양을 먼저 적고, 그 뒤에 백엔드, 가짜 API, 화면 조각을 나눈다.
 - 같은 파일을 두 하위 세션이 동시에 고치게 하지 않는다. 여러 조각이 함께 고치는 파일(`docs/worklog.md`, `docs/api-draft.md`, `TODO.md`, 이 파일)은 master가 쓴다.
 - 하위 세션에 맡길 때 그 조각이 지킬 규칙(이 파일의 해당 절), 만들 파일 목록, 끝난 모양을 적어 준다.
-- 하위 세션이 끝나면 보고만 믿지 않고 결과물(diff 전문, 파일, 빌드·테스트 로그)을 직접 검수한다. 규칙 검사(rule-check 기준)도 master가 한다.
+- 하위 세션이 끝나면 보고만 믿지 않고 결과물(diff 전문, 파일, 빌드·테스트 로그)을 직접 검수한다.
+- 규칙 검사(rule-check 기준)는 읽기만 하는 하위 세션에 맡겨도 된다. 걸린 항목은 master가 그 코드를 직접 읽어 확인한 뒤에 고치게 한다.
+- "작업 방식"의 시작 전 안내(3~6줄), 단위의 마지막 확인, worklog 기록, commit은 master가 한다.
 - 하위 세션이 막히거나 물으면 master가 답하고, master가 정할 수 없는 것만 관리자에게 묻는다. "묻지 않고 추천안으로 진행하고 기록할 것"의 결정은 master가 정하고 worklog에 남긴다.
 - 관리자에게 무엇을 띄웠고 무엇이 끝났는지 짧게 보고한다. master가 직접 확인한 것과 보고만 받은 것을 구분해서 말한다.
 - 나눠 맡겨도 생성량 기준은 그대로다. 관리자가 그날 안에 모두 읽을 수 있는 양만 만든다("이 코드를 읽을 사람").
@@ -216,7 +219,11 @@ docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.m
 
 - 질문에 답하기, 파일 몇 개 읽기, 한 파일 안의 몇 줄 수정, 검수 중 발견한 누락 손질
 - **commit은 master만 한다.** 검수가 끝난 뒤에 한다. `git push`와 원격 저장소 설정은 "반드시 먼저 말할 것" 그대로 master가 관리자에게 먼저 말한다. 하위 세션은 commit, push, PR을 하지 않는다.
-- **개발 DB를 쓰는 실행(`gradlew build`·`test`, `bootRun`, `infra`의 `docker compose`, 실행 묶음 확인)은 한 번에 한 세션만 한다.** 통합 테스트가 포트 5432의 같은 데이터베이스를 쓴다. 누가 언제 돌릴지는 master가 정하고, 단위의 마지막 확인(백엔드 빌드, `npm run build`, `npm run lint`)은 master가 직접 돌린다. `frontend`의 `npm run build`, `npm run lint`는 하위 세션이 자기 조각을 확인할 때 돌려도 된다.
+- **서로 부딪히는 실행은 한 번에 한 세션만 한다.** 누가 언제 돌릴지는 master가 정한다.
+  - `gradlew build`·`test`: 테스트는 context가 뜰 때마다 `footprint_test` 스키마를 비우고 다시 만든다(`application-test.yml`). 둘이 동시에 돌면 서로 지운다.
+  - `bootRun`: 포트 8080을 쓴다. 테스트와는 스키마(`public`)와 버킷이 달라서 동시에 돌려도 된다.
+  - `infra`의 `docker compose`를 켜고 끄는 것과 실행 묶음 확인은 master만 한다.
+  - 단위의 마지막 확인(백엔드 빌드, `npm run build`, `npm run lint`)은 master가 직접 돌린다. `frontend`의 `npm run build`, `npm run lint`는 하위 세션이 자기 조각을 확인할 때 돌려도 된다.
 - 관리자가 "여기서 해"라고 한 일
 
 ## 실행 환경
@@ -225,6 +232,8 @@ docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.m
 관리자는 Arch Linux 노트북에서도 작업한다(2026.10.28). 그 노트북에서 실행 중이면 명령은 bash 기준으로 쓴다(`./gradlew`). 저장소 문서의 안내는 그대로 Windows·macOS 기준으로 둔다.
 DB와 MinIO는 `infra/`에서 `docker compose up -d`. 접속값은 `infra/.env.example`.
 학습 저장소의 `infra`와 포트(5432, 9000, 9001)가 같다. 둘을 동시에 켜지 않는다. 켜져 있으면 학습용을 먼저 끄라고 안내한다.
+
+## 문서와 기존 코드가 어긋날 때 (이 파일 맨 끝 규칙)
 
 리포지토리의 문서와 기존 코드가 서로 일치하지 않을 때, 기존 코드에서 사용된 규칙을 따르고, 최종 답변에서 문서와 코드 사이에 발견한 각 불일치를 명세할 것(2026.11.06 관리자 결정)
 다만 "금지" 목록은 예외다. 기존 코드가 금지 항목을 어기고 있어도 그 방식을 따르지 않고, 고치지도 않고 최종 답변에 명세한다(2026.11.06 관리자 결정).

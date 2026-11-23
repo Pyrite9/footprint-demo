@@ -2683,3 +2683,18 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 확인: 문서만 고침. 빌드와 테스트는 돌리지 않음
 - 읽을 때 볼 곳: `CLAUDE.md` "세션 운영" 절의 "하위 세션을 띄우지 않고 master가 직접 하는 것". 원문과 가장 많이 달라진 곳임
 - 내가 채운 가정: 위 "이 저장소에 맞춰 더한 것" 여섯 줄 모두. 결정 날짜는 원문의 2026.11.20을 두고 반영한 날(2026.11.23)을 함께 적음
+
+## 2026.11.23 CLAUDE.md "세션 운영" 절 검토 뒤 고침 (관리자 결정 "전부 고쳐")
+- 결정:
+  - 하위 세션은 worktree를 따로 만들지 않고 이 checkout에서 작업함. 이유: 하위 세션은 commit 하지 않는데, worktree에서 commit 하지 않은 변경은 이 checkout으로 넘어오지 않아 master가 검수할 수 없음. 선택지: worktree에서 commit 하게 하고 master가 merge. 고르지 않은 이유: 단위 업무 하나에 commit 하나인 방식이 깨짐
+  - "개발 DB를 쓰는 실행은 한 세션만"을 실제로 부딪히는 것만으로 좁힘. 위 항목의 "통합 테스트가 포트 5432의 같은 데이터베이스를 씀"은 정확하지 않았음. 테스트는 `footprint_test` 스키마와 `footprint-test` 버킷을 따로 씀(`application-test.yml`)
+    - `gradlew build`·`test`끼리: context가 뜰 때마다 `footprint_test`를 비우므로 동시에 돌리지 않음
+    - `bootRun`끼리: 포트 8080. `bootRun`과 테스트는 동시에 돌려도 됨
+    - `docker compose` 켜고 끄기와 실행 묶음 확인은 master만 함
+  - 규칙 검사는 읽기만 하는 하위 세션에 맡겨도 됨. 걸린 항목은 master가 코드를 직접 읽어 확인함. 이전에는 "master가 한다"였음
+  - "작업 방식"의 시작 전 안내, 마지막 확인, worklog, commit이 master의 일임을 한 줄로 적음
+  - 파일 맨 끝 세 줄에 제목 "문서와 기존 코드가 어긋날 때 (이 파일 맨 끝 규칙)"을 붙임. "실행 환경" 절의 내용처럼 읽혔음. 위치와 문장은 그대로임
+- 만든·고친 파일: `CLAUDE.md`, `docs/worklog.md`
+- 확인: 문서만 고침. 빌드와 테스트는 돌리지 않음. `bootRun`과 테스트를 실제로 동시에 돌려 보지는 않았고 `application-test.yml`의 스키마·버킷 설정을 근거로 적음
+- 확인하지 않은 것: 학습 저장소 `decisions.md`와의 충돌, `.claude/skills`(`rule-check`, `next-step`, `read-check`) 본문이 새 절과 맞는지
+- 내가 채운 가정: 규칙 검사를 맡길 하위 세션의 모델은 정하지 않고 모델 배분 표에 맡김
