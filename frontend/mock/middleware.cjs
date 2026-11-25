@@ -987,6 +987,121 @@ function handleCancelContribution(req, res, loginMember, contributionId) {
   return res.json(toContributionResponse(db, db.get('contributions').find({ id: contributionId }).value()))
 }
 
+// 보고서 한 건의 모양입니다. 실제 ReportResponse와 같습니다.
+function toReportResponse(report) {
+  const { id, title, createdAt } = report
+  return { id, title, createdAt }
+}
+
+// 보고서 파트 한 건의 모양입니다. 실제 ReportPartResponse와 같습니다.
+function toReportPartResponse(db, part) {
+  const { id, title, assigneeId, createdAt, canceledAt } = part
+  const teamMember = db.get('teamMembers').find({ id: assigneeId }).value()
+  const member = db.get('members').find({ id: teamMember.memberId }).value()
+  return { id, title, assigneeMemberId: member.id, assigneeName: member.name, createdAt, canceledAt }
+}
+
+// POST /teams/{teamId}/reports: 조장이 제목으로 보고서를 만듭니다. 한 조에 여러 개를 만들 수 있습니다.
+function handleCreateReport(req, res, loginMember, teamId) {
+  const db = req.app.db
+  // @NotBlank @Size 검사입니다. 실제 백엔드처럼 권한 검사보다 먼저입니다.
+  const body = readBodyOrSendError(req, res, { title: 'string' })
+  if (!body) return
+  const { title } = body
+  const errors = []
+  checkNotBlank(errors, 'title', title)
+  checkMaxLength(errors, 'title', title, 255)
+  if (sendIfNotValid(res, errors)) return
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team || !checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
+
+  const report = { id: nextId(db, 'reports'), teamId, title: title.trim(), createdAt: nowLocalDateTime() }
+  db.get('reports').push(report).write()
+  return res.json(toReportResponse(report))
+}
+
+// GET /teams/{teamId}/reports: 조의 보고서를 최근에 만든 것부터 돌려줍니다.
+function handleGetReports(req, res, loginMember, teamId) {
+  const db = req.app.db
+  const team = findTeamOrSendError(db, res, teamId)
+  if (!team || !checkTeamAccess(db, res, team, loginMember)) return
+  const reports = db.get('reports').filter({ teamId }).sortBy('id').reverse().value()
+  return res.json(reports.map(toReportResponse))
+}
+
+// 보고서를 찾습니다. 없으면 404를 보내고 null을 돌려줍니다.
+function findReportOrSendError(db, res, reportId) {
+  const report = db.get('reports').find({ id: reportId }).value()
+  if (!report) {
+    sendError(res, 404, 'NOT_FOUND', '보고서가 없습니다. id=' + reportId)
+    return null
+  }
+  return report
+}
+
+// POST /reports/{reportId}/parts: 조장이 파트 제목과 담당 조원을 정해 파트를 등록합니다.
+function handleCreateReportPart(req, res, loginMember, reportId) {
+  const db = req.app.db
+  const body = readBodyOrSendError(req, res, { title: 'string', teamMemberId: 'integer' })
+  if (!body) return
+  const { title, teamMemberId } = body
+  const errors = []
+  checkNotBlank(errors, 'title', title)
+  checkMaxLength(errors, 'title', title, 255)
+  checkNotNull(errors, 'teamMemberId', teamMemberId)
+  if (sendIfNotValid(res, errors)) return
+  const report = findReportOrSendError(db, res, reportId)
+  if (!report) return
+  const team = db.get('teams').find({ id: report.teamId }).value()
+  if (!checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
+
+  const assignee = db.get('teamMembers').find({ id: teamMemberId, teamId: team.id }).value()
+  if (!assignee) {
+    return sendError(res, 404, 'NOT_FOUND', '이 조의 조원이 아닙니다. id=' + teamMemberId)
+  }
+
+  const part = {
+    id: nextId(db, 'reportParts'),
+    reportId,
+    assigneeId: assignee.id,
+    title: title.trim(),
+    createdAt: nowLocalDateTime(),
+    canceledAt: null,
+  }
+  db.get('reportParts').push(part).write()
+  notifyReportPartAssigned(db, report, part, loginMember.id)
+  return res.json(toReportPartResponse(db, part))
+}
+
+// GET /reports/{reportId}/parts: 보고서의 파트를 먼저 등록한 것부터 돌려줍니다. 취소된 파트도 빼지 않습니다.
+function handleGetReportParts(req, res, loginMember, reportId) {
+  const db = req.app.db
+  const report = findReportOrSendError(db, res, reportId)
+  if (!report) return
+  const team = db.get('teams').find({ id: report.teamId }).value()
+  if (!checkTeamAccess(db, res, team, loginMember)) return
+  const parts = db.get('reportParts').filter({ reportId }).sortBy('id').value()
+  return res.json(parts.map((part) => toReportPartResponse(db, part)))
+}
+
+// POST /report-parts/{partId}/cancel: 조장이 파트를 취소합니다. 행은 취소 시각과 함께 남습니다.
+function handleCancelReportPart(req, res, loginMember, partId) {
+  const db = req.app.db
+  const part = db.get('reportParts').find({ id: partId }).value()
+  if (!part) {
+    return sendError(res, 404, 'NOT_FOUND', '보고서 파트가 없습니다. id=' + partId)
+  }
+  const report = db.get('reports').find({ id: part.reportId }).value()
+  const team = db.get('teams').find({ id: report.teamId }).value()
+  if (!checkLeader(db, res, team, loginMember) || !checkRecording(db, res, team)) return
+  if (part.canceledAt !== null) {
+    return sendError(res, 400, 'INVALID_INPUT', '이미 취소된 파트입니다')
+  }
+
+  db.get('reportParts').find({ id: partId }).assign({ canceledAt: nowLocalDateTime() }).write()
+  return res.json(toReportPartResponse(db, db.get('reportParts').find({ id: partId }).value()))
+}
+
 // 완료확인 한 건의 모양입니다. 실제 ConfirmationResponse와 같습니다.
 function toConfirmationResponse(db, confirmation) {
   const { id, deliverableId, contributionId, confirmerId, confirmedAt, canceledAt } = confirmation
@@ -1568,6 +1683,15 @@ function notifyContributionAssigned(db, contribution, leaderMemberId) {
     notificationPrefixOf(db, team) + '기여 항목 "' + contribution.title + '"의 담당이 되었습니다.', team.id)
 }
 
+// 보고서 파트의 담당 조원에게 알림을 저장합니다. 조장이 자신을 담당으로 정했으면 만들지 않습니다.
+function notifyReportPartAssigned(db, report, part, leaderMemberId) {
+  const assignee = db.get('teamMembers').find({ id: part.assigneeId }).value()
+  if (assignee.memberId === leaderMemberId) return
+  const team = db.get('teams').find({ id: report.teamId }).value()
+  saveNotification(db, assignee.memberId, 'REPORT_PART_ASSIGNED',
+    notificationPrefixOf(db, team) + '보고서 "' + report.title + '"의 파트 "' + part.title + '" 담당이 되었습니다.', team.id)
+}
+
 // 완료 보고된 항목의 조에서 보고한 조원을 뺀 조원 전원(조장 포함)에게 알림을 저장합니다. 보고 메모는 담지 않습니다.
 function notifyContributionReported(db, contribution) {
   const team = db.get('teams').find({ id: contribution.teamId }).value()
@@ -1777,6 +1901,29 @@ function handleRequest(req, res, next) {
     const contributionId = parseIdOrSendError(res, 'contributionId', cancelIdText)
     if (contributionId === null) return
     return handleCancelContribution(req, res, loginMember, contributionId)
+  }
+
+  const reportsTeamIdText = matchId(/^\/teams\/([^/]+)\/reports$/, req.path)
+  if ((req.method === 'GET' || req.method === 'POST') && reportsTeamIdText !== null) {
+    const teamId = parseIdOrSendError(res, 'teamId', reportsTeamIdText)
+    if (teamId === null) return
+    if (req.method === 'POST') return handleCreateReport(req, res, loginMember, teamId)
+    return handleGetReports(req, res, loginMember, teamId)
+  }
+
+  const reportPartsIdText = matchId(/^\/reports\/([^/]+)\/parts$/, req.path)
+  if ((req.method === 'GET' || req.method === 'POST') && reportPartsIdText !== null) {
+    const reportId = parseIdOrSendError(res, 'reportId', reportPartsIdText)
+    if (reportId === null) return
+    if (req.method === 'POST') return handleCreateReportPart(req, res, loginMember, reportId)
+    return handleGetReportParts(req, res, loginMember, reportId)
+  }
+
+  const reportPartCancelIdText = matchId(/^\/report-parts\/([^/]+)\/cancel$/, req.path)
+  if (req.method === 'POST' && reportPartCancelIdText !== null) {
+    const partId = parseIdOrSendError(res, 'partId', reportPartCancelIdText)
+    if (partId === null) return
+    return handleCancelReportPart(req, res, loginMember, partId)
   }
 
   const deliverableConfirmationsIdText = matchId(/^\/deliverables\/([^/]+)\/confirmations$/, req.path)

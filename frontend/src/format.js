@@ -103,11 +103,13 @@ export const NOTIFICATION_TYPE_LABELS = {
   EVALUATION_STARTED: '평가 시작',
   CONTRIBUTION_ASSIGNED: '기여 항목 담당',
   CONTRIBUTION_REPORTED: '완료 보고',
+  REPORT_PART_ASSIGNED: '보고서 파트 담당',
 }
 
-// 알림을 누르면 갈 주소입니다. 평가 시작은 그 조의 동료평가 화면, 나머지는 그 조의 기여 항목 화면입니다.
+// 알림을 누르면 갈 주소입니다. 평가 시작은 그 조의 동료평가 화면, 파트 담당은 보고서 화면, 나머지는 그 조의 기여 항목 화면입니다.
 export function notificationPathOf(notification) {
   if (notification.type === 'EVALUATION_STARTED') return `/teams/${notification.teamId}/evaluation`
+  if (notification.type === 'REPORT_PART_ASSIGNED') return `/teams/${notification.teamId}/reports`
   return `/teams/${notification.teamId}/contributions`
 }
 

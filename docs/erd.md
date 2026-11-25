@@ -6,7 +6,7 @@
 - 실제 테이블은 `backend/src/main/resources/db/migration`의 SQL 파일이 만듦(Flyway, O-1). Entity를 바꾸면 새 migration 파일도 함께 만듦
 - 실행 구성과 요청의 길은 `architecture.md`
 
-엔티티 13개. 산출물과 평가, 기여 항목의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴. 알림과 refresh token만 회원을 가리킴.
+엔티티 15개. 산출물과 평가, 기여 항목과 보고서 파트의 담당, 완료확인한 조원은 회원이 아니라 **조 참여**(`TeamMember`)를 가리킴. 알림과 refresh token만 회원을 가리킴.
 
 ```mermaid
 erDiagram
@@ -25,6 +25,9 @@ erDiagram
     TEAM_MEMBER ||--o{ CONFIRMATION : "확인함 confirmer_id"
     DELIVERABLE |o--o{ CONFIRMATION : "deliverable_id"
     CONTRIBUTION |o--o{ CONFIRMATION : "contribution_id"
+    TEAM ||--o{ REPORT : "team_id"
+    REPORT ||--o{ REPORT_PART : "report_id"
+    TEAM_MEMBER ||--o{ REPORT_PART : "담당함"
     TEAM_MEMBER ||--o{ EVALUATION : "평가자 evaluator_id"
     TEAM_MEMBER ||--o{ EVALUATION : "대상 target_id"
     TEAM_MEMBER ||--o{ EVALUATION_DRAFT : "평가자 evaluator_id"
@@ -99,6 +102,20 @@ erDiagram
         LocalDateTime reportedAt "완료 보고 시각 · 서버가 기록. 보고 전에는 null"
         LocalDateTime canceledAt "취소 시각 · 서버가 기록. 취소 전에는 null"
     }
+    REPORT {
+        Long id PK "보고서 번호"
+        Long team_id FK "이 보고서가 속한 조 · 한 조에 여러 개"
+        String title "보고서 제목 · 만든 뒤 고치지 않음"
+        LocalDateTime createdAt "만든 시각 · 서버가 기록"
+    }
+    REPORT_PART {
+        Long id PK "파트 번호 · 작은 번호부터 합본 순서"
+        Long report_id FK "이 파트가 속한 보고서"
+        Long assignee_id FK "담당 조원의 조 참여"
+        String title "파트 제목 · 등록한 뒤 고치지 않음"
+        LocalDateTime createdAt "등록 시각 · 서버가 기록"
+        LocalDateTime canceledAt "취소 시각 · 서버가 기록. 취소 전에는 null"
+    }
     CONFIRMATION {
         Long id PK "완료확인 번호"
         Long confirmer_id FK "확인한 조원의 조 참여"
@@ -136,7 +153,7 @@ erDiagram
     NOTIFICATION {
         Long id PK "알림 번호"
         Long recipient_id FK "받는 회원 · 본인만 조회하고 읽음 표시함"
-        NotificationType type "EVALUATION_STARTED 평가 시작 · CONTRIBUTION_ASSIGNED 담당 지정 · CONTRIBUTION_REPORTED 완료 보고"
+        NotificationType type "EVALUATION_STARTED 평가 시작 · CONTRIBUTION_ASSIGNED 담당 지정 · CONTRIBUTION_REPORTED 완료 보고 · REPORT_PART_ASSIGNED 파트 담당 지정"
         String message "화면에 보일 문장 · 서버가 만듦 · 최대 1000자 · 점수와 의견, 보고 메모는 넣지 않음"
         Long team_id FK "알림이 생긴 조 · 화면이 누르면 갈 곳"
         LocalDateTime createdAt "만든 시각 · 서버가 기록"
@@ -171,6 +188,7 @@ erDiagram
 - `ROLE_HISTORY`는 역할이 바뀔 때마다 한 줄 쌓임. 첫 지정은 이전 역할이 없어서 남기지 않음. 만든 뒤에는 고치거나 지우지 않음
 - `LEADER_HISTORY`는 조장이 바뀔 때마다 한 줄 쌓임. 만든 뒤에는 고치거나 지우지 않음
 - 조장이 조마다 한 명인 것은 DB 제약이 아니라 Service가 지킴. 첫 조장은 과제를 만들 때 `AssignmentService`가 조마다 한 명 넣고, 교체는 `TeamService`가 함. 조장 교체와 역할 지정·변경이 같은 조 행을 잠가 차례로 처리함. 그래서 역할 저장이 옛 `leader` 값을 덮어쓰지 않고, 같은 이전 역할이 이력에 두 줄 남지 않음
+- `REPORT`와 `REPORT_PART`는 X-12-1(보고서와 파트 배분, `V5__create_report_tables.sql`). 파트는 등록한 순서(id)가 합본 순서임. 취소한 파트는 `canceledAt`만 채우고 행은 남김. 파트의 글(판)은 X-12-2에서 더함
 - `NOTIFICATION`은 조 참여가 아니라 회원을 가리킴. 여러 과제의 알림을 한 목록으로 찾기 때문임. 알림을 만드는 사건 하나에 받는 회원마다 한 줄씩 쌓이고 지우지 않음
 - `REFRESH_TOKEN`은 refresh token 값 하나마다 한 줄. 한 번의 로그인에서 재발급으로 이어진 줄은 같은 묶음(`familyId`)임. 재발급하면 쓴 줄에 쓴 시각을 적고 새 줄을 넣음(교체). 이미 쓴 값이 다시 오면 그 묶음의 줄을 모두 지움(재사용 감지, 인증-3). 로그아웃하면 그 묶음의 줄을 모두 지움. 만료된 줄은 서버가 60분마다 지움. 기록이 아니라 로그인 상태라서 지우는 테이블임(`docs/api-draft.md` "인증")
 - 점수 열은 6개 그대로 저장함. 합계·평균 열은 두지 않음

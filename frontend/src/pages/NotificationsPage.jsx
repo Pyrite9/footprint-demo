@@ -7,7 +7,7 @@ import PageLoading from '../components/PageLoading'
 import TopBar from '../components/TopBar'
 import { notificationPathOf } from '../format'
 
-// 내가 받은 알림 화면입니다. 평가 시작, 기여 항목 담당 지정, 완료 보고 때 서버가 남긴 알림을 최근 것부터 보여 줍니다.
+// 내가 받은 알림 화면입니다. 평가 시작, 기여 항목 담당 지정, 완료 보고, 보고서 파트 담당 지정 때 서버가 남긴 알림을 최근 것부터 보여 줍니다.
 // 알림은 화면을 열 때 불러옵니다. 열어 둔 동안 새로 생긴 알림은 다시 들어와야 보입니다(실시간 전송 안 함).
 function NotificationsPage() {
     const [notifications, setNotifications] = useState([])
@@ -44,7 +44,7 @@ function NotificationsPage() {
                 <div className="page-head">
                     <div>
                         <h1>알림</h1>
-                        <p>평가 시작, 기여 항목 담당 지정, 완료 보고를 알려 줍니다. 알림을 누르면 읽음으로 표시하고 그 화면으로 갑니다.</p>
+                        <p>평가 시작, 기여 항목 담당 지정, 완료 보고, 보고서 파트 담당 지정을 알려 줍니다. 알림을 누르면 읽음으로 표시하고 그 화면으로 갑니다.</p>
                     </div>
                 </div>
                 <section className="card">

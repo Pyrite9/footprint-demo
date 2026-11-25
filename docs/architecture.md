@@ -259,4 +259,4 @@ flowchart TB
 
 ### 데이터 구조
 
-엔티티 12개의 연결과 열, 제약은 [`erd.md`](erd.md)에 따로 둠. 테이블을 실제로 만드는 SQL은 `backend/src/main/resources/db/migration`
+엔티티 15개의 연결과 열, 제약은 [`erd.md`](erd.md)에 따로 둠. 테이블을 실제로 만드는 SQL은 `backend/src/main/resources/db/migration`

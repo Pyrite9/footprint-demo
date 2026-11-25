@@ -2891,3 +2891,49 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 금지에 남긴 네 가지의 범위, X-11의 조건 다섯 가지
   - ID 번호(X-11~X-16)와 각 항목의 추천안(X-11은 X-12에 붙임, X-13은 public 저장소부터, X-15는 GHCR·GitHub Release)
   - CI/CD와 유지보수를 기능이 아닌데도 같은 표(X-15, X-16)에 넣은 것
+
+## 2026.11.25 X-12-1 보고서와 파트 배분 (교수님 제안, 관리자 결정)
+- 결정:
+  - 관리자 결정(2026.11.25): X-12는 "추천안 생성해서 진행", 글은 "웹 텍스트 편집", AI는 LLM, Slack은 칸반 보드·스레드 댓글·@멘션, CD는 GitHub Release까지, 유지보수(X-16)는 전체 완성 뒤. `TODO.md` 1절 순서 28~35에 넣음
+  - X-12를 단위 4개로 나눔: X-12-1 보고서와 파트 배분, X-12-2 글쓰기와 판, X-12-3 순서 바꾸기와 합본, X-12-4 기록 열람·근거 패널. 한 번에 만들면 관리자가 하루에 읽을 양을 넘음
+  - 글은 Markdown 텍스트를 `textarea`로 씀(X-12-2). 선택지: 파일 업로드(지금 산출물과 거의 같고 LLM이 글을 읽기 어려움), 텍스트와 그림 첨부 둘 다(첨부와 본문을 잇는 규칙이 더 생김)
+  - 보고서는 한 조에 여러 개, 제목은 고칠 수 없고 지우지 않음. 보고서 취소는 두지 않음. 잘못 만든 보고서는 빈 채로 남음
+  - 파트는 기여 항목(R-2)과 같은 모양: 조장이 제목과 담당 한 명을 정하고, 고칠 수 없고, 취소하고 다시 등록함. 기여 항목과 달리 글을 쓴 파트도 취소할 수 있게 함(X-12-2부터). 보고서의 목차는 쓰면서 바뀌는 것이 보통이기 때문임
+  - 파트 순서는 등록 순서(id). 순서 바꾸기는 X-12-3. 그 전에는 취소하고 다시 등록한 파트가 맨 뒤에 붙음
+  - 알림 종류 `REPORT_PART_ASSIGNED`를 더함. 기여 항목 담당 지정과 같은 규칙(조장 자신이 담당이면 없음)
+  - API 5개: `POST·GET /teams/{teamId}/reports`, `POST·GET /reports/{reportId}/parts`, `POST /report-parts/{partId}/cancel`. 보고서 하나를 따로 가져오는 주소는 두지 않음. 화면이 목록에서 찾음
+  - Entity 2개(`Report`, `ReportPart`)와 migration `V5__create_report_tables.sql`. `notification.type`의 check 제약은 V1에서 이름 없이 만들어 PostgreSQL이 붙인 이름 `notification_type_check`로 지우고 다시 만듦
+  - 새 의존성 없음
+  - 프론트엔드 웹 가이드(`modern-web-guidance`)를 따라 기존 form과 다르게 만든 곳(가이드 id `forms`, `select-menu-interaction`)
+    - label을 칸에 `htmlFor`/`id`로 이음(`useId`). 기존 form은 label 안에 칸을 넣음
+    - 빈 칸은 `required`로 브라우저가 막고, 등록 버튼은 보내는 동안만 막음. 기존 form은 칸이 비면 버튼을 막음. 가이드: 검사를 막으려고 submit 버튼을 끄지 말 것
+    - 틀린 칸 표시는 `.input:user-invalid`(index.css). 사용자가 건드린 뒤에만 빨갛게 보임
+    - 등록이 성공해 칸이 비면 `:user-invalid`가 남아 빨갛게 보여서, 파트 등록 form에 `key={parts.length}`를 주어 새로 그림
+- 만든·고친 파일:
+  - 새 파일(백엔드): `entity/Report.java`, `entity/ReportPart.java`, `repository/ReportRepository.java`, `repository/ReportPartRepository.java`, `service/ReportService.java`, `controller/ReportController.java`, `dto/ReportCreateRequest.java`, `dto/ReportPartCreateRequest.java`, `dto/ReportResponse.java`, `dto/ReportPartResponse.java`, `db/migration/V5__create_report_tables.sql`, `test/.../ReportRuleTests.java`
+  - 고친 파일(백엔드): `entity/NotificationType.java`, `service/NotificationService.java`(`notifyReportPartAssigned`)
+  - 가짜 API: `frontend/db.json`(`reports`, `reportParts`), `frontend/mock/middleware.cjs`(처리 5개, 알림 하나)
+  - 새 파일(화면): `api/reports.js`, `pages/ReportsPage.jsx`, `components/ReportList.jsx`, `ReportPartList.jsx`, `ReportCreateForm.jsx`, `ReportPartCreateForm.jsx`, `ReportPartDetail.jsx`
+  - 고친 파일(화면): `App.jsx`(경로), `components/SideNav.jsx`(학생·교수 메뉴), `components/Icon.jsx`(`report`), `format.js`(알림 이름과 갈 곳), `pages/NotificationsPage.jsx`(설명 문구), `index.css`(`.cols-report`, `.cols-report-part`, `.input:user-invalid`)
+  - 문서: `docs/api-draft.md`(코드보다 먼저 씀), `docs/erd.md`, `CLAUDE.md`("업무 규칙"과 범위 줄), `TODO.md`(1절 순서 28~35, X-12·X-14·X-15 규칙, 3절), `README.md`, `backend/README.md`, `docs/architecture.md`
+- 확인:
+  - `gradlew build` 성공. 테스트 233개, 실패 0(`ReportRuleTests` 16개 포함). Flyway가 테스트 스키마에 `V5`를 적용함
+  - `frontend`에서 `npm run lint`, `npm run build` 통과
+  - 브라우저(가짜 API, `db.json` 복사본으로 띄움): student01이 빈 제목으로 보고서를 만들면 브라우저가 막고 칸이 빨갛게 됨 → "중간 보고서" 만들기 → 파트 3개 등록(조장 자신 담당 포함) → 1번 파트 취소, 줄이 그어지고 "취소됨". student02로 로그인하면 알림 "보고서 파트 담당"이 있고, 누르면 보고서 화면으로 감. 조원 화면에는 만들기·등록·취소 버튼이 없음
+- 확인하지 않은 것:
+  - 실제 백엔드(`bootRun`)와 화면을 함께 띄운 확인. 8080과 5173을 다른 실행이 쓰고 있어서 가짜 API로만 봄. 백엔드는 규칙 테스트로 확인함
+  - 교수 화면에서의 보고서 열람(테스트로만 확인함)
+  - 개발 DB(`public`)에 `V5` 적용. 다음에 `bootRun`할 때 Flyway가 적용함
+- 읽을 때 볼 곳:
+  - `ReportService.createPart`. 파트의 조는 보고서에서 꺼냄(`report.getTeam()`). 다른 조의 조장이 주소만 바꿔 등록하는 것을 `checkLeader`가 막음(`ReportRuleTests.otherTeamLeaderCannotCreatePart`)
+  - `V5__create_report_tables.sql` 마지막 두 줄. 이름 없이 만든 check 제약을 고치는 방법
+  - `ReportsPage.jsx`의 두 `useEffect`. 보고서를 바꾸면 파트를 다시 불러오고, 늦게 온 옛 응답은 버림(`ignore`)
+  - `ReportPartCreateForm.jsx`의 `required`와 `useId`. 기존 `ContributionCreateForm.jsx`와 다른 이유는 위 "결정"
+- 문서와 코드가 어긋났던 것(이번에 손대면서 맞춤):
+  - `README.md`와 `docs/architecture.md`의 "엔티티 12개"(인증-2 뒤로 13개였음) → 15개
+  - `backend/README.md`의 migration 목록에 `V3`, `V4`가 빠져 있었음 → 더함
+- 내가 채운 가정:
+  - 단위 4개로 나눈 것과 그 순서, 보고서 취소를 두지 않은 것, 글을 쓴 파트도 취소되게 한 것
+  - 파트 순서를 등록 순서로 시작한 것, 보고서 하나를 가져오는 API를 두지 않은 것
+  - 화면: 보고서를 고르면 같은 화면 아래에 파트가 열리는 구조, 파트 등록 뒤 form을 열어 두는 것, 메뉴의 "보고서" 자리(기여 항목 아래)와 아이콘
+  - 칸반(X-14)이 파트를 상태별로 보여 줄 때를 위해 상태 열을 두지 않고 `canceledAt`만 둔 것

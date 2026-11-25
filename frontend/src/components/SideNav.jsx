@@ -27,6 +27,7 @@ function StudentNav({ team }) {
             <div className="side-label">과정 기록</div>
             <NavItem to={`/teams/${team.id}/deliverables`} icon="file" label="산출물" />
             <NavItem to={`/teams/${team.id}/contributions`} icon="list" label="기여 항목" />
+            <NavItem to={`/teams/${team.id}/reports`} icon="report" label="보고서" />
             <NavItem to={`/teams/${team.id}/records`} icon="clock" label="전체 기록" />
             <NavItem to={`/teams/${team.id}/progress`} icon="timeline" label="진척" />
             <div className="side-label">조</div>
@@ -51,6 +52,7 @@ function ProfessorNav({ assignment, currentTeamId }) {
                         <div className="nav-sub">
                             <NavItem to={`/teams/${team.id}/deliverables`} label="산출물" />
                             <NavItem to={`/teams/${team.id}/contributions`} label="기여 항목" />
+                            <NavItem to={`/teams/${team.id}/reports`} label="보고서" />
                             <NavItem to={`/teams/${team.id}/records`} label="전체 기록" />
                             <NavItem to={`/teams/${team.id}/members`} label="조원과 조장" />
                             <NavItem to={`/teams/${team.id}/evaluation-results`} label="평가 결과" />

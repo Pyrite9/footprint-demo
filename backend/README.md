@@ -81,7 +81,7 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 - 테스트는 `src/test/resources/application-test.yml`의 설정으로 돌아감. 데이터베이스는 `footprint_test` 스키마, 파일은 `footprint-test` 버킷을 씀
 - 테스트의 Spring context가 뜰 때마다 `footprint_test` 스키마를 비우고 migration을 처음부터 다시 돌림(`TestFlywayConfig`). 그래서 migration이 Entity와 어긋나면 빌드가 깨짐
 - **빌드해도 개발 데이터(`public` 스키마, `footprint` 버킷)는 지워지지 않음.** 빌드할 때마다 시험 버킷에 작은 시험 파일과 시작 데이터 파일이 쌓임
-- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `SchemaRuleTests`(스키마와 부분 unique 인덱스, 시작 데이터 한 번만), `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `EvaluationDraftRuleTests`(평가 임시 저장), `EvidenceRuleTests`(근거 패널), `RecordRuleTests`(기록 열람), `EvaluationResultRuleTests`(평가 결과), `PhaseRuleTests`(과제 단계), `NotificationRuleTests`(알림), `RefreshTokenRuleTests`(refresh token 발급·교체·묶음·만료·로그아웃·만료 행 정리), `RefreshTokenReuseRuleTests`(재사용 감지. 실제 commit을 보려고 이 클래스만 `@Transactional`이 없음), `JoinPreviewRuleTests`(합류 전 미리보기), `DevelopmentSettingsRuleTests`(환경 변수 없이 켠 개발 설정), `ProductionSettingsRuleTests`(운영 설정), `HealthRuleTests`(상태 확인)
+- 규칙 테스트는 시작 데이터로 실제 요청을 보냄: `SchemaRuleTests`(스키마와 부분 unique 인덱스, 시작 데이터 한 번만), `AccessRuleTests`(접근 범위), `TeamRuleTests`(과제·초대·합류·역할 지정), `RoleChangeRuleTests`(역할 변경·이력), `LeaderChangeRuleTests`(조장 교체·이력), `DeliverableRuleTests`(업로드), `DeliverableDeleteRuleTests`(삭제), `DeliverableOrphanFileTests`(주인 없는 파일 정리), `ContributionRuleTests`(기여 항목), `ReportRuleTests`(보고서와 파트 배분), `ConfirmationRuleTests`(완료확인), `EvaluationRuleTests`(동료평가), `EvaluationDraftRuleTests`(평가 임시 저장), `EvidenceRuleTests`(근거 패널), `RecordRuleTests`(기록 열람), `EvaluationResultRuleTests`(평가 결과), `PhaseRuleTests`(과제 단계), `NotificationRuleTests`(알림), `RefreshTokenRuleTests`(refresh token 발급·교체·묶음·만료·로그아웃·만료 행 정리), `RefreshTokenReuseRuleTests`(재사용 감지. 실제 commit을 보려고 이 클래스만 `@Transactional`이 없음), `JoinPreviewRuleTests`(합류 전 미리보기), `DevelopmentSettingsRuleTests`(환경 변수 없이 켠 개발 설정), `ProductionSettingsRuleTests`(운영 설정), `HealthRuleTests`(상태 확인)
 - `ProductionSettingsRuleTests`만 `footprint_prod_test` 스키마를 씀. 운영 설정은 시작 데이터를 넣지 않아서, `footprint_test`를 같이 쓰면 이 테스트가 그 스키마를 비울 때 다른 테스트의 시작 데이터가 사라짐
 - 테스트가 끝나면 데이터베이스 변경을 되돌림(`@Transactional`). 그래서 어떤 순서로 돌아도 시작 데이터가 그대로임
 - 실행 로그의 `Using generated security password: ...`는 Spring Security가 기본으로 만드는 계정. 이 프로젝트는 쓰지 않으므로 무시할 것
@@ -91,7 +91,7 @@ Java 21, Spring Boot 3.5.16. `../footprint-study/example/backend`를 복사해�
 테이블은 Hibernate가 아니라 `src/main/resources/db/migration`의 SQL 파일이 만듦(O-1, 2026.11.12). Hibernate는 `ddl-auto: validate`로 Entity와 테이블이 맞는지 확인만 함
 
 - 서버가 켜질 때 Flyway가 아직 적용하지 않은 파일만 번호 순서로 실행하고, 실행한 파일을 `flyway_schema_history` 테이블에 적음. 그래서 **서버를 다시 켜도 기록이 지워지지 않음**
-- 지금 파일: `V1__create_tables.sql`(엔티티 12개의 테이블), `V2__add_partial_unique_indexes.sql`(유효한 완료확인 하나, 조장 한 명)
+- 지금 파일: `V1__create_tables.sql`(엔티티 12개의 테이블), `V2__add_partial_unique_indexes.sql`(유효한 완료확인 하나, 조장 한 명), `V3__create_refresh_token.sql`(refresh token, 인증-2), `V4__add_refresh_token_family.sql`(묶음과 쓴 시각, 인증-3), `V5__create_report_tables.sql`(보고서와 파트, 알림 종류 하나 더함, X-12-1)
 - Entity와 테이블이 맞지 않으면 서버가 켜지지 않음. 예: `Schema-validation: missing column [privacy_consented_at] in table [member]`
 
 ### Entity에 칸을 더하거나 바꿀 때

@@ -14,6 +14,7 @@ import NotificationsPage from './pages/NotificationsPage'
 import PrivacyNoticePage from './pages/PrivacyNoticePage'
 import ProgressPage from './pages/ProgressPage'
 import RecordsPage from './pages/RecordsPage'
+import ReportsPage from './pages/ReportsPage'
 import RequirePrivacyConsent from './pages/RequirePrivacyConsent'
 import TeamMembersPage from './pages/TeamMembersPage'
 import TeamPage from './pages/TeamPage'
@@ -45,6 +46,7 @@ function App() {
                             <Route path="/teams/:teamId/members" element={<TeamMembersPage />} />
                             <Route path="/teams/:teamId/deliverables" element={<DeliverablesPage />} />
                             <Route path="/teams/:teamId/contributions" element={<ContributionsPage />} />
+                            <Route path="/teams/:teamId/reports" element={<ReportsPage />} />
                             <Route path="/teams/:teamId/records" element={<RecordsPage />} />
                             <Route path="/teams/:teamId/progress" element={<ProgressPage />} />
                             <Route path="/teams/:teamId/evaluation" element={<EvaluationPage />} />

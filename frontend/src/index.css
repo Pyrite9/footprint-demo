@@ -983,6 +983,16 @@ code {
   min-width: 584px;
 }
 
+.cols-report {
+  grid-template-columns: minmax(200px, 1fr) 84px;
+  min-width: 300px;
+}
+
+.cols-report-part {
+  grid-template-columns: minmax(160px, 1fr) 104px 72px 84px;
+  min-width: 500px;
+}
+
 .cols-member {
   grid-template-columns: minmax(170px, 1fr) 130px 88px;
   min-width: 444px;
@@ -1182,6 +1192,11 @@ code {
   border-radius: 9px;
   background: var(--surface);
   font-weight: 400;
+}
+
+/* 사용자가 건드린 뒤에만 틀린 칸을 표시합니다. :invalid만 쓰면 화면을 열자마자 빈 필수 칸이 빨갛게 보입니다. */
+.input:user-invalid {
+  border-color: var(--danger);
 }
 
 textarea.input {

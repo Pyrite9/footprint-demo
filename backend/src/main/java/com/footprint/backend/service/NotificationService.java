@@ -5,6 +5,7 @@ import com.footprint.backend.entity.Contribution;
 import com.footprint.backend.entity.Member;
 import com.footprint.backend.entity.Notification;
 import com.footprint.backend.entity.NotificationType;
+import com.footprint.backend.entity.ReportPart;
 import com.footprint.backend.entity.Team;
 import com.footprint.backend.entity.TeamMember;
 import com.footprint.backend.exception.NotFoundException;
@@ -16,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 // 화면 안 알림을 만들고, 찾고, 읽음으로 표시합니다.
-// 알림은 평가 시작, 기여 항목 담당 지정, 완료 보고를 처리하는 Service가 아래 notify 메서드를 직접 불러서 만듭니다.
+// 알림은 평가 시작, 기여 항목 담당 지정, 완료 보고, 보고서 파트 담당 지정을 처리하는 Service가 아래 notify 메서드를 직접 불러서 만듭니다.
 @Service
 public class NotificationService {
 
@@ -85,6 +86,18 @@ public class NotificationService {
             }
             save(teamMember.getMember(), NotificationType.CONTRIBUTION_REPORTED, message, team);
         }
+    }
+
+    // 보고서 파트의 담당 조원에게 알림을 저장합니다. 조장이 자신을 담당으로 정했으면 스스로 한 일이라 만들지 않습니다.
+    @Transactional
+    public void notifyReportPartAssigned(ReportPart part, Long leaderMemberId) {
+        Member assignee = part.getAssignee().getMember();
+        if (assignee.getId().equals(leaderMemberId)) {
+            return;
+        }
+        Team team = part.getReport().getTeam();
+        save(assignee, NotificationType.REPORT_PART_ASSIGNED,
+                prefixOf(team) + "보고서 \"" + part.getReport().getTitle() + "\"의 파트 \"" + part.getTitle() + "\" 담당이 되었습니다.", team);
     }
 
     // 알림 한 건을 저장합니다.

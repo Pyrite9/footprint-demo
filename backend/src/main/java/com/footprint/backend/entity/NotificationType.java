@@ -7,5 +7,7 @@ public enum NotificationType {
     // 조장이 기여 항목의 담당으로 정했습니다. 담당 조원이 받습니다.
     CONTRIBUTION_ASSIGNED,
     // 담당 조원이 기여 항목을 완료 보고했습니다. 같은 조의 다른 조원이 받습니다.
-    CONTRIBUTION_REPORTED
+    CONTRIBUTION_REPORTED,
+    // 조장이 보고서 파트의 담당으로 정했습니다. 담당 조원이 받습니다.
+    REPORT_PART_ASSIGNED
 }
