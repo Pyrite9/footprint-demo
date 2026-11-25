@@ -2852,3 +2852,27 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 끊는 범위를 회원 전체가 아니라 묶음으로 한 것, 동시 요청의 늦은 쪽을 재사용으로 처리하는 것
   - 로그아웃이 묶음 전체를 지우는 것, 정리 간격 60분, 로그인 때 정리를 뺀 것
   - 경고 로그에 회원 id를 남기는 것, 칸 이름 `family_id`·`used_at`, 묶음 id를 UUID 문자열로 한 것
+
+## 2026.11.25 개발 서버를 Tailscale 네트워크 안에서 엶 (단위 번호 없음, 관리자 요청)
+
+- 무엇: 관리자 PC의 개발 서버(화면 5173, 백엔드 8080)를 같은 tailnet의 다른 기기에서 `https://<PC 이름>.<tailnet 이름>.ts.net`으로 열 수 있게 함. `TODO.md`에 없는 일이고 업무 규칙, API는 그대로임
+- 결정:
+  - `tailscale serve`(tailnet 안에서만, 인증서는 Tailscale이 받음)를 씀. 대안: Vite를 `--host`로 열고 tailnet IP로 접속(http라 구글 로그인이 안 되고 방화벽을 열어야 함), `tailscale funnel`(인터넷 전체에 열림, 쓰지 않음)
+  - Vite의 허용 호스트는 `frontend/.env.local`의 `DEV_ALLOWED_HOSTS`(쉼표 구분)에서 읽음. 저장소가 public이라 tailnet 이름을 올리지 않으려는 것. 이름이 `VITE_`로 시작하지 않아 화면 코드에 들어가지 않음. 비어 있으면 이전과 같게 `localhost`만 받음
+  - 백엔드는 코드를 고치지 않고 이미 있는 환경 변수 `CORS_ALLOWED_ORIGINS`에 주소를 더함. Origin 검사(`AuthService.checkOrigin`)가 이 목록을 씀
+  - 새 의존성 없음
+- 만든·고친 파일: `frontend/vite.config.js`, `docs/tailnet-access.md`(새 파일), `README.md`(문서 표 한 줄), `CLAUDE.md`(폴더 목록)
+- 확인(직접 실행함):
+  - `tailscale serve --bg 5173`은 502였음. Vite가 `[::1]:5173`에만 열려 있고 Tailscale은 `127.0.0.1`로 넘겼기 때문. `http://localhost:5173`으로 바꾸니 200
+  - 이 PC에서 curl로 tailnet 주소를 부름(인증서 검증 통과): 화면 200, `/src/main.jsx` 200, 로그인 200, `/auth/refresh` 200, `Origin`이 다른 주소면 403, `/api/actuator/health` 200
+  - 개발 서버에 모르는 `Host`로 오면 403
+  - `frontend`에서 `npm run build`, `npm run lint` 통과
+- 확인(관리자가 arch 노트북에서 함):
+  - 터미널의 `curl -sI`가 `HTTP/2 200`
+  - 브라우저는 처음에 `DNS_PROBE_FINISHED_NXDOMAIN`. 브라우저의 "보안 DNS 사용"을 끄니 열림. `docs/tailnet-access.md` "자주 막히는 곳"에 적음
+  - 브라우저에서 시작 계정으로 로그인하고 새로고침해도 로그인이 유지됨
+- 확인하지 않은 것:
+  - 화면 자동 새로고침(HMR). Claude 앱의 브라우저 pane은 이 주소의 스크립트를 막아 빈 화면이었음
+  - 구글 로그인(승인된 JavaScript 원본에 주소를 더해야 함), 조원을 tailnet에 들이는 것
+- 읽을 때 볼 곳: `vite.config.js`의 `loadEnv`와 `allowedHosts`. 설정이 객체에서 함수(`({ mode }) => …`)로 바뀐 이유는 `.env.local`을 읽으려면 mode가 필요해서임
+- 내가 채운 가정: 환경 변수 이름 `DEV_ALLOWED_HOSTS`, 문서 이름 `docs/tailnet-access.md`, branch 사이트와 실행 묶음은 이 방법의 대상에서 뺀 것
