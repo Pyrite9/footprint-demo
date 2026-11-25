@@ -446,6 +446,7 @@ TODO.md     남은 일, 완성 범위와 규칙
 | [`docs/postman/`](docs/postman/) | API를 데모 흐름 순서로 모은 Postman 모음과 쓰는 방법 |
 | [`docs/bundle.md`](docs/bundle.md) | 제출용 실행 묶음을 만들고 USB에 담는 방법 |
 | [`docs/branch-sites.md`](docs/branch-sites.md) | `main`과 `dev` branch의 사이트를 한 PC에서 함께 켜는 방법(배포 환경 분리) |
+| [`docs/tailnet-access.md`](docs/tailnet-access.md) | 개발 서버를 Tailscale 네트워크 안의 다른 기기에서 여는 방법 |
 | [`docs/backup-restore.md`](docs/backup-restore.md) | DB와 올린 파일을 한 묶음으로 백업하고 빈 환경에 되살리는 방법 |
 | [`docs/worklog.md`](docs/worklog.md) | 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정 |
 | [`docs/laptop-setup.md`](docs/laptop-setup.md) | 다른 컴퓨터(Arch Linux 노트북)에 이 저장소를 올려 작업하는 설정 |
