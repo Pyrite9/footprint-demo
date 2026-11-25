@@ -63,3 +63,11 @@ tailscale serve reset
 - 구글 로그인은 Google Cloud의 OAuth Client "승인된 JavaScript 원본"에 `https://<주소>`를 더해야 함. 이메일·비밀번호 로그인은 상관없음
 - 다른 사람이 열려면 그 사람이 tailnet에 들어와 있거나, 이 PC를 그 사람에게 공유해야 함(관리 콘솔의 Share)
 - branch 사이트(`docs/branch-sites.md`)와 실행 묶음은 이 방법으로 열지 않음. proxy가 `.localhost` 이름만 받음
+
+## 자주 막히는 곳
+
+- **브라우저에 "사이트에 연결할 수 없음", `DNS_PROBE_FINISHED_NXDOMAIN`** — 여는 기기의 브라우저가 `ts.net` 이름을 못 찾은 것임. 브라우저의 "보안 DNS 사용"이 켜져 있으면 Tailscale의 DNS(MagicDNS)가 아니라 외부 DNS에 물어서 생김. Chrome 계열은 `chrome://settings/security`(웨일은 `whale://settings/security`)에서 끔. Firefox는 설정 → 개인 정보 및 보안 → DNS over HTTPS
+  - 같은 기기의 터미널에서 `curl -sI https://<주소>`가 200이면 Tailscale은 정상이고 브라우저 쪽 문제임
+- **502** — 이 PC의 개발 서버가 꺼졌거나, `tailscale serve`의 대상이 `127.0.0.1:5173`으로 잡힌 것임(위 5번)
+- **로그인은 되는데 새로고침하면 로그인이 풀림** — 백엔드의 `CORS_ALLOWED_ORIGINS`에 `https://<주소>`가 없는 것임
+- **빈 화면** — 광고 차단 확장이 개발 서버의 스크립트를 막은 것일 수 있음. 끄고 다시 엶

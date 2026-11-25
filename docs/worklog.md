@@ -2867,8 +2867,11 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
   - 이 PC에서 curl로 tailnet 주소를 부름(인증서 검증 통과): 화면 200, `/src/main.jsx` 200, 로그인 200, `/auth/refresh` 200, `Origin`이 다른 주소면 403, `/api/actuator/health` 200
   - 개발 서버에 모르는 `Host`로 오면 403
   - `frontend`에서 `npm run build`, `npm run lint` 통과
+- 확인(관리자가 arch 노트북에서 함):
+  - 터미널의 `curl -sI`가 `HTTP/2 200`
+  - 브라우저는 처음에 `DNS_PROBE_FINISHED_NXDOMAIN`. 브라우저의 "보안 DNS 사용"을 끄니 열림. `docs/tailnet-access.md` "자주 막히는 곳"에 적음
 - 확인하지 않은 것:
-  - 다른 기기에서 여는 것, 브라우저 화면(Claude 앱의 브라우저 pane이 이 주소의 스크립트를 막아 빈 화면이었음), 화면 자동 새로고침(HMR)
+  - 로그인 뒤 화면과 새로고침 뒤 로그인 유지를 다른 기기의 브라우저에서 보는 것, 화면 자동 새로고침(HMR). Claude 앱의 브라우저 pane은 이 주소의 스크립트를 막아 빈 화면이었음
   - 구글 로그인(승인된 JavaScript 원본에 주소를 더해야 함), 조원을 tailnet에 들이는 것
 - 읽을 때 볼 곳: `vite.config.js`의 `loadEnv`와 `allowedHosts`. 설정이 객체에서 함수(`({ mode }) => …`)로 바뀐 이유는 `.env.local`을 읽으려면 mode가 필요해서임
 - 내가 채운 가정: 환경 변수 이름 `DEV_ALLOWED_HOSTS`, 문서 이름 `docs/tailnet-access.md`, branch 사이트와 실행 묶음은 이 방법의 대상에서 뺀 것
