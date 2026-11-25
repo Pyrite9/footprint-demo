@@ -1,6 +1,6 @@
 ﻿# 발자국 실행 묶음을 켭니다. Windows PowerShell용입니다. macOS·Linux는 start.sh를 씁니다.
 # 사용법: 이 폴더의 start.bat을 더블클릭하거나, PowerShell에서 .\start.ps1
-# 하는 일: Docker 확인 → 이미지가 없으면 load → .env가 없으면 만듦 → 켜기 → 백엔드가 준비될 때까지 기다림 → 열 주소 안내
+# 하는 일: Docker 확인 → 이미지가 없으면 load → .env가 없으면 만듦 → 인증서가 없으면 만듦 → 켜기 → 백엔드가 준비될 때까지 기다림 → 열 주소 안내
 
 # 이 스크립트가 있는 폴더(묶음 폴더)를 기준으로 파일을 찾습니다. 어느 폴더에서 실행해도 같게 동작합니다.
 $bundleDir = $PSScriptRoot
@@ -8,6 +8,10 @@ $composeFile = Join-Path $bundleDir "docker-compose.yml"
 $envFile = Join-Path $bundleDir ".env"
 $envTemplate = Join-Path $bundleDir "env.template"
 $imageList = Join-Path $bundleDir "images\images.txt"
+$certDir = Join-Path $bundleDir "certs"
+$certFile = Join-Path $certDir "footprint.pem"
+$keyFile = Join-Path $certDir "footprint-key.pem"
+$mkcert = Join-Path $bundleDir "tools\mkcert-windows-amd64.exe"
 
 # 문장을 빨간 글자로 보여 주고 스크립트를 멈춥니다(종료 코드 1).
 function Stop-WithMessage([string]$message) {
@@ -86,19 +90,41 @@ if ($mode -eq "prod" -and (Get-EnvValue "PROFESSOR_EMAILS") -eq "") {
 }
 Write-Host "실행 방식: $mode"
 
-# 5. 켭니다. --wait: 모든 컨테이너가 켜지고 healthcheck(백엔드는 /actuator/health)가 통과할 때까지 기다립니다. 처음에는 1~2분 걸립니다.
+# 5. https 인증서가 없으면 이 PC에서 mkcert로 만듭니다. 이미 있으면 건너뜁니다.
+#    인증서의 개인 key를 묶음(USB)에 싣지 않으려고, 받는 PC에서 만듭니다. 만든 인증서는 이 PC에서만 믿을 수 있습니다.
+if (-not (Test-Path $certFile) -or -not (Test-Path $keyFile)) {
+    if (-not (Test-Path $mkcert)) { Stop-WithMessage "인증서를 만드는 프로그램이 없습니다: $mkcert" }
+    # (a) mkcert가 이 PC에 로컬 인증 기관(CA)을 만들고 Windows의 신뢰 목록에 넣습니다. 이 CA가 서명한 인증서를 브라우저가 믿게 됩니다.
+    Write-Host "https 인증서를 처음 만듭니다. 이 PC에 로컬 인증 기관(mkcert)을 신뢰 목록에 넣습니다."
+    Write-Host "  '보안 경고' 창이 뜨면 '예'를 누르세요. '아니요'를 눌러도 켜지지만, 브라우저에 경고 화면이 뜹니다."
+    & $mkcert -install
+    $caInstalled = ($LASTEXITCODE -eq 0)
+    # (b) 인증서를 만듭니다. 앞 단계가 실패해도 만들 수 있습니다(CA는 신뢰 목록에 없는 채로 만들어져 있음).
+    #     뒤의 두 이름(main·dev.footprint.localhost)은 묶음에서 쓰지 않습니다. branch 사이트(저장소의 infra/sites)는 인증서를 따로 만듭니다.
+    New-Item -ItemType Directory -Path $certDir -Force | Out-Null
+    & $mkcert -cert-file $certFile -key-file $keyFile localhost 127.0.0.1 ::1 main.footprint.localhost dev.footprint.localhost
+    if ($LASTEXITCODE -ne 0) { Stop-WithMessage "https 인증서를 만들지 못했습니다. 위의 mkcert 메시지를 확인하세요." }
+    if (-not $caInstalled) {
+        Write-Host ("로컬 인증 기관을 신뢰 목록에 넣지 못했습니다. 그대로 켭니다.`n" +
+            "  브라우저에 '연결이 비공개로 설정되어 있지 않습니다' 경고가 뜨면 '고급' → 'localhost(으)로 이동(안전하지 않음)'을 누르세요.`n" +
+            "  다시 넣으려면 certs 폴더를 지우고 start를 다시 실행하세요.") -ForegroundColor Yellow
+    }
+}
+
+# 6. 켭니다. --wait: 모든 컨테이너가 켜지고 healthcheck(백엔드는 /actuator/health)가 통과할 때까지 기다립니다. 처음에는 1~2분 걸립니다.
 Write-Host "켜는 중입니다. 백엔드가 준비될 때까지 기다립니다..."
 docker compose -f $composeFile up -d --wait --wait-timeout 300
 if ($LASTEXITCODE -ne 0) {
     Stop-WithMessage ("켜지 못했습니다. 자주 막히는 곳은 README.md의 '자주 막히는 곳'에 있습니다.`n" +
-        "- 포트 5173이나 8080을 다른 프로그램이 쓰고 있지 않은지`n" +
-        "- 백엔드 로그: docker logs footprint-bundle-backend --tail 100")
+        "- 포트 443, 80, 8080을 다른 프로그램이 쓰고 있지 않은지`n" +
+        "- 백엔드 로그: docker logs footprint-bundle-backend --tail 100`n" +
+        "- proxy 로그: docker logs footprint-bundle-proxy --tail 100")
 }
 
-# 6. 열 주소를 알려 줍니다. 화면은 127.0.0.1이 아니라 localhost로 열어야 로그인이 됩니다(백엔드가 이 주소만 허용합니다).
+# 7. 열 주소를 알려 줍니다. 화면은 127.0.0.1이 아니라 localhost로 열어야 로그인이 됩니다(백엔드가 이 주소만 허용합니다).
 Write-Host ""
 Write-Host "켜졌습니다." -ForegroundColor Green
-Write-Host "  화면: http://localhost:5173"
+Write-Host "  화면: https://localhost (Chrome 또는 Edge로 여세요)"
 Write-Host "  상태 확인: http://127.0.0.1:8080/actuator/health"
 if ($mode -eq "demo") { Write-Host "  시작 계정: professor@example.com / pass1234 (다른 계정은 README.md)" }
 Write-Host "  끄기: stop.bat (데이터는 남습니다)"

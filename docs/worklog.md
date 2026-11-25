@@ -2698,3 +2698,172 @@ Claude Code가 단위 업무 하나를 끝낼 때마다 오늘 날짜 아래에 
 - 확인: 문서만 고침. 빌드와 테스트는 돌리지 않음. `bootRun`과 테스트를 실제로 동시에 돌려 보지는 않았고 `application-test.yml`의 스키마·버킷 설정을 근거로 적음
 - 확인하지 않은 것: 학습 저장소 `decisions.md`와의 충돌, `.claude/skills`(`rule-check`, `next-step`, `read-check`) 본문이 새 절과 맞는지
 - 내가 채운 가정: 규칙 검사를 맡길 하위 세션의 모델은 정하지 않고 모델 배분 표에 맡김
+
+## 2026.11.23 배포-1 branch 흐름(작업 branch → dev → main)과 CI trigger (멘토링 과제)
+- 배경: 멘토링에서 정한 과제는 "운영과 개발 나누기", "HTTPS", refresh token임. 2026.11.23에 멘토에게 메신저로 범위를 확인함
+  - 운영과 개발 나누기: 뜻은 배포 환경 분리임. `main`과 `dev` branch마다 사이트가 따로 뜨면 됨. 주소는 자유(멘토 예시는 `main.…`, `dev.…` 꼴)
+  - branch: 평소 개발은 `dev`에서 딴 branch에서 하고 `dev`에 merge 한 뒤 `main`에 merge 함
+  - HTTPS: mkcert로 발급하고 실행 PC에서만 되면 됨. cookie를 https 전용으로 두고 브라우저에서 확인함
+  - 답이 없었던 것: TLS를 proxy에서 끝낼지 백엔드까지 올릴지
+- 결정:
+  - 저장소를 나누지 않고 branch로 나눔. 선택지: 개발용 저장소를 따로 둠. 고르지 않은 이유: remote와 CI 설정이 두 벌이 되고 조원 코드가 들어온 곳이 갈림. 멘토도 branch로 답함
+  - merge는 관리자가 GitHub에서 직접 여는 PR로 함(관리자 결정 "PR로 열기"). 선택지: 로컬 merge. 고르지 않은 이유: CI가 merge 뒤에야 돌아 깨진 코드가 `dev`에 먼저 들어갈 수 있음. "PR은 절대 자동으로 만들지 않는다"는 그대로임
+  - merge commit을 남김. 선택지: fast-forward만. 고르지 않은 이유: 어느 단위가 언제 들어왔는지가 기록에서 보이지 않음
+  - 작업 branch 이름은 commit 메시지 머리말과 같은 꼴(`feat/…`, `fix/…`, `docs/…`, `chore/…`, `refactor/…`)
+  - CI의 push trigger에 `dev`를 더함. 작업 branch는 PR을 열 때 돎(기존 `pull_request` trigger)
+  - 남은 단위를 `TODO.md` 1절 구현 순서 24~27에 올림: 배포-1(이 항목), 배포-2 https, 배포-3 배포 환경 분리, 인증-3 refresh token 보강
+  - 실행 묶음은 https 구조로 바꿈(관리자 결정 "구조는 변환"). http 묶음을 따로 남기지 않음. 만드는 것은 배포-2에서 함
+  - 이 단위부터 새 흐름을 씀: `main`에서 `dev`를 만들고 `dev`에서 `chore/branch-flow`를 따서 commit 함
+- 만든·고친 파일: `.github/workflows/ci.yml`, `CLAUDE.md`("작업 방식"에 두 줄), `README.md`, `TODO.md`, `docs/worklog.md`
+- 확인: 설정과 문서만 고침. 빌드와 테스트는 돌리지 않음. `dev` push에서 CI가 도는지는 push 뒤에 확인할 수 있음
+- 확인하지 않은 것: `main` branch 보호 설정(걸지 않음), 강단 PC에 mkcert root CA를 설치할 권한, 구글 OAuth가 `.localhost` 주소를 승인된 출처로 받는지
+- 읽을 때 볼 곳: `CLAUDE.md` "작업 방식"의 branch 흐름 두 줄. 다음 단위는 관리자가 merge 한 `dev`를 받아 온 뒤에 시작함
+- 내가 채운 가정:
+  - 단위 ID 이름(배포-1~3, 인증-3)과 순서
+  - 인증-3의 범위(재사용 감지, 만료 행 정리). 관리자는 "refresh token도 이번에"까지만 정함
+  - TLS를 proxy에서 끝내는 구조. 주소로 두 환경을 가르려면 proxy가 필요해서 고름
+  - 주소 `main.footprint.localhost`, `dev.footprint.localhost`
+  - 작업 branch 이름 꼴, merge commit을 남기는 것
+
+## 2026.11.23 배포-2 실행 묶음을 https로 바꿈 (reverse proxy + mkcert, 멘토링 과제)
+- 결정:
+  - TLS는 reverse proxy 하나에서 끝내고 뒤의 화면 컨테이너와 백엔드는 http로 둠. 선택지: 백엔드에 직접 인증서(`server.ssl`). 고르지 않은 이유: 화면 서버에도 인증서가 필요해 두 곳이 되고, 다음 단위(배포-3)에서 주소로 환경을 가르려면 어차피 proxy가 필요함. 멘토 답은 없었음
+  - proxy는 nginx(`nginx:1.28-alpine`). 선택지: Caddy(설정이 짧음). 고르지 않은 이유: 화면 이미지가 이미 같은 nginx라 조원이 읽을 도구가 하나로 남고, 인증서 경로가 설정에 직접 보임. 새 이미지 하나가 묶음에 더해짐(`nginx.tar`)
+  - 인증서는 받는 PC에서 `start`가 mkcert로 발급함. 선택지: 만드는 PC에서 발급해 묶음에 실음. 고르지 않은 이유: 개인 key가 USB에 들어감. 멘토의 "실행 PC에서 발급"과도 맞음
+  - 새 의존성: mkcert v1.4.4 실행 파일 4개(Windows, macOS Intel·Apple Silicon, Linux)를 묶음의 `tools/`에 넣음. `make-bundle.ps1`이 GitHub release에서 받아 `infra/bundle/cache/mkcert/`(gitignore)에 두고 SHA-256을 고정값과 비교함. 대안: 받는 PC에 mkcert를 따로 설치하게 함(인터넷 없이 켠다는 묶음 목적과 부딪힘), openssl로 직접 발급(멘토가 mkcert로 충분하다고 함)
+    - 고정한 SHA-256은 2026.11.23에 받은 파일을 계산한 값임. v1.4.4 release에 공식 checksum 파일이 없어 대조할 원본은 없음
+  - http(80)는 302로 `https://localhost`에 넘김. 301을 쓰지 않은 이유: 브라우저가 기억해 묶음을 끈 뒤에도 이 PC의 다른 `http://localhost` 프로그램에 영향을 줌
+  - HSTS를 넣지 않음. `localhost`에 걸리면 개발 서버 `http://localhost:5173`까지 https로 강제됨
+  - 로컬 CA 설치(`mkcert -install`)가 실패하거나 거절돼도 멈추지 않고 켬. 강단 PC에 설치 권한이 없는 경우의 대비임. 그때는 브라우저 경고를 넘기고 들어감
+  - proxy의 업로드 상한을 두지 않음(`client_max_body_size 0`, `proxy_request_buffering off`). 상한을 두면 그보다 큰 파일에 proxy가 413 HTML을 먼저 돌려줘 화면이 400 JSON을 읽지 못함. 20MB 검사는 화면 컨테이너의 nginx 한 곳에 남음
+  - 백엔드 Java 동작은 고치지 않고 묶음 compose의 환경 변수만 바꿈: `REFRESH_COOKIE_SECURE=true`, `CORS_ALLOWED_ORIGINS=https://localhost`
+  - 화면 주소는 이번 단위에서 `https://localhost` 하나. `main.footprint.localhost`, `dev.footprint.localhost`는 인증서에만 미리 넣고 배포-3에서 씀
+  - 개발 환경(`bootRun` + Vite)과 맨 위 `docker-compose.yml`은 http 그대로 둠
+- 만든·고친 파일:
+  - 새 파일: `infra/bundle/template/proxy/nginx.conf`
+  - 묶음: `infra/bundle/template/`의 `docker-compose.yml`, `start.ps1`, `start.sh`, `reset.ps1`, `reset.sh`(주석과 출력 문구만), `env.template`, `README.md`, `infra/bundle/make-bundle.ps1`, `.gitignore`
+  - 문서: `docs/bundle.md`("https 구조" 절), `docs/getting-started.md`, `docs/architecture.md`, `backend/README.md`, `TODO.md`, `docs/worklog.md`
+  - 주석만: `backend/src/main/java/com/footprint/backend/controller/AuthController.java`, `backend/src/main/resources/application-prod.yml`
+- 작업 방식: 파일 작성은 Opus 하위 작업에 맡기고 master가 diff 전문을 읽어 검수함. SHA-256 채우기, 틀려진 주석 세 곳, 묶음 만들기와 실행 확인, 이 기록은 master가 함
+- 확인(master가 직접 실행함. 묶음은 demo 방식, 로컬 CA를 신뢰 목록에 넣지 않은 상태):
+  - `make-bundle.ps1` 성공. 494MB, 이미지 tar 6개, `proxy/`, `tools/` 4개, `SHA256SUMS.txt`에 포함
+  - `start.ps1`로 컨테이너 5개가 모두 healthy
+  - `openssl s_client`에 mkcert의 `rootCA.pem`을 주면 `Verify return code: 0 (ok)`, TLSv1.3
+  - `http://localhost/teams/1` → 302 `https://localhost/teams/1`, `http://127.0.0.1/` → `https://localhost/`. HSTS header 없음
+  - `POST /api/auth/login` 200, `Set-Cookie`에 `Secure; HttpOnly; SameSite=Strict`. `POST /api/auth/refresh` 200(새 cookie에도 `Secure`), `Origin`이 `http://localhost:5173`이면 403, `POST /api/auth/logout` 204
+  - 21MB 업로드 → 0.2초 만에 400 `INVALID_INPUT` "파일은 20MB까지 올릴 수 있습니다"
+  - `http://localhost:5173`은 닫혀 있음
+  - `backend`에서 `gradlew build` 성공, `frontend`에서 `npm run build`, `npm run lint` 통과
+- 확인하지 않은 것:
+  - 브라우저 화면. 위 확인은 모두 curl과 openssl임. 로컬 CA를 넣은 뒤 경고 없이 열리는지, 개발자 도구에서 cookie의 `Secure`가 보이는지, 경고 화면을 넘기고 들어가는 경로는 보지 않음
+  - `start`의 인증서 단계(`mkcert -install` 창, "아니요"를 눌렀을 때의 종료 코드). 이 PC의 신뢰 저장소를 바꾸는 일이라 master가 실행하지 않고, 인증서를 미리 발급해 그 단계를 건너뛰게 함
+  - `start.sh`(macOS·Linux), prod 방식, 20MB 이하 업로드, 강단 PC
+- 읽을 때 볼 곳:
+  - `infra/bundle/template/proxy/nginx.conf`. server 블록이 둘(80은 넘기기만, 443이 TLS를 끝냄)
+  - `docs/bundle.md` "https 구조". 요청이 지나는 길과 302·HSTS의 이유
+  - 백엔드는 proxy 뒤에서 요청을 http로 받음. 그래서 Spring이 화면의 POST·PUT·DELETE를 같은 주소 요청이 아니라 CORS 요청으로 판정하고, 허용 목록에 `https://localhost`가 있어 통과함(하위 작업의 코드 판독). **PATCH를 쓰는 API를 더하면 403이 날 수 있음.** 그때의 수정안: proxy에 `X-Forwarded-Proto`를 넣고 백엔드에 `server.forward-headers-strategy`를 켬
+- 내가 채운 가정:
+  - proxy를 nginx로 한 것(관리자에게는 Caddy로 말했다가 바꿈), 인증서를 받는 PC에서 발급하는 것, 302, HSTS 없음, 화면 주소 `https://localhost`
+  - 인증서의 이름 5개(`localhost`, `127.0.0.1`, `::1`, `main.footprint.localhost`, `dev.footprint.localhost`)와 파일 이름
+  - `reset`이 인증서와 로컬 CA를 지우지 않는 것
+  - Windows 확인 창과 Chrome 경고의 문구는 실제 화면과 대조하지 않고 적음
+
+## 2026.11.23 배포-3 배포 환경 분리 (main·dev 사이트를 한 PC에서 함께 켬, 멘토링 과제)
+- 결정:
+  - 사이트 하나의 compose 파일(`infra/sites/site.yml`)을 project 이름만 바꿔 두 번 켬(`-p footprint-main`, `-p footprint-dev`). 선택지: 한 compose 파일에 서비스 8개를 이름을 바꿔 다 적음. 고르지 않은 이유: 같은 내용을 두 번 적어 어긋나기 쉽고, 화면 이미지의 nginx가 백엔드를 `backend`라는 이름으로 찾아서(`frontend/nginx.conf`) network alias를 따로 배워야 함
+  - proxy는 따로 둔 compose(`proxy.yml`)가 두 사이트의 기본 network에 `external`로 붙음. 화면 컨테이너는 `container_name`(`footprint-main-frontend`)으로 찾음. 선택지: 공용 network를 하나 만들어 화면 둘을 거기에 붙임. 고르지 않은 이유: network 설정이 `site.yml`에도 들어가 읽을 곳이 늘어남
+  - 코드는 `git archive`로 `origin/main`, `origin/dev`의 `backend`, `frontend`를 `infra/sites/src/<branch>`에 꺼냄. 선택지: `git worktree`(관리자에게 처음 말한 방식), compose의 git 주소 build. 고르지 않은 이유: worktree는 등록 상태가 남아 다시 켤 때 경우가 갈리고 그 폴더에서 실수로 commit 할 수 있음. git 주소 build는 무엇을 빌드하는지 PC에서 보이지 않음
+  - 기준은 로컬 branch가 아니라 `origin/*`임. merge가 GitHub의 PR로만 일어나서 로컬 `main`·`dev`는 뒤처질 수 있음
+  - 실행 묶음(USB)에는 넣지 않음. 저장소와 git이 있어야 하는 구조이고, 넣으면 이미지가 두 배가 됨
+  - 사이트는 호스트 포트를 열지 않고 개발 설정(시작 데이터, 이메일·비밀번호 로그인)과 저장소의 개발용 기본 비밀번호로 켬. 백엔드에는 `REFRESH_COOKIE_SECURE=true`, `CORS_ALLOWED_ORIGINS=https://<branch>.footprint.localhost`만 줌
+  - proxy는 응답에 `X-Footprint-Site: main|dev` header를 붙임. 지금 두 branch의 화면이 같아서 어느 사이트가 답했는지 볼 방법이 필요함
+  - 두 이름이 아닌 주소(`https://localhost`)는 `default_server` 블록이 404로 답함. 없으면 nginx가 첫 블록(main)으로 보냄
+  - 인증서는 `infra/sites/certs`에 따로 만듦(두 이름만). mkcert는 `infra/bundle/cache/mkcert`의 파일이나 PATH의 것을 씀. 새 의존성 없음
+  - http(80)는 302, HSTS 없음(배포-2와 같은 이유)
+  - Java·React 코드는 고치지 않음
+- 만든·고친 파일:
+  - 새 파일: `infra/sites/`의 `site.yml`, `proxy.yml`, `proxy/nginx.conf`, `start.ps1`, `start.sh`, `stop.ps1`, `stop.sh`, `docs/branch-sites.md`
+  - 고친 파일: `.gitignore`(`infra/sites/src/`, `infra/sites/certs/`), `README.md`, `TODO.md`, `CLAUDE.md`(폴더 목록 두 줄), `docs/bundle.md`(한 줄)
+  - 주석만: `infra/bundle/template/start.ps1`, `start.sh`("다음 배포 단계에서 쓰려고"를 "묶음에서 쓰지 않음"으로)
+- 작업 방식: 파일 작성은 Opus 하위 작업에 맡기고 master가 새 파일 전문을 읽어 검수함. 실행 확인, 문서 줄 고치기, 이 기록, commit은 master가 함
+- 확인(master가 직접 실행함. Windows, 로컬 CA를 신뢰 목록에 넣지 않은 상태, 인증서는 배포-2 때 발급한 것을 `infra/sites/certs`에 복사함):
+  - `start.ps1` 성공(종료 코드 0). main은 `78ee41f`, dev는 `c3fae7e`의 코드로 빌드됨. 컨테이너 9개, 백엔드·DB·MinIO 모두 healthy
+  - `https://main.…/` 200 `X-Footprint-Site: main`, `https://dev.…/` 200 `X-Footprint-Site: dev`. 두 주소의 `/api/actuator/health` 모두 `UP`
+  - `http://main.…/teams/1` → 302 `https://main.…/teams/1`. `https://localhost/` → 404. HSTS header 없음
+  - dev에서 로그인 200, `Set-Cookie`에 `Secure; HttpOnly; SameSite=Strict`. `refresh_token` 행이 dev DB에 1, main DB에 0
+  - dev의 refresh token을 main에 보내면 401. dev에 `Origin`을 main 주소로 보내면 403. 맞는 `Origin`이면 200
+  - `openssl s_client`에 SNI와 mkcert의 `rootCA.pem`을 주면 두 이름 모두 `Verify return code: 0 (ok)`
+  - `stop.ps1` 성공. 컨테이너와 network가 지워지고 volume 4개는 남음. `src` 폴더와 network가 없는 상태에서 다시 실행해도 종료 코드 0
+  - `start.ps1`을 다시 실행해도 성공. dev DB의 `refresh_token` 행 1개가 그대로 남아 있음(끄고 켜도 데이터 유지)
+  - `backend`에서 `gradlew build` 성공, `frontend`에서 `npm run build`, `npm run lint` 통과. 이번 단위는 Java·React 코드를 고치지 않아 이 확인이 사이트 동작을 뜻하지는 않음
+- 확인하지 않은 것:
+  - 브라우저 화면. 위는 모두 curl과 openssl임. `*.localhost`를 브라우저가 풀어 주는지, 경고 없이 열리는지, cookie가 주소마다 따로 보이는지는 관리자가 봐야 함
+  - `start`의 인증서 단계(mkcert 찾기, `-install`, 발급). 인증서를 복사해 두어 건너뜀
+  - `start.sh`, `stop.sh`(macOS·Linux). `bash -n` 문법 검사만 함(하위 작업 보고)
+  - 인터넷이 없을 때의 2단계, 업로드, 화면에서 만든 데이터의 분리(과제 등록 등), 구글 로그인
+  - 구글 OAuth가 `https://main.footprint.localhost` 같은 원본을 받아 주는지
+- 읽을 때 볼 곳:
+  - `infra/sites/site.yml`의 `${SITE:?…}`. 값이 없으면 멈추는 문법이고 `start`·`stop`이 환경 변수로 넣음
+  - `infra/sites/proxy.yml`의 `external: true`. 사이트가 먼저 켜져 있어야 proxy가 켜지는 이유
+  - `infra/sites/proxy/nginx.conf`의 `server_name`. 포트 하나(443)에서 주소로 블록을 고름
+  - `start.ps1` 3단계의 `git archive`. 작업 폴더를 바꾸지 않고 그 branch의 파일만 꺼냄
+- 내가 채운 가정:
+  - `git archive`(worktree 아님), `origin/*` 기준, 묶음에 넣지 않는 것, `X-Footprint-Site` header, `default_server` 404
+  - project·컨테이너 이름(`footprint-main-*`, `footprint-dev-*`, `footprint-sites-proxy`), 폴더 이름 `infra/sites`, 문서 이름 `docs/branch-sites.md`
+  - 사이트를 개발 설정으로 켜는 것, 백엔드 8080을 열지 않는 것
+
+## 2026.11.24 인증-3 refresh token 재사용 감지와 만료 행 정리 (멘토링 과제)
+- 결정:
+  - 인증-2의 "재사용 감지는 두지 않음"(`docs/api-draft.md`)을 뒤집음. 관리자의 "refresh token도 이번에"와 TODO 27번 추천안에 따름. 그때의 이유(여러 탭이 동시에 재발급)는 화면이 Web Locks로 재발급을 한 번에 하나만 하게 해서 대부분 풀림
+  - 묶음(family)을 둠: `refresh_token`에 `family_id`(UUID 36자), `used_at` 칸을 더함. 로그인하면 새 묶음, 재발급한 값은 쓴 값의 묶음과 만료 시각을 물려받음. 선택지: 회원의 token을 모두 끊음. 고르지 않은 이유: 한 브라우저의 일로 다른 브라우저(다른 기기)까지 로그아웃됨
+  - 쓴 행을 지우지 않고 쓴 시각을 적어 남김. 지우면 "이미 쓴 값"과 "모르는 값"을 구분할 수 없음
+  - 이미 쓴 값이 다시 오면 그 묶음의 행을 모두 지우고 401. 문장과 cookie 지우기는 다른 401과 같음. 로그에 경고 한 줄(회원 id만)
+  - 동시 요청은 `update … where usedAt is null`이 고친 행의 수로 판단하고, 늦은 쪽(0)은 재사용과 똑같이 처리함. 그래서 먼저 성공한 쪽이 받은 값도 끊김. 선택지: 늦은 쪽에 401만 줌. 고르지 않은 이유: 순서대로 온 재사용과 동시에 온 재사용의 결과가 달라져 규칙이 둘이 됨
+  - 재사용 때 묶음을 지운 뒤 401 예외를 던지므로 `@Transactional(noRollbackFor = UnauthorizedException.class)`를 `RefreshTokenService.use`와 `AuthService.refresh` 두 곳에 붙임. 없으면 예외로 rollback 되어 지운 묶음이 되살아남. 선택지: `REQUIRES_NEW`로 따로 commit. 고르지 않은 이유: 트랜잭션이 둘이 되어 초심자가 따라가기 어려움
+  - 로그아웃은 그 값이 속한 묶음을 모두 지움(쓴 행 포함)
+  - 만료 행은 서버가 60분마다 지움(`@Scheduled`, `footprint.refresh-token-cleanup-minutes`, 환경 변수 `REFRESH_TOKEN_CLEANUP_MINUTES`). `@EnableScheduling`은 새 `config/SchedulingConfig`에 둠. 로그인할 때 그 회원의 만료 행을 지우던 코드는 뺌(지우는 곳을 하나로)
+  - Entity 칸 변경: `RefreshToken`에 `familyId`(not null), `usedAt`(null 허용). migration `V4__add_refresh_token_family.sql`. 이미 있던 행은 행마다 다른 묶음 id를 넣음. 인덱스는 더하지 않음(행이 적음)
+  - API 주소, 응답 모양, 오류 code, cookie는 그대로. 새 의존성 없음. 화면과 가짜 API의 동작은 그대로(가짜 API는 주석 한 줄)
+- 만든·고친 파일:
+  - 새 파일: `backend/src/main/java/com/footprint/backend/config/SchedulingConfig.java`, `backend/src/main/resources/db/migration/V4__add_refresh_token_family.sql`, `backend/src/test/java/com/footprint/backend/RefreshTokenReuseRuleTests.java`
+  - 백엔드: `entity/RefreshToken.java`, `repository/RefreshTokenRepository.java`, `service/RefreshTokenService.java`, `service/AuthService.java`, `application.yml`, `RefreshTokenRuleTests.java`
+  - 문서: `docs/api-draft.md`(코드보다 먼저 씀), `docs/erd.md`, `TODO.md`, `CLAUDE.md`("업무 규칙"의 로그인 token 줄), `backend/README.md`(테스트 목록)
+  - 주석만: `frontend/mock/middleware.cjs`
+- 작업 방식: master가 `docs/api-draft.md`에 규칙을 먼저 적고, 백엔드 작성은 Opus 하위 작업에 맡김. master가 diff 전문과 새 파일을 읽어 검수하고, 테스트 재실행, 실제 서버 확인, 문서, 이 기록, commit을 함
+- 확인(master가 직접 실행함):
+  - `gradlew test --rerun-tasks` 성공. 테스트 217개, 실패 0. `gradlew build` 성공
+  - `bootRun`으로 켠 서버(개발 DB)에서 curl: 로그인 → 재발급 2번(200, 200) 뒤 그 회원의 행이 묶음 2개, 행 4개, 쓴 행 2개 → 처음 값을 다시 보내면 401(`Max-Age=0` cookie) → 가장 최근 값도 401 → 다른 로그인(다른 묶음)은 200 → 남은 행은 묶음 1개 → 로그아웃 204 뒤 행 0개
+  - 서버 로그에 경고 한 줄 "이미 쓴 refresh token이 다시 와서 … 회원 id: 2". token 값과 이메일은 없음
+  - Flyway가 개발 DB에 `V4`를 적용함. `refresh_token`에 `family_id`(not null), `used_at` 칸이 생김
+  - `frontend`에서 `npm run build`, `npm run lint` 통과
+  - 하위 작업 보고(master가 다시 해 보지 않음): `noRollbackFor` 두 곳을 빼면 `RefreshTokenReuseRuleTests.reusedTokenEndsWholeFamily`가 실패함
+- 확인하지 않은 것:
+  - 같은 값으로 동시에 온 두 요청(`markUsed`가 0을 돌려주는 경로). PostgreSQL의 행 잠금 동작에 기대고 테스트는 없음
+  - `@Scheduled`가 실제로 60분 뒤에 도는 것. 정리 메서드는 테스트가 직접 불러 확인함
+  - 행이 이미 있는 DB에 `V4`를 적용하는 경우(개발 DB에는 행이 0개였음)
+  - 브라우저 화면(재사용 뒤 로그인 화면으로 가는지), 실행 묶음과 branch 사이트에서의 동작
+- 읽을 때 볼 곳:
+  - `RefreshTokenService.use`. 검사 순서와 `noRollbackFor` 주석
+  - `RefreshTokenRepository.markUsed`. `where … usedAt is null`이 동시 요청 중 하나만 통과시키는 이유
+  - `RefreshTokenReuseRuleTests` 맨 위 주석. 이 클래스만 `@Transactional`이 없는 이유
+  - `V4__add_refresh_token_family.sql`. null 허용으로 더하고 → 채우고 → not null로 바꾸는 순서
+- 문서와 코드가 어긋났던 것: `docs/api-draft.md`의 "재사용 감지는 두지 않음"(인증-2 결정)과 TODO 27번. 이번 단위에서 api-draft를 고쳐 맞춤
+- 내가 채운 가정:
+  - 끊는 범위를 회원 전체가 아니라 묶음으로 한 것, 동시 요청의 늦은 쪽을 재사용으로 처리하는 것
+  - 로그아웃이 묶음 전체를 지우는 것, 정리 간격 60분, 로그인 때 정리를 뺀 것
+  - 경고 로그에 회원 id를 남기는 것, 칸 이름 `family_id`·`used_at`, 묶음 id를 UUID 문자열로 한 것
+
+## 2026.11.25 AI 금지를 "평가와 판단에 쓰는 AI"로 좁히고 교수·멘토 제안 6개를 기록함 (단위 번호 없음, 관리자 결정)
+- 결정:
+  - 교수님·멘토와의 대화에서 6개가 나옴: AI 기능(ABB 사업상 필요), 보고서 파트 배분·합본, GitHub PR 연계, Slack 써보기, CI/CD, 사람이 바뀌어도 유지보수
+  - AI 기능이 `CLAUDE.md` "금지"의 "LLM 기능, 평가 초안 생성"에 걸림. 관리자 결정 "좁혀서 진행": 금지를 "평가와 판단에 쓰는 AI"로 좁힘. 선택지: 금지를 그대로 둠, 금지를 없앰. 고른 이유: 서비스 원칙 "판단은 사람, 시스템은 근거만"을 지키면서 평가와 무관한 곳에는 AI를 넣을 수 있음
+  - 금지에 남긴 것: 평가 의견·점수 초안, 조원의 기록 요약, 기여 판단, 조원끼리 비교. 기록 요약을 넣은 이유는 무엇을 남기고 뺄지가 곧 판단이고 교수 평가에 영향을 주기 때문임
+  - 6개는 X-11~X-16으로 `TODO.md` 2절에 적고 고르기 전에는 만들지 않음. `CLAUDE.md` "금지"의 선택 제안 범위를 X-8~X-10에서 X-8~X-16으로 넓힘
+  - X-11의 조건(추천안): 평가 화면·근거 패널·평가 결과·기록 열람에 두지 않음, 사람이 고르기 전에는 기록으로 저장하지 않음, key가 없으면 AI만 꺼짐, 개인정보 고지에 먼저 적음, key는 환경 변수
+  - 정하지 않은 것(`TODO.md` 3절): AI 서비스와 비용, Slack의 뜻, CD의 배포 대상
+- 만든·고친 파일: `CLAUDE.md`("금지" 두 줄), `TODO.md`(맨 위, 2절, 3절), `README.md`("만들지 않는 것" 한 줄), 이 기록
+- 읽을 때 볼 곳: `TODO.md` 2절 "교수·멘토 제안"의 표와 X-11의 조건. AI 기능을 만들 때 지킬 선이 여기에 있음
+- 내가 채운 가정:
+  - 금지에 남긴 네 가지의 범위, X-11의 조건 다섯 가지
+  - ID 번호(X-11~X-16)와 각 항목의 추천안(X-11은 X-12에 붙임, X-13은 public 저장소부터, X-15는 GHCR·GitHub Release)
+  - CI/CD와 유지보수를 기능이 아닌데도 같은 표(X-15, X-16)에 넣은 것

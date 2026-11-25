@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 발자국 실행 묶음의 데이터를 모두 지웁니다. macOS·Linux용입니다. Windows는 reset.bat(reset.ps1)을 씁니다.
-# 지우는 것: 묶음의 컨테이너 4개와 volume 2개(데이터베이스, 올린 파일). 되돌릴 수 없습니다.
-# 남기는 것: 이 폴더의 .env(설정과 비밀값), backup 폴더의 백업 묶음, 이미지. 다음 start는 빈 데이터로 켜집니다(demo면 시작 데이터가 다시 들어갑니다).
+# 지우는 것: 묶음의 컨테이너 5개와 volume 2개(데이터베이스, 올린 파일). 되돌릴 수 없습니다.
+# 남기는 것: 이 폴더의 .env(설정과 비밀값), certs 폴더의 https 인증서, backup 폴더의 백업 묶음, 이미지. 다음 start는 빈 데이터로 켜집니다(demo면 시작 데이터가 다시 들어갑니다).
 # 개발 환경(footprint-demo-*)의 컨테이너와 volume은 이름이 달라서 건드리지 않습니다.
 set -euo pipefail
 
@@ -17,7 +17,7 @@ fi
 # 2. 무엇을 지우는지 보여 주고 한 번 더 확인을 받습니다. delete를 정확히 입력해야 진행합니다.
 echo "묶음의 데이터를 모두 지웁니다. 되돌릴 수 없습니다."
 echo "  지움: 컨테이너 footprint-bundle-*, volume footprint-bundle_postgres-data, footprint-bundle_minio-data"
-echo "  남김: .env, backup 폴더, 이미지"
+echo "  남김: .env, certs 폴더(https 인증서), backup 폴더, 이미지"
 echo "  지우기 전에 남길 데이터가 있으면 먼저 백업하세요(README.md '백업')."
 read -r -p "지우려면 delete 를 입력하세요: " answer
 if [ "$answer" != "delete" ]; then

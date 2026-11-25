@@ -53,8 +53,8 @@ API 명세가 아직 없으면 코드보다 **`docs/api-draft.md`를 먼저 쓴�
 ```
 backend/    Spring Boot. 패키지 com.footprint.backend, rootProject.name = 'footprint-backend'
 frontend/   React. src/pages, src/components, src/api, src/constants
-infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example, backup/(백업·복구 스크립트), bundle/(제출용 실행 묶음 만들기)
-docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.md, laptop-setup.md, backup-restore.md, bundle.md, postman/, screenshots/, assets/
+infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example, backup/(백업·복구 스크립트), bundle/(제출용 실행 묶음 만들기), sites/(main·dev branch 사이트 함께 켜기)
+docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.md, laptop-setup.md, backup-restore.md, bundle.md, branch-sites.md, postman/, screenshots/, assets/
 ```
 
 백엔드 패키지는 계층형: `controller`, `service`, `repository`, `entity`, `dto`, `exception`, `config` (+ 인증은 `security`).
@@ -68,7 +68,7 @@ docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.m
 - 기록 시각(업로드, 산출물 삭제, 기여 항목 등록·완료 보고·취소, 완료확인·취소, 역할 지정·변경, 조장 교체, 평가 시작, 평가 임시 저장, 평가 제출, 알림 생성·읽음, 개인정보 고지 동의)은 서버가 저장한다. 클라이언트가 보낸 시각은 받지 않는다.
 - **접근 범위**: 조의 기록을 다루는 요청마다 "그 조의 조원인가, 또는 그 과제를 만든 교수인가"를 서버가 확인한다. 다른 조의 기록은 주소를 직접 입력해도 403이다. 검사는 `service/TeamAccessChecker`의 메서드 호출로 보이게 한다.
 - 회원 유형은 교수, 학생 둘. 교수만 과제를 만든다. 구글 로그인할 때마다 이메일이 교수 목록(`google.professor-emails`)에 있는 학생을 교수로 올린다. 조 참여 기록이 있는 학생은 올리지 않고, 교수를 학생으로 내리지 않는다. 바뀐 시각과 이력은 남기지 않는다(2026.11.12 X-1). 권한 검사는 JWT의 claim이 아니라 DB의 회원 유형으로 한다. 과제·조·조장은 한 번에 저장하고, 등록한 과제는 고치거나 지울 수 없다(수정·삭제 API 없음).
-- 로그인 token: access token(JWT)은 10분, 응답 body로 주고 화면은 메모리에만 둔다. refresh token은 무작위 값을 `HttpOnly`·`SameSite=Strict` cookie로 주고 데이터베이스에는 SHA-256 값만 둔다. 첫 로그인 + 24시간에 끝나고 재발급해도 늘지 않는다. 재발급하면 쓴 값을 지우고 새 값을 준다(교체). 로그아웃은 그 값을 지운다. `/auth/refresh`, `/auth/logout`은 `Origin`이 허용 목록에 없으면 403이고, 검사는 `AuthService.checkOrigin` 호출로 보이게 한다. refresh token을 로그에 찍지 않는다(2026.11.12 관리자 결정).
+- 로그인 token: access token(JWT)은 10분, 응답 body로 주고 화면은 메모리에만 둔다. refresh token은 무작위 값을 `HttpOnly`·`SameSite=Strict` cookie로 주고 데이터베이스에는 SHA-256 값만 둔다. 첫 로그인 + 24시간에 끝나고 재발급해도 늘지 않는다. 재발급하면 쓴 값에 쓴 시각을 적고 새 값을 준다(교체). 한 번의 로그인에서 이어진 값들이 한 묶음이고, 이미 쓴 값이 다시 오면 그 묶음을 모두 지우고 401이다(재사용 감지, 2026.11.24 인증-3). 로그아웃은 그 묶음을 지운다. 만료된 행은 서버가 60분마다 지운다. `/auth/refresh`, `/auth/logout`은 `Origin`이 허용 목록에 없으면 403이고, 검사는 `AuthService.checkOrigin` 호출로 보이게 한다. refresh token을 로그에 찍지 않는다(2026.11.12 관리자 결정).
 - 개인정보 고지: 첫 로그인 뒤 고지 화면을 띄우고, 회원 본인이 동의하면 동의 시각을 서버가 저장한다. 다시 동의해도 처음 시각을 둔다. 동의 전에는 화면이 다른 화면으로 가지 못하게 막고(`RequirePrivacyConsent`), 서버는 동의 전 요청을 거부하지 않는다. 고지 문구와 보관 기간은 `frontend/src/constants/privacyNotice.js`에 있고 학교·담당 교수 확인 전 초안이다(2026.11.12 관리자 결정 "초안으로 진행"). 고지의 판은 저장하지 않고, 동의 철회와 회원 탈퇴는 없다.
 - **과제 단계**: 과제는 기록 단계로 시작하고, 과제를 만든 교수만 평가 단계로 바꾼다. 되돌릴 수 없다. 평가 단계에서는 조 운영과 과정 기록의 쓰기 요청을 400 `INVALID_INPUT`으로 거부하고 열람은 그대로 둔다. 검사는 권한 다음에 `service/AssignmentPhaseChecker`의 메서드 호출로 보이게 한다. 과제 기간이 지나도 서버는 단계를 바꾸거나 기록을 막지 않는다.
 - 조장은 조마다 한 명이다(데이터베이스 부분 unique 인덱스도 둔다). 과제를 만든 교수만 기록 단계에서 같은 조의 다른 조원으로 바꾼다. 이전 조장은 일반 조원으로 남고 역할과 기록은 그대로다. 이전 조장, 새 조장, 바뀐 시각을 이력으로 남기고, 이력은 고치거나 지우지 않는다.
@@ -142,9 +142,9 @@ docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.m
 - 상태 관리 라이브러리(Redux, Zustand, Recoil, Jotai, React Query/TanStack Query 등), axios
 - AOP·커스텀 어노테이션으로 숨기는 권한 검사. 권한 검사는 Service에서 메서드 호출로 보이게 한다.
 - 점수 자동 계산, 평균, 합계, 순위, 가중치, 진척률. 화면에도 API에도 두지 않는다.
-- LLM 기능, 평가 초안 생성
+- 평가와 판단에 쓰는 AI(LLM 포함): 평가 의견·점수 초안 생성, 조원의 기록 요약, 기여 판단, 조원끼리 비교. 평가와 무관한 AI 기능은 `TODO.md` 2절 X-11의 조건 안에서만 만든다(2026.11.25 관리자 결정 "좁혀서 진행").
 - `TODO.md`의 "만들지 않기로 한 것"에 있는 기능.
-- `TODO.md` 2절의 선택 제안(X-8~X-10)과 "명세 규칙을 바꿔야 하는 것"에 있는 기능. 관리자가 고르기 전에는 만들지 말고 먼저 묻는다. 고르면 1절 구현 순서로 옮긴다.
+- `TODO.md` 2절의 선택 제안(X-8~X-16)과 "명세 규칙을 바꿔야 하는 것"에 있는 기능. 관리자가 고르기 전에는 만들지 말고 먼저 묻는다. 고르면 1절 구현 순서로 옮긴다.
 
 ## 묻지 않고 추천안으로 진행하고 기록할 것 (2026.10.25 관리자 결정)
 
@@ -180,6 +180,8 @@ docs/       getting-started.md, architecture.md, erd.md, api-draft.md, worklog.m
 - 끝나면 스스로 규칙 검사(rule-check 기준)를 한다. 이번 단위에서 만든 코드에서 걸린 것은 고친다. 다만 기존 코드의 규칙을 따른 결과로 문서와 어긋난 것과 손대지 않은 기존 코드에서 걸린 것은 고치지 않고 최종 답변에 불일치로 명세한다. 이번 단위에서 만든 코드가 "금지" 항목에 걸리면 기존 코드를 따랐더라도 고친다.
 - 끝나면 `docs/worklog.md`에 오늘 날짜로 적는다: 결정, 만든·고친 파일, 관리자가 읽을 때 볼 곳(초심자가 막힐 곳), 내가 채운 가정.
 - 단위 업무 하나가 확인까지 끝나면 commit 한다. commit 메시지는 영어 conventional 스타일(`feat: add team join by invite code`).
+- **branch 흐름**(2026.11.23 관리자 결정, 멘토링 과제): 단위 업무를 시작할 때 `dev`에서 작업 branch를 따고 commit은 거기에만 한다. 이름은 commit 메시지 머리말과 같은 꼴이다(`feat/team-join`, `fix/…`, `docs/…`, `chore/…`, `refactor/…`). `main`과 `dev`에는 직접 commit 하지 않는다.
+- 작업 branch → `dev`, `dev` → `main`의 merge는 관리자가 GitHub에서 직접 연 PR로 한다. AI는 PR을 만들지도 merge 하지도 않고, 작업 branch를 push 하기 전에 말한다("반드시 먼저 말할 것"). 다음 단위는 관리자가 merge 한 `dev`를 받아 온 뒤 거기서 새 branch를 딴다.
 
 ## 세션 운영 — Fable 세션은 master (2026.11.20 관리자 결정, 2026.11.23 이 저장소에 반영)
 

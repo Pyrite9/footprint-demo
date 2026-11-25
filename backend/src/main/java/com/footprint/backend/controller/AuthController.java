@@ -100,7 +100,7 @@ public class AuthController {
         return ResponseCookie.from(REFRESH_COOKIE_NAME, value)
                 // HttpOnly: 화면의 JS가 읽지 못합니다. 화면에 끼어든 스크립트가 값을 훔쳐 가지 못하게 합니다.
                 .httpOnly(true)
-                // Secure: true면 https 요청에만 실립니다. 개발과 실행 묶음은 http라 false입니다.
+                // Secure: true면 https 요청에만 실립니다. 개발은 http라 false이고, 실행 묶음은 https라 true입니다.
                 .secure(refreshCookieSecure)
                 // SameSite=Strict: 다른 사이트에서 시작한 요청에는 실리지 않습니다. CSRF를 막는 첫째 장치입니다.
                 .sameSite("Strict")

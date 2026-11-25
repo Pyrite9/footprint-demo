@@ -338,7 +338,7 @@ flowchart TB
 - O-3 배포 구성: Docker compose 기반 로컬 실행 묶음(2026.11.12 관리자 결정). `docs/getting-started.md`의 "제출용 실행 묶음"과 `docs/bundle.md`
 - O-4 백업·복구: `infra/backup`의 스크립트로 DB와 올린 파일을 같은 시점의 묶음으로 백업하고, 빈 환경에만 되살림. 데이터가 있는 곳에는 덮어쓰지 않고 멈춤. `docs/backup-restore.md`
 - O-5 테스트 분리와 보강: 업무 규칙마다 통합 테스트(`backend/src/test`의 `XxxRuleTests`)를 둠. 테스트는 같은 PostgreSQL의 전용 스키마에서 돌아 개발 데이터를 지우지 않음
-- O-6 CI: main push와 PR마다 GitHub Actions(`.github/workflows/ci.yml`)가 백엔드 빌드·테스트, 화면 빌드·lint를 돌림
+- O-6 CI: main·dev push와 PR마다 GitHub Actions(`.github/workflows/ci.yml`)가 백엔드 빌드·테스트, 화면 빌드·lint를 돌림
 - O-7 주인 없는 파일 정리: 업로드 중 데이터베이스 저장이 실패하면 MinIO에 올린 파일을 지움
 - O-8 상태 확인과 로그
   - `GET /actuator/health`를 token 없이 부르면 서버와 데이터베이스가 살아 있는지 `UP`/`DOWN`만 돌려줌. 다른 actuator 주소는 닫혀 있음
@@ -413,11 +413,12 @@ frontend/   React
 infra/      docker-compose.yml(PostgreSQL, MinIO), .env.example
   backup/   백업·복구 스크립트(Windows .ps1, macOS·Linux .sh). 만든 묶음은 bundles/에 쌓이고 저장소에 올라가지 않음
   bundle/   제출용 실행 묶음. make-bundle.ps1(만드는 스크립트), template/(묶음에 들어갈 파일 원본). 결과 out/은 저장소에 올라가지 않음
+  sites/    main·dev branch의 사이트를 한 PC에서 함께 켬(배포 환경 분리). site.yml(사이트 하나), proxy.yml·proxy/(주소로 나눠 보내는 https proxy), start·stop 스크립트
 docs/       실행 안내, 구조 그림, ERD, API 명세, Postman 모음, 작업 기록, 노트북 설정 지시서, 백업·복구 안내, 실행 묶음 안내
   assets/       README 로고
   screenshots/  README "화면"에 쓰는 화면 사진
 docker-compose.yml  한 번에 실행(백엔드, nginx, infra의 PostgreSQL·MinIO)
-.github/workflows/ci.yml  main push와 PR마다 빌드·테스트·lint를 돌림
+.github/workflows/ci.yml  main·dev push와 PR마다 빌드·테스트·lint를 돌림
 TODO.md     남은 일, 완성 범위와 규칙
 ```
 
@@ -431,7 +432,7 @@ TODO.md     남은 일, 완성 범위와 규칙
 - 남은 것(자세히는 `TODO.md` 맨 위 "남은 일 한눈에")
   - 관리자 작업: 구글 로그인 동의 화면(Google Cloud), 개인정보 고지 문구와 보관 기간의 학교·담당 교수 확인
   - 확인하지 못한 것: 강단 PC와 macOS에서 묶음 실행
-- 만들지 않는 것: 점수 자동 계산, 평균, 순위, 진척률, LLM 기능
+- 만들지 않는 것: 점수 자동 계산, 평균, 순위, 진척률, 평가와 판단에 쓰는 AI(평가와 무관한 AI 기능은 `TODO.md` 2절 X-11)
 - 일정: 11.16 조원 코드 합류, 12.11 학기 발표, 12.15 PBL 결과물 제출. 날짜는 범위를 정하는 기준이 아님
 
 ## 문서
@@ -444,6 +445,7 @@ TODO.md     남은 일, 완성 범위와 규칙
 | [`docs/api-draft.md`](docs/api-draft.md) | API 명세. 코드보다 이 문서를 먼저 씀 |
 | [`docs/postman/`](docs/postman/) | API를 데모 흐름 순서로 모은 Postman 모음과 쓰는 방법 |
 | [`docs/bundle.md`](docs/bundle.md) | 제출용 실행 묶음을 만들고 USB에 담는 방법 |
+| [`docs/branch-sites.md`](docs/branch-sites.md) | `main`과 `dev` branch의 사이트를 한 PC에서 함께 켜는 방법(배포 환경 분리) |
 | [`docs/backup-restore.md`](docs/backup-restore.md) | DB와 올린 파일을 한 묶음으로 백업하고 빈 환경에 되살리는 방법 |
 | [`docs/worklog.md`](docs/worklog.md) | 작업 기록. 단위 업무마다 결정과 이유, 초심자가 막힐 곳, 채운 가정 |
 | [`docs/laptop-setup.md`](docs/laptop-setup.md) | 다른 컴퓨터(Arch Linux 노트북)에 이 저장소를 올려 작업하는 설정 |
@@ -455,6 +457,7 @@ TODO.md     남은 일, 완성 범위와 규칙
 ## 팀과 기여
 
 - 6명 조별과제 팀의 PBL 결과물. 조원 코드는 이 저장소의 같은 파일에 끼워 넣음
+- branch는 `main`(시연할 안정판), `dev`(개발판), 작업 branch 셋. `dev`에서 작업 branch(`feat/…`, `fix/…`)를 따서 작업하고, PR로 `dev`에 넣은 뒤 `dev`를 PR로 `main`에 넣음. `main`과 `dev`에는 직접 commit 하지 않음
 - 함께 일하는 규칙(처음 읽을 문서, API를 바꿀 때의 순서, 결정 기록)은 `TODO.md` 6절 "조원과 함께 일할 때"
 - 업무 규칙과 코드 규칙은 `CLAUDE.md`. 규칙을 바꾸려면 먼저 정하고 문서를 고친 뒤 코드를 고침
 

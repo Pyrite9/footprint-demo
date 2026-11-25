@@ -148,6 +148,8 @@ erDiagram
         String tokenHash "cookie 값의 SHA-256 16진수 64자 · unique · 값 자체는 저장하지 않음"
         LocalDateTime expiresAt "만료 시각 · 첫 로그인 + 24시간 · 재발급해도 그대로"
         LocalDateTime createdAt "만든 시각 · 서버가 기록"
+        String familyId "묶음 id · UUID 36자 · 한 번의 로그인에서 이어진 값들은 같음"
+        LocalDateTime usedAt "재발급에 쓴 시각 · 서버가 기록. 쓰기 전에는 null"
     }
 ```
 
@@ -170,6 +172,6 @@ erDiagram
 - `LEADER_HISTORY`는 조장이 바뀔 때마다 한 줄 쌓임. 만든 뒤에는 고치거나 지우지 않음
 - 조장이 조마다 한 명인 것은 DB 제약이 아니라 Service가 지킴. 첫 조장은 과제를 만들 때 `AssignmentService`가 조마다 한 명 넣고, 교체는 `TeamService`가 함. 조장 교체와 역할 지정·변경이 같은 조 행을 잠가 차례로 처리함. 그래서 역할 저장이 옛 `leader` 값을 덮어쓰지 않고, 같은 이전 역할이 이력에 두 줄 남지 않음
 - `NOTIFICATION`은 조 참여가 아니라 회원을 가리킴. 여러 과제의 알림을 한 목록으로 찾기 때문임. 알림을 만드는 사건 하나에 받는 회원마다 한 줄씩 쌓이고 지우지 않음
-- `REFRESH_TOKEN`은 로그인 한 번(브라우저 하나)마다 한 줄. 재발급하면 쓴 줄을 지우고 새 줄을 넣음(교체). 로그아웃하면 그 줄을 지움. 만료된 줄은 그 회원이 다시 로그인할 때 지움. 기록이 아니라 로그인 상태라서 지우는 테이블임(`docs/api-draft.md` "인증")
+- `REFRESH_TOKEN`은 refresh token 값 하나마다 한 줄. 한 번의 로그인에서 재발급으로 이어진 줄은 같은 묶음(`familyId`)임. 재발급하면 쓴 줄에 쓴 시각을 적고 새 줄을 넣음(교체). 이미 쓴 값이 다시 오면 그 묶음의 줄을 모두 지움(재사용 감지, 인증-3). 로그아웃하면 그 묶음의 줄을 모두 지움. 만료된 줄은 서버가 60분마다 지움. 기록이 아니라 로그인 상태라서 지우는 테이블임(`docs/api-draft.md` "인증")
 - 점수 열은 6개 그대로 저장함. 합계·평균 열은 두지 않음
 - 기록 시각(`evaluationStartedAt`, `roleAssignedAt`, `previousRoleAssignedAt`, `changedAt`, `uploadedAt`, `deletedAt`, `createdAt`, `reportedAt`, `canceledAt`, `confirmedAt`, `submittedAt`, `savedAt`, `readAt`)은 모두 서버가 넣음. 클라이언트가 보낸 시각은 받지 않음
